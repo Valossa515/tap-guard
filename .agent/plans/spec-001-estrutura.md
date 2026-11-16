@@ -27,6 +27,7 @@ Criar o monorepo Gradle (Kotlin DSL + catálogo de versões) com os seis módulo
 | JUnit | 5.14.4 no `core-domain` (+ `junit-platform-launcher` 1.14.4); 4.13.2 nos módulos Android |
 | Combinação de build | Kotlin 2.4.21 + AGP 9.3.3 + Gradle 9.7.0 (ver "Por que AGP 9.3.3") |
 | JDK | 21: toolchain de todos os módulos e JDK do CI (`ci.yml`, commit `ci: usa JDK 21`) |
+| JDK do daemon | fixado em 21 por `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`). Escrito à mão porque o `./gradlew updateDaemonJvm` do Gradle 9.7.0 exige um repositório de download de JDK (plugin foojay), que não queremos configurar. Verificado em 2026-11-16: com `JAVA_HOME` no JDK 25, o daemon roda no Temurin 21 e `./gradlew help` passa |
 | SDK | minSdk 26; targetSdk 36 (exigência atual da Play Store); compileSdk 36 |
 | Manifesto | sem `INTERNET` e sem nenhuma outra permissão nesta spec |
 | Architect | pulado: não há contrato de API nesta spec; implementação direto deste plano |
@@ -56,14 +57,14 @@ Versões conferidas em 2026-11-16 no Maven Central, no Google Maven, no Gradle P
 3. [ ] **`core-detection`, `core-nfc`, `core-data`:** bibliotecas Android com Kotlin embutido do AGP 9, minSdk 26, dependência de `core-domain`, JUnit 4, um teste de fumaça cada.
 4. [ ] **`app` e `decoy-app`:** aplicativos com applicationId e namespace próprios, minSdk 26, targetSdk 36, manifesto sem permissões, um teste de fumaça cada. O `app` depende dos quatro `core-*`.
 5. [ ] **ktlint e detekt em todos os módulos:** `./gradlew build` verde, incluindo `ktlintCheck`, `detekt` e `test`.
-6. [ ] **Documentação (commit `docs:` próprio):** `README.md` de cada módulo (responsabilidade e dependências); comandos em `runbook.md` e na seção "Ambiente" do `CONTRIBUTING.md`; versões e comandos em `project-reference.md` (§1, §8, §9) e `context.md`; application id, versões, JDK 21 e o override de Kotlin embutido em `SKILLS.md`; um ADR em `decisions.md` com o identificador e a combinação de versões.
+6. [ ] **Documentação (commit `docs:` próprio):** `README.md` de cada módulo (responsabilidade e dependências); comandos em `runbook.md` e na seção "Ambiente" do `CONTRIBUTING.md`, incluindo que é preciso ter um JDK 21 instalado e que `gradle/gradle-daemon-jvm.properties` faz o Gradle rodar nele mesmo com outro `JAVA_HOME`; versões e comandos em `project-reference.md` (§1, §8, §9) e `context.md`; application id, versões, JDK 21 e o override de Kotlin embutido em `SKILLS.md`; um ADR em `decisions.md` com o identificador e a combinação de versões.
 7. [ ] **Conferência dos critérios:** rodar localmente as verificações negativas (import `android.*` no domínio, violação de ktlint, violação de detekt, teste falhando) e desfazê-las sem commit.
 
 ## Database changes
 - Nenhuma. O Room entra em specs futuras.
 
 ## Risks & open questions
-- **O Gradle precisa rodar no JDK 21, não só compilar com ele.** O detekt 1.23.8 roda dentro do processo do Gradle e o compilador Kotlin 2.0.21 embutido nele não reconhece o JVM 25 (`IllegalArgumentException: 25` em `JavaVersion.current()`). No CI o `setup-java` já põe o Gradle no JDK 21. Localmente, `JAVA_HOME` precisa apontar para um JDK 21 (nesta máquina o padrão é o 25). Fixar o JVM do daemon no repositório seria uma mudança fora deste plano.
+- **O Gradle precisa rodar no JDK 21, não só compilar com ele.** O detekt 1.23.8 roda dentro do processo do Gradle e o compilador Kotlin 2.0.21 embutido nele não reconhece o JVM 25 (`IllegalArgumentException: 25` em `JavaVersion.current()`). No CI o `setup-java` já põe o Gradle no JDK 21. Localmente, `gradle/gradle-daemon-jvm.properties` faz o daemon rodar num JDK 21 instalado, qualquer que seja o `JAVA_HOME`. Sem JDK 21 instalado, o Gradle não acha um JVM compatível e para.
 - **CI já roda `./gradlew build`.** O job "Build e testes" do `ci.yml` compila assim que existe `gradlew`. Como `build` inclui `check`, ktlint e detekt passam a rodar no CI já nesta PR. A integração explícita continua sendo da SPEC-002.
 - **Android SDK no CI:** o runner precisa da plataforma 36 e do Build Tools 36. O AGP baixa o que falta se as licenças estiverem aceitas no runner. Verificar no primeiro CI da PR.
 - **Formato dos scripts Gradle:** o ktlint 1.8.0 também verifica os `build.gradle.kts` (regra `chain-method-continuation`). Expressões como `libs.versions.minSdk.get().toInt()` precisam quebrar a linha antes de cada `.`.
