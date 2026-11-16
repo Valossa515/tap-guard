@@ -17,3 +17,6 @@ dependencyResolutionManagement {
 rootProject.name = "tap-guard"
 
 include(":core-domain")
+include(":core-detection")
+include(":core-nfc")
+include(":core-data")
