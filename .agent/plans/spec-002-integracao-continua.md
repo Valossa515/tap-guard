@@ -59,8 +59,10 @@ Depois, numa cópia descartável do repositório (`git archive`, fora do repo), 
 3. [x] **APK de debug como artefato** (`ci:`): passo `actions/upload-artifact` v7.0.2, referenciado pelo SHA com a versão em comentário, depois de `./gradlew build`, com `app/build/outputs/apk/debug/app-debug.apk`, falhando se o arquivo não existir.
 4. [x] **Kover no `core-domain`** (`chore:`): Kover 0.9.11 no catálogo, `apply false` na raiz, aplicado no `core-domain` com a regra de 80% de linhas. `./gradlew build` verde.
 5. [x] **Documentação** (`docs:`): comandos `koverVerify`, `koverHtmlReport` e `koverXmlReport` e onde fica o relatório (`core-domain/build/reports/kover/`) em `CONTRIBUTING.md` (Ambiente), `runbook.md`, `project-reference.md` §8 e §9 e `core-domain/README.md`; o artefato e a validação do wrapper no `runbook.md`; Kover confirmado em `conventions.md` (Coverage), `context.md` e `SKILLS.md` (Project Overrides); ADR-012 em `decisions.md` (Kover só no domínio com a regra ligada desde já, com o experimento; `wrapper-validation` v6 e o aviso de licença; só o APK do `app`).
-6. [ ] **Conferência dos critérios:** localmente, uma classe temporária sem teste no `core-domain` faz o `./gradlew build` falhar no `koverVerify`, e a alteração é desfeita sem commit. No CI da PR: o passo de validação aparece no log e encontra um wrapper válido, e o artefato com o APK de debug aparece no run e baixa.
-   - 2026-11-16, local, desfeito sem commit: classe `CoverageProbe` sem teste no `core-domain` → `./gradlew build` falha em `:core-domain:koverVerify` (`Rule violated: lines covered percentage is 0.000000, but expected minimum is 80`). Depois de desfazer, `./gradlew build` volta a passar com o `koverVerify` executando. Conferência no CI: pendente (PR).
+6. [x] **Conferência dos critérios:** localmente, uma classe temporária sem teste no `core-domain` faz o `./gradlew build` falhar no `koverVerify`, e a alteração é desfeita sem commit. No CI da PR: o passo de validação aparece no log e encontra um wrapper válido, e o artefato com o APK de debug aparece no run e baixa.
+   - 2026-11-16, local, desfeito sem commit: classe `CoverageProbe` sem teste no `core-domain` → `./gradlew build` falha em `:core-domain:koverVerify` (`Rule violated: lines covered percentage is 0.000000, but expected minimum is 80`). Depois de desfazer, `./gradlew build` volta a passar com o `koverVerify` executando.
+   - 2026-11-16, [PR #44](https://github.com/Valossa515/tap-guard/pull/44), [CI #10](https://github.com/Valossa515/tap-guard/actions/runs/43929332317), commit `0c7d191`: os jobs "Regras do projeto" e "Build e testes" passaram. O log registra `Found known Gradle Wrapper JAR files` e o checksum `7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d` antes do build; `:core-domain:koverVerify` executou e o build terminou com `BUILD SUCCESSFUL`. O [artefato app-debug](https://github.com/Valossa515/tap-guard/actions/runs/43929332317/artifacts/14257623233) foi publicado (928738 bytes) e baixado com sucesso pelo conector GitHub como `spec-002-app-debug.zip`.
+   - Conferência complementar: `CONTRIBUTING.md` preservou os comandos e as seções "Cobertura" e "CI" após o merge; relatórios HTML e XML presentes em `core-domain/build/reports/kover/`; `git diff --check origin/main...HEAD` sem erros. A API de regras aplicáveis à `main` confirmou "Regras do projeto" e "Build e testes" como checks obrigatórios (ruleset `27384263`).
 
 ## Database changes
 - Nenhuma.
@@ -76,13 +78,13 @@ Depois, numa cópia descartável do repositório (`git archive`, fora do repo), 
 - **Sem o passo "Verifica se o projeto Gradle existe"**, o job falha se o `gradlew` sumir, em vez de pular o build. É o comportamento desejado agora que o projeto Gradle existe.
 
 ## Acceptance criteria
-- [ ] PR com falha de lint ou teste fica bloqueado (AC-001, já atendido: `./gradlew build` + ruleset)
-- [ ] APK de debug do `app` disponível como artefato do workflow (AC-002, AC-003)
-- [ ] Wrapper validado antes da execução no CI (AC-004)
-- [ ] Actions novas referenciadas por SHA com a versão em comentário (AC-014)
-- [ ] Job "Build e testes" sem o passo de verificação do `gradlew`, sem as condições `if` e sem `chmod` (AC-015)
-- [ ] Kover no `core-domain` com 80% exigido, passando hoje e falhando com código sem teste (AC-005 a AC-008)
-- [ ] Versões só no catálogo e Kover só no `core-domain` (AC-009, AC-010)
-- [ ] ktlint, detekt e testes passam (AC-011)
-- [ ] Documentação atualizada (AC-012)
-- [ ] CI da PR verde (AC-013)
+- [x] PR com falha de lint ou teste fica bloqueado (AC-001, já atendido: `./gradlew build` + ruleset; checks obrigatórios reconferidos pela API)
+- [x] APK de debug do `app` disponível como artefato do workflow (AC-002, AC-003; download do CI #10 e configuração `if-no-files-found: error` conferidos)
+- [x] Wrapper validado antes da execução no CI (AC-004; log do CI #10)
+- [x] Actions novas referenciadas por SHA com a versão em comentário (AC-014; inspeção de `ci.yml`)
+- [x] Job "Build e testes" sem o passo de verificação do `gradlew`, sem as condições `if` e sem `chmod` (AC-015; inspeção de `ci.yml`)
+- [x] Kover no `core-domain` com 80% exigido, passando hoje e falhando com código sem teste (AC-005 a AC-008; experimento local, relatórios e CI #10)
+- [x] Versões só no catálogo e Kover só no `core-domain` (AC-009, AC-010; inspeção dos scripts Gradle e catálogo)
+- [x] ktlint, detekt e testes passam (AC-011; build local e CI #10)
+- [x] Documentação atualizada (AC-012; diff revisado, inclusive após o merge)
+- [x] CI da PR verde (AC-013; ambos os jobs do CI #10 passaram, com validação, build e upload executados)
