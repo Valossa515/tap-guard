@@ -1,0 +1,60 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-001-estrutura.spec.toon
+# SPEC-001 (issue #2) – sem HTTP: outputs.*.status representa o codigo de saida do comando Gradle
+
+feature:
+  id: FT-001
+  name: SPEC-001 Estrutura do projeto
+  version: 1.0
+  status: draft
+
+requirement:
+  summary: Monorepo Gradle com Kotlin DSL e catalogo de versoes contendo os modulos core-domain e core-detection e core-nfc e core-data e app e decoy-app. Cada modulo tem o minimo para compilar e um teste trivial sem nenhuma funcionalidade. ktlint e detekt aplicados a todos os modulos. Base para todas as specs seguintes (RNF-05 e RNF-08).
+  actor: Desenvolvedor do Tap Guard
+  trigger: ./gradlew build na raiz do repositorio
+
+inputs[3]{name,type,required,constraints}:
+  comando-build,comando Gradle,true,./gradlew build com o Gradle rodando no JDK 21 e Android SDK 36 instalado
+  comando-lint,comando Gradle,true,./gradlew ktlintCheck detekt em todos os modulos
+  comando-teste,comando Gradle,true,./gradlew test executa um teste trivial por modulo
+
+outputs:
+  success:
+    description: Os seis modulos compilam e ktlintCheck e detekt e test passam
+    status: 0
+    body[3]{name,type,value}:
+      modulos,lista,core-domain core-detection core-nfc core-data app decoy-app
+      testes,contagem,6 testes triviais aprovados
+      manifestos,lista,nenhuma permissao declarada
+  errors[5]{code,status,when}:
+    ANDROID_IN_DOMAIN,1,core-domain aplica plugin Android ou importa android.* ou androidx.*
+    LINT_VIOLATION,1,codigo Kotlin viola as regras do ktlint
+    STATIC_ANALYSIS_VIOLATION,1,codigo Kotlin viola as regras do detekt
+    TEST_FAILURE,1,um teste falha em qualquer modulo
+    INTERNET_PERMISSION,1,algum AndroidManifest.xml declara android.permission.INTERNET (guarda do CI)
+
+business-rules[12]{id,rule}:
+  BR-001,core-domain aplica somente o plugin kotlin("jvm") e nao tem nenhuma dependencia android ou androidx
+  BR-002,Todo modulo Android usa minSdk 26
+  BR-003,app e decoy-app usam targetSdk 36 (exigencia atual da Play Store para apps novos e atualizacoes)
+  BR-004,Todas as versoes de plugins e bibliotecas e SDKs e JDK ficam somente em gradle/libs.versions.toml
+  BR-005,Dependencias entre modulos seguem architecture.md: core-domain nenhuma; core-detection e core-nfc e core-data dependem de core-domain; app depende dos quatro core-*; decoy-app nenhuma
+  BR-006,Nenhum manifesto declara android.permission.INTERNET
+  BR-007,ktlint (plugin org.jlleitschuh.gradle.ktlint 14.2.0 com motor 1.8.0) roda em todos os modulos e faz o build falhar em violacao
+  BR-008,detekt 1.23.8 roda em todos os modulos e faz o build falhar em violacao
+  BR-009,Cada modulo tem exatamente um teste trivial: JUnit 5.14.4 no core-domain e JUnit 4.13.2 nos modulos Android
+  BR-010,Nenhuma funcionalidade e nenhuma permissao e nenhuma dependencia de producao alem do necessario para compilar
+  BR-011,applicationId e namespace do app sao io.github.valossa515.tapguard e do decoy-app sao io.github.valossa515.tapguard.decoy; namespaces das bibliotecas sao io.github.valossa515.tapguard.core.domain e .core.detection e .core.nfc e .core.data
+  BR-012,Cada modulo declara a propria configuracao usando o catalogo; sem build-logic e sem plugins de convencao
+
+assumptions[10]:
+  Kotlin 2.4.21 + AGP 9.3.3 + Gradle 9.7.0 escolhidos pelo usuario (versoes conferidas em 2026-11-16); AGP 9.3.3 fica um patch fora da tabela do Kotlin (ate 9.3.1) mas e correcao da mesma linha 9.3 e passou no teste de compatibilidade
+  Modulos Android usam o Kotlin embutido do AGP 9 e nao aplicam org.jetbrains.kotlin.android (diverge da skill Android escrita para AGP 8)
+  compileSdk 36 igual ao targetSdk conforme Project Overrides
+  JDK 21 no toolchain de todos os modulos e no CI por decisao do usuario
+  O Gradle precisa rodar no JDK 21: o detekt 1.23.8 roda no processo do Gradle e nao reconhece o JVM 25
+  outputs.*.status e o codigo de saida do comando Gradle (SKILLS.md Project Overrides Spec format); a checagem de status HTTP do validador nao se aplica
+  app e decoy-app nascem sem Activity e sem Compose e sem Hilt; essas dependencias entram nas specs que as usam
+  Documentacao do modulo = um README.md por modulo com responsabilidade e dependencias
+  junit-platform-launcher 1.14.4 entra no runtime de teste do core-domain porque o Gradle 9 exige
+  Em specs de estrutura o builder escreve os testes de fumaca (BR-009) porque eles verificam a configuracao do JUnit em cada modulo

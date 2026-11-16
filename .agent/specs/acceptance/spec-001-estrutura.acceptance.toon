@@ -1,0 +1,28 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-001-estrutura.acceptance.toon
+# SPEC-001 (issue #2)
+
+acceptance:
+  feature-ref: FT-001
+  version: 1.0
+
+criteria[19]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Build completo passa,Checkout limpo com o Gradle rodando no JDK 21 e Android SDK 36,./gradlew build na raiz,Termina com codigo 0 e os seis modulos compilam,must-have,
+  AC-002,core-domain sem Android,Modulo core-domain,Inspecionar os plugins e rodar ./gradlew :core-domain:dependencies,So kotlin("jvm") aplicado e nenhuma dependencia android ou androidx,must-have,BR-001
+  AC-003,Import Android no dominio falha,Um import android.* adicionado temporariamente ao core-domain,./gradlew :core-domain:build,O build falha (ANDROID_IN_DOMAIN) e a alteracao e desfeita sem commit,must-have,BR-001
+  AC-004,minSdk 26 nos modulos Android,core-detection e core-nfc e core-data e app e decoy-app,Inspecionar a configuracao ou o manifesto mesclado de cada modulo,minSdk e 26 em todos,must-have,BR-002
+  AC-005,targetSdk 36 nos aplicativos,app e decoy-app,Inspecionar o manifesto mesclado de debug,targetSdk e 36 nos dois,must-have,BR-003
+  AC-006,Versoes so no catalogo,Todos os arquivos build.gradle.kts e settings.gradle.kts,Buscar numeros de versao literais fora de gradle/libs.versions.toml,Nenhuma versao literal encontrada fora do catalogo,must-have,BR-004
+  AC-007,Dependencias entre modulos,Os seis modulos,Inspecionar as dependencias de projeto de cada modulo,core-domain e decoy-app sem dependencia de projeto; core-detection e core-nfc e core-data so de core-domain; app dos quatro core-*,must-have,BR-005
+  AC-008,Sem INTERNET nos manifestos,Manifestos mesclados de app e decoy-app,Buscar android.permission.INTERNET e rodar o job Regras do projeto do CI,Nenhuma ocorrencia e nenhuma permissao declarada (INTERNET_PERMISSION nao ocorre),must-have,BR-006
+  AC-009,ktlint passa,Codigo atual de todos os modulos,./gradlew ktlintCheck,Termina com codigo 0 e a tarefa roda nos seis modulos,must-have,BR-007
+  AC-010,ktlint falha em violacao,Uma violacao de estilo introduzida temporariamente,./gradlew ktlintCheck,O comando falha (LINT_VIOLATION) e a alteracao e desfeita sem commit,must-have,BR-007
+  AC-011,detekt passa,Codigo atual de todos os modulos,./gradlew detekt,Termina com codigo 0 e a tarefa roda nos seis modulos,must-have,BR-008
+  AC-012,detekt falha em violacao,Uma violacao do detekt introduzida temporariamente,./gradlew detekt,O comando falha (STATIC_ANALYSIS_VIOLATION) e a alteracao e desfeita sem commit,must-have,BR-008
+  AC-013,Testes triviais com o runner certo,Os seis modulos,./gradlew test,Seis testes aprovados: JUnit 5 no core-domain e JUnit 4 nos modulos Android,must-have,BR-009
+  AC-014,Teste falhando quebra o build,Um teste alterado temporariamente para falhar,./gradlew build,O build falha (TEST_FAILURE) e a alteracao e desfeita sem commit,must-have,BR-009
+  AC-015,Nenhuma funcionalidade,Codigo de producao e manifestos e dependencias,Revisar o diff da PR,Nenhuma tela ou Activity ou permissao ou dependencia de producao alem do necessario para compilar,must-have,BR-010
+  AC-016,applicationIds e namespaces,Os seis modulos,Inspecionar applicationId e namespace de cada modulo,app = io.github.valossa515.tapguard e decoy-app = io.github.valossa515.tapguard.decoy (applicationId e namespace); bibliotecas com namespace io.github.valossa515.tapguard.core.domain e .core.detection e .core.nfc e .core.data,must-have,BR-011
+  AC-019,Configuracao por modulo,Arquivos Gradle do repositorio,Procurar build-logic e plugins de convencao e blocos subprojects ou allprojects que configurem modulos,Nada encontrado e cada modulo declara a propria configuracao com aliases do catalogo,must-have,BR-012
+  AC-017,Documentacao atualizada,PR da SPEC-001,Revisar README.md de cada modulo e runbook.md e CONTRIBUTING.md e project-reference.md e SKILLS.md e decisions.md,Cada modulo tem README e os comandos de build e lint e teste estao documentados com as versoes,must-have,
+  AC-018,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois jobs passam e Build e testes executa ./gradlew build de fato (nao pula),should-have,

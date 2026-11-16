@@ -125,6 +125,10 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - Manual: real contactless card reading on a physical NFC device
 - Automated privacy checks: fail if the merged manifest declares `INTERNET`; search for the full synthetic card number in DB, preferences and logs after a read
 
+### Spec format (non-HTTP features)
+- In feature specs without HTTP (`.spec.toon`), `outputs.success.status` and `outputs.errors[].status` hold the **exit code of the command** that exercises the feature (e.g. `0` for success, `1` for failure), not an HTTP status.
+- The HTTP status check in `.agent/scripts/validate-spec.sh` ("invalid HTTP status") does not apply to these specs; every other validator check still applies.
+
 ### Custom rules
 - No backend, login, telemetry or ads. All processing on-device.
 - Card data: masked inside `core-nfc` (UI receives only the last 4 digits), memory only, discarded when leaving the screen, never logged or sent to crash reporting; card-test screen marked secure.
