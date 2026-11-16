@@ -53,11 +53,11 @@ Versões conferidas em 2026-11-16 no Maven Central, no Google Maven, no Gradle P
 1. [x] **Base do build e verificação de compatibilidade:** wrapper Gradle 9.7.0, `settings.gradle.kts`, catálogo, plugins declarados na raiz. Verificado em projeto descartável (módulo JVM + biblioteca Android + app).
    - Com JDK 25, o detekt 1.23.8 falhou e saiu da spec. O usuário trocou para JDK 21, e com JDK 21 o build do projeto descartável passou inteiro (compilação, D8, lint, ktlint, detekt, test, assemble). O detekt voltou para esta spec.
    - Commits: `chore: cria a base do build Gradle (SPEC-001, tarefa 1)`, `ci: usa JDK 21`, `chore: usa toolchain JDK 21 e restaura o detekt (SPEC-001)`.
-2. [ ] **`core-domain`:** só `kotlin("jvm")`, toolchain JDK 21, JUnit 5 com launcher, um teste de fumaça.
-3. [ ] **`core-detection`, `core-nfc`, `core-data`:** bibliotecas Android com Kotlin embutido do AGP 9, minSdk 26, dependência de `core-domain`, JUnit 4, um teste de fumaça cada.
-4. [ ] **`app` e `decoy-app`:** aplicativos com applicationId e namespace próprios, minSdk 26, targetSdk 36, manifesto sem permissões, um teste de fumaça cada. O `app` depende dos quatro `core-*`.
-5. [ ] **ktlint e detekt em todos os módulos:** `./gradlew build` verde, incluindo `ktlintCheck`, `detekt` e `test`.
-6. [ ] **Documentação (commit `docs:` próprio):** `README.md` de cada módulo (responsabilidade e dependências); comandos em `runbook.md` e na seção "Ambiente" do `CONTRIBUTING.md`, incluindo que é preciso ter um JDK 21 instalado e que `gradle/gradle-daemon-jvm.properties` faz o Gradle rodar nele mesmo com outro `JAVA_HOME`; versões e comandos em `project-reference.md` (§1, §8, §9) e `context.md`; application id, versões, JDK 21 e o override de Kotlin embutido em `SKILLS.md`; um ADR em `decisions.md` com o identificador e a combinação de versões.
+2. [x] **`core-domain`:** só `kotlin("jvm")`, toolchain JDK 21, JUnit 5 com launcher, um teste de fumaça.
+3. [x] **`core-detection`, `core-nfc`, `core-data`:** bibliotecas Android com Kotlin embutido do AGP 9, minSdk 26, dependência de `core-domain`, JUnit 4, um teste de fumaça cada.
+4. [x] **`app` e `decoy-app`:** aplicativos com applicationId e namespace próprios, minSdk 26, targetSdk 36, manifesto sem permissões, um teste de fumaça cada. O `app` depende dos quatro `core-*`.
+5. [x] **ktlint e detekt em todos os módulos:** `./gradlew build` verde, incluindo `ktlintCheck`, `detekt` e `test`.
+6. [x] **Documentação (commit `docs:` próprio):** `README.md` de cada módulo (responsabilidade e dependências); comandos em `runbook.md` e na seção "Ambiente" do `CONTRIBUTING.md`, incluindo que é preciso ter um JDK 21 instalado e que `gradle/gradle-daemon-jvm.properties` faz o Gradle rodar nele mesmo com outro `JAVA_HOME`; versões e comandos em `project-reference.md` (§1, §8, §9) e `context.md`; application id, versões, JDK 21 e o override de Kotlin embutido em `SKILLS.md`; um ADR em `decisions.md` com o identificador e a combinação de versões.
 7. [ ] **Conferência dos critérios:** rodar localmente as verificações negativas (import `android.*` no domínio, violação de ktlint, violação de detekt, teste falhando) e desfazê-las sem commit.
 
 ## Database changes

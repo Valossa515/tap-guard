@@ -12,7 +12,7 @@ sdd-version: "1.3.0"
 
 # Project Agent Skills
 
-This is **Tap Guard**, an **Android / Kotlin** app (Jetpack Compose, Material 3, Hilt, Room, DataStore, WorkManager, six-module Gradle monorepo — all planned, no code yet) that detects installed apps with the profile of NFC card-relay scam apps. Before writing any code,
+This is **Tap Guard**, an **Android / Kotlin** app (Jetpack Compose, Material 3, Hilt, Room, DataStore, WorkManager — planned; the six-module Gradle monorepo exists since SPEC-001, with no features yet) that detects installed apps with the profile of NFC card-relay scam apps. Before writing any code,
 read and follow all the skills listed below.
 
 ## Active Skills
@@ -72,8 +72,8 @@ For pipeline-driven development, see [agents/README.md](agents/README.md):
 ## Project Overrides
 
 > Rules here take precedence over the base skills above.
-> Source: `docs/especificacao.md` (13/11/2026). **No code exists yet** — everything below is **(planned)**;
-> items only the code can settle are marked `TODO: no code yet`.
+> Source: `docs/especificacao.md` (13/11/2026). The Gradle build and the six empty modules exist since SPEC-001;
+> everything else below is **(planned)**. Items only the code can settle are marked `TODO: no code yet`.
 
 ### Context documents
 - [project-reference.md](project-reference.md) — consolidated reference (start here)
@@ -84,7 +84,7 @@ For pipeline-driven development, see [agents/README.md](agents/README.md):
 - [conventions.md](conventions.md), [decisions.md](decisions.md), [backlog_rules.md](backlog_rules.md)
 - Full product spec: [../docs/especificacao.md](../docs/especificacao.md)
 
-### Modules (planned)
+### Modules (created in SPEC-001, no features yet)
 ```
 core-domain/     ← pure Kotlin: models (app, signal, score, level), score engine, collector interfaces — depends on nothing
 core-detection/  ← Android library: signal collectors over Android APIs, ScanDevice use case — depends on core-domain
@@ -98,8 +98,15 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 
 ### SDK levels
 - **minSdk**: 26 (Android 8.0)
-- **targetSdk / compileSdk**: the latest level required by the Play Store on the delivery date
-- **Application id**: open decision (spec §13) — TODO: no code yet
+- **targetSdk / compileSdk**: 36 (the level the Play Store currently requires); raise it when the Play Store requirement changes
+- **Application id**: `io.github.valossa515.tapguard` (`app`) and `io.github.valossa515.tapguard.decoy` (`decoy-app`). Namespaces: `io.github.valossa515.tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`; `app` and `decoy-app` use their application id (ADR-011)
+
+### Build and toolchain
+- **Versions** (only in `gradle/libs.versions.toml` — never a literal version in a `build.gradle.kts`): Gradle 9.7.0, AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 with ktlint 1.8.0, detekt 1.23.8, JUnit 5.14.4 (+ `junit-platform-launcher` 1.14.4) in `core-domain`, JUnit 4.13.2 in Android modules.
+- **JDK 21** is required: it is the toolchain of every module (`kotlin { jvmToolchain(...) }`), the CI JDK, and the Gradle daemon JDK. `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) makes the daemon run on an installed JDK 21 regardless of `JAVA_HOME`. It was written by hand because `./gradlew updateDaemonJvm` needs a JDK download repository (foojay plugin), which the project does not configure. Reason: detekt 1.23.8 runs inside the Gradle process and fails on JDK 25.
+- **Kotlin is built into AGP 9.** Android modules (`com.android.library`, `com.android.application`) must **not** apply `org.jetbrains.kotlin.android` / `kotlin("android")`. The Android skill (`skills/android/SKILL.md`) was written for AGP 8.x and shows that plugin: that part does not apply here. Only `core-domain` applies a Kotlin plugin, `kotlin("jvm")`.
+- **No `build-logic`, no convention plugins, no `subprojects {}` / `allprojects {}` configuration**: each module declares its own plugins, `android {}` block, SDKs and dependencies using catalog aliases.
+- **ktlint and detekt** are applied in every module; `./gradlew build` runs both plus Android lint and tests. ktlint also checks `*.gradle.kts` (break chained calls such as `libs.versions.minSdk.get().toInt()` before each `.`).
 
 ### Persistence (planned)
 - **Database**: Room — tables `scan_run`, `app_snapshot`, `user_decision`, `alert_event` (see project-reference.md §5)
