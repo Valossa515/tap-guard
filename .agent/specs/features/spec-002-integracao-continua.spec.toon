@@ -7,6 +7,7 @@ feature:
   name: SPEC-002 Integracao continua
   version: 1.0
   status: draft
+  interface: command
 
 requirement:
   summary: O workflow de CI que ja roda ./gradlew build no JDK 21 passa a validar o gradle-wrapper.jar antes de executa-lo e a publicar o APK de debug do app como artefato. O core-domain passa a ter cobertura medida pelo Kover com minimo de 80% de linhas e a verificacao roda dentro do ./gradlew build. O job Build e testes perde os passos que a SPEC-001 tornou desnecessarios (verificacao da existencia do gradlew e condicoes if que dependem dela e chmod +x gradlew). O que ja existe (ktlint e detekt e lint e testes no build e a ruleset da main exigindo os checks Regras do projeto e Build e testes) nao muda.

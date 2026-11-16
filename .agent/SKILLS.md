@@ -104,7 +104,6 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 ### Build and toolchain
 - **Versions** (only in `gradle/libs.versions.toml` — never a literal version in a `build.gradle.kts`): Gradle 9.7.0, AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 with ktlint 1.8.0, detekt 1.23.8, JUnit 5.14.4 (+ `junit-platform-launcher` 1.14.4) in `core-domain`, JUnit 4.13.2 in Android modules.
 - **JDK 21** is required: it is the toolchain of every module (`kotlin { jvmToolchain(...) }`), the CI JDK, and the Gradle daemon JDK. `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) makes the daemon run on an installed JDK 21 regardless of `JAVA_HOME`. It was written by hand because `./gradlew updateDaemonJvm` needs a JDK download repository (foojay plugin), which the project does not configure. Reason: detekt 1.23.8 runs inside the Gradle process and fails on JDK 25.
-- **Kotlin is built into AGP 9.** Android modules (`com.android.library`, `com.android.application`) must **not** apply `org.jetbrains.kotlin.android` / `kotlin("android")`. The Android skill (`skills/android/SKILL.md`) was written for AGP 8.x and shows that plugin: that part does not apply here. Only `core-domain` applies a Kotlin plugin, `kotlin("jvm")`.
 - **No `build-logic`, no convention plugins, no `subprojects {}` / `allprojects {}` configuration**: each module declares its own plugins, `android {}` block, SDKs and dependencies using catalog aliases.
 - **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. With no production code the rule passes (0/0); it starts biting at the first class with executable code (interfaces do not count, `data class` does). Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
 - **CI**: new GitHub Actions are pinned by commit SHA with the version in a comment on the same line (e.g. `uses: owner/action@<sha> # vX.Y.Z`). New CI steps go into the existing jobs "Regras do projeto" or "Build e testes", which are the required checks of the `main` ruleset.
@@ -133,10 +132,6 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - End-to-end: install `decoy-app` via `adb install`, run the scan, check level and notification — emulator in CI and physical device
 - Manual: real contactless card reading on a physical NFC device
 - Automated privacy checks: fail if the merged manifest declares `INTERNET`; search for the full synthetic card number in DB, preferences and logs after a read
-
-### Spec format (non-HTTP features)
-- In feature specs without HTTP (`.spec.toon`), `outputs.success.status` and `outputs.errors[].status` hold the **exit code of the command** that exercises the feature (e.g. `0` for success, `1` for failure), not an HTTP status.
-- The HTTP status check in `.agent/scripts/validate-spec.sh` ("invalid HTTP status") does not apply to these specs; every other validator check still applies.
 
 ### Custom rules
 - No backend, login, telemetry or ads. All processing on-device.
