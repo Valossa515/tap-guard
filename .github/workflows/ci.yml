@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Regras do projeto
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Nenhum manifesto declara INTERNET
+        run: |
+          FOUND=$(grep -rln --include=AndroidManifest.xml 'android.permission.INTERNET' . \
+            --exclude-dir=.git --exclude-dir=build || true)
+          if [ -n "$FOUND" ]; then
+            echo "A permissao INTERNET e proibida (RNF-01). Encontrada em:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "OK: nenhum manifesto declara INTERNET"
+
+      - name: Scripts shell com final de linha LF
+        run: |
+          BAD=$(git ls-files '*.sh' gradlew | while read -r f; do
+            if grep -q $'\r' "$f"; then echo "$f"; fi
+          done)
+          if [ -n "$BAD" ]; then
+            echo "Arquivos com CRLF:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "OK: scripts com LF"
+
+  build:
+    name: Build e testes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # O projeto Gradle nasce na SPEC-001. Ate la, este job so informa que nao ha o que compilar.
+      - name: Verifica se o projeto Gradle existe
+        id: gradle
+        run: |
+          if [ -f gradlew ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Sem gradlew ainda: build pulado."
+          fi
+
+      - name: JDK 17
+        if: steps.gradle.outputs.exists == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build e testes
+        if: steps.gradle.outputs.exists == 'true'
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon
