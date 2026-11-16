@@ -174,7 +174,7 @@ Ver `glossary.md`.
 
 ## 8. Dependencies (planned)
 
-Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001):
+Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001 e SPEC-002):
 
 | Item | Versão | Uso |
 |------|--------|-----|
@@ -185,6 +185,7 @@ Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-0
 | minSdk / targetSdk / compileSdk | 26 / 36 / 36 | Módulos Android |
 | ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |
 | detekt (`io.gitlab.arturbosch.detekt`) | 1.23.8 | Análise estática, todos os módulos |
+| Kover (`org.jetbrains.kotlinx.kover`) | 0.9.11 | Cobertura, só no `core-domain` (mínimo de 80% de linhas) — SPEC-002 |
 | JUnit 5 (BOM) + `junit-platform-launcher` | 5.14.4 / 1.14.4 | Testes do `core-domain` |
 | JUnit 4 | 4.13.2 | Testes dos módulos Android |
 
@@ -206,6 +207,8 @@ Ainda planejadas (versões definidas na spec que as introduzir):
 | Compose UI Test | Testes de interface |
 | ktlint, detekt | Qualidade |
 
+Actions do CI (fora do catálogo, em `.github/workflows/ci.yml`): `actions/checkout@v4`, `actions/setup-java@v4`, `gradle/actions/wrapper-validation` v6.4.1 (`8da46b5…`) e `actions/upload-artifact` v7.0.2 (`cf430e0…`); as duas últimas por SHA.
+
 ---
 
 ## 9. How to Run
@@ -213,7 +216,7 @@ Ainda planejadas (versões definidas na spec que as introduzir):
 ```bash
 # Pré-requisitos: JDK 21 instalado, Android SDK 36, local.properties com sdk.dir
 
-# Build (compila, lint do Android, ktlint, detekt e testes — o mesmo que o CI)
+# Build (compila, lint do Android, ktlint, detekt, testes e cobertura do core-domain — o mesmo que o CI)
 ./gradlew build
 
 # Run (APK de debug; o app ainda não tem Activity)
@@ -226,7 +229,14 @@ Ainda planejadas (versões definidas na spec que as introduzir):
 # Lint (ktlint + detekt)
 ./gradlew ktlintCheck detekt
 ./gradlew ktlintFormat
+
+# Cobertura do core-domain (Kover, mínimo de 80% de linhas)
+./gradlew :core-domain:koverVerify       # confere o mínimo de 80% de cobertura de linhas (também roda no build)
+./gradlew :core-domain:koverHtmlReport   # relatório em core-domain/build/reports/kover/html/index.html
+./gradlew :core-domain:koverXmlReport    # relatório em core-domain/build/reports/kover/report.xml
 ```
+
+O CI publica o APK de debug do `app` como artefato `app-debug` em cada run do job "Build e testes".
 
 O app isca é instalado com `adb install` para simular origem fora da loja (especificação, seção 11).
 

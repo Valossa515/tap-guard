@@ -49,12 +49,12 @@ Não se aplica: sem backend e sem API HTTP. As telas T1–T9 estão em `project-
 - **Compatibilidade:** API 26+; aparelho sem NFC usa F1, F3 e F4 normalmente (`uses-feature` NFC com `required=false`).
 - **Acessibilidade:** TalkBack, contraste AA, fonte escalável; nível de risco sempre por cor + ícone + texto.
 - **Loja:** `QUERY_ALL_PACKAGES` é restrita na Play Store e exige declaração como app de segurança.
-- **Testabilidade:** lógica de score sem classes do Android; cobertura mínima de 80% no domínio.
+- **Testabilidade:** lógica de score sem classes do Android; cobertura mínima de 80% de linhas no domínio, exigida pelo Kover no `./gradlew build` e no CI desde a SPEC-002.
 - **Transparência:** código aberto, regras de score documentadas no repositório. Licença: em aberto.
 - **Processo:** 8 etapas e 38 specs (SPEC-000 a SPEC-074, issues #1 a #38); uma branch e um PR por spec.
 
 ## Dependencies
-Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. Já no catálogo: AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 (motor 1.8.0), detekt 1.23.8, JUnit 5.14.4 e JUnit 4.13.2. As bibliotecas de produção entram nas specs que as usam.
+Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. Já no catálogo: AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 (motor 1.8.0), detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2. As bibliotecas de produção entram nas specs que as usam.
 
 ## Open Decisions (especificação, seção 13)
 - Nome de exibição do app em português. (O identificador do pacote foi decidido na SPEC-001: ADR-011.)

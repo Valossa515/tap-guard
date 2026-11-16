@@ -150,14 +150,28 @@ Quando sair uma versão nova do SDD, rode o instalador de novo com a stack `andr
 Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
 
 ```bash
-./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt e testes (é o que o CI roda)
+./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt, testes e a cobertura do core-domain (é o que o CI roda)
 ./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android
 ./gradlew ktlintCheck    # estilo (ktlint 1.8.0)
 ./gradlew ktlintFormat   # corrige o que o ktlint consegue corrigir sozinho
 ./gradlew detekt         # análise estática (detekt 1.23.8)
 ./gradlew :app:assembleDebug   # APK de debug do app
+./gradlew :core-domain:koverVerify       # confere o mínimo de 80% de cobertura de linhas (também roda no build)
+./gradlew :core-domain:koverHtmlReport   # relatório em core-domain/build/reports/kover/html/index.html
+./gradlew :core-domain:koverXmlReport    # relatório em core-domain/build/reports/kover/report.xml
 ```
 
 Para um módulo só, use o prefixo do módulo, por exemplo `./gradlew :core-domain:test`.
 
-Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, JUnit) ficam só em `gradle/libs.versions.toml`.
+Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, Kover, JUnit) ficam só em `gradle/libs.versions.toml`.
+
+### Cobertura
+
+O `core-domain` exige no mínimo 80% de cobertura de linhas (Kover). Abaixo disso, o `./gradlew build` falha no `:core-domain:koverVerify`. Enquanto o módulo não tem código de produção, a regra passa sem ter o que medir; ela começa a valer na primeira classe com código executável (interfaces não contam, `data class` conta). Os outros módulos não têm meta de cobertura.
+
+### CI
+
+Todo pull request para `main` roda dois jobs, ambos obrigatórios para o merge:
+
+- **Regras do projeto:** nenhum manifesto declara `INTERNET`; scripts shell com final de linha LF.
+- **Build e testes:** valida o `gradle-wrapper.jar` contra os checksums oficiais do Gradle, roda `./gradlew build` no JDK 21 e publica o APK de debug do `app` como artefato `app-debug`, que pode ser baixado na página do run em Actions.

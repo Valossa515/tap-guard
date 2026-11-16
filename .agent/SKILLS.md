@@ -106,6 +106,8 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **JDK 21** is required: it is the toolchain of every module (`kotlin { jvmToolchain(...) }`), the CI JDK, and the Gradle daemon JDK. `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) makes the daemon run on an installed JDK 21 regardless of `JAVA_HOME`. It was written by hand because `./gradlew updateDaemonJvm` needs a JDK download repository (foojay plugin), which the project does not configure. Reason: detekt 1.23.8 runs inside the Gradle process and fails on JDK 25.
 - **Kotlin is built into AGP 9.** Android modules (`com.android.library`, `com.android.application`) must **not** apply `org.jetbrains.kotlin.android` / `kotlin("android")`. The Android skill (`skills/android/SKILL.md`) was written for AGP 8.x and shows that plugin: that part does not apply here. Only `core-domain` applies a Kotlin plugin, `kotlin("jvm")`.
 - **No `build-logic`, no convention plugins, no `subprojects {}` / `allprojects {}` configuration**: each module declares its own plugins, `android {}` block, SDKs and dependencies using catalog aliases.
+- **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. With no production code the rule passes (0/0); it starts biting at the first class with executable code (interfaces do not count, `data class` does). Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
+- **CI**: new GitHub Actions are pinned by commit SHA with the version in a comment on the same line (e.g. `uses: owner/action@<sha> # vX.Y.Z`). New CI steps go into the existing jobs "Regras do projeto" or "Build e testes", which are the required checks of the `main` ruleset.
 - **ktlint and detekt** are applied in every module; `./gradlew build` runs both plus Android lint and tests. ktlint also checks `*.gradle.kts` (break chained calls such as `libs.versions.minSdk.get().toInt()` before each `.`).
 
 ### Persistence (planned)
@@ -124,7 +126,7 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Never** `android.permission.INTERNET`
 
 ### How data and platform layers are tested (planned)
-- `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% coverage
+- `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)
 - Collectors: Robolectric (JUnit 4) with a simulated `PackageManager`
 - Room repositories: Robolectric with an **in-memory** database — no real on-device database in integration tests
 - Screens: Compose UI tests for each screen state and navigation; Turbine for Flows

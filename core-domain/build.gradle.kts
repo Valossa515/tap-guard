@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
@@ -24,4 +25,15 @@ tasks.test {
 
 ktlint {
     version.set(libs.versions.ktlint)
+}
+
+// RNF-08: minimo de 80% de cobertura de linhas no dominio. O check depende do koverVerify.
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+    }
 }

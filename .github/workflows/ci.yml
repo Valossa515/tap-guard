@@ -51,19 +51,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # O projeto Gradle nasce na SPEC-001. Ate la, este job so informa que nao ha o que compilar.
-      - name: Verifica se o projeto Gradle existe
-        id: gradle
-        run: |
-          if [ -f gradlew ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Sem gradlew ainda: build pulado."
-          fi
+      # Antes de qualquer execucao do gradlew: confere o gradle-wrapper.jar contra os checksums oficiais do Gradle.
+      - name: Valida o wrapper do Gradle
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - name: JDK 21
-        if: steps.gradle.outputs.exists == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -71,7 +63,12 @@ jobs:
           cache: gradle
 
       - name: Build e testes
-        if: steps.gradle.outputs.exists == 'true'
-        run: |
-          chmod +x gradlew
-          ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon
+
+      # So roda se o build passar. Falha se o APK nao existir, em vez de publicar artefato vazio.
+      - name: Publica o APK de debug
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
