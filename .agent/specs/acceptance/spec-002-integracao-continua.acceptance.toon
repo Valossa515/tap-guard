@@ -1,0 +1,24 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-002-integracao-continua.acceptance.toon
+# SPEC-002 (issue #3)
+
+acceptance:
+  feature-ref: FT-002
+  version: 1.0
+
+criteria[15]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,PR com falha de lint ou teste bloqueado,Ruleset ativa da main e ci.yml da SPEC-001,Conferir que a ruleset exige os checks Regras do projeto e Build e testes e que Build e testes roda ./gradlew build,Ja atendido sem mudanca: um PR com ktlint ou detekt ou teste falhando nao pode ser mergeado,must-have,BR-007
+  AC-002,APK de debug publicado,PR aberto para main com build verde,Job Build e testes termina,O run do workflow tem um artefato com app-debug.apk do modulo app que pode ser baixado,must-have,BR-002
+  AC-003,Upload sem APK falha,Passo de upload configurado para falhar se o arquivo nao existir,Revisar a configuracao do passo de upload,O passo falha (APK_MISSING) em vez de publicar artefato vazio e so roda quando o build passa,must-have,BR-003
+  AC-004,Wrapper validado antes da execucao,PR aberto para main,Job Build e testes executa,O passo de validacao roda antes do primeiro uso do gradlew e aprova o gradle-wrapper.jar (WRAPPER_INVALID nao ocorre),must-have,BR-001
+  AC-005,Kover passa com o core-domain atual,core-domain sem codigo de producao e com o teste de fumaca,./gradlew build,Termina com codigo 0 e :core-domain:koverVerify executa,must-have,BR-005
+  AC-006,Cobertura abaixo de 80% falha,Uma classe sem teste adicionada temporariamente ao core-domain,./gradlew build,O build falha em :core-domain:koverVerify (COVERAGE_BELOW_MINIMUM) e a alteracao e desfeita sem commit,must-have,BR-004
+  AC-007,Relatorios de cobertura gerados,core-domain com Kover aplicado,./gradlew :core-domain:koverHtmlReport :core-domain:koverXmlReport,Relatorios gerados em core-domain/build/reports/kover,should-have,BR-004
+  AC-008,Regra configurada com 80% de linhas,core-domain/build.gradle.kts,Inspecionar a configuracao do Kover,Uma regra de verificacao com minimo de 80% de cobertura de linhas,must-have,BR-004
+  AC-009,Versao do Kover so no catalogo,Arquivos build.gradle.kts e settings.gradle.kts,Buscar versao literal do Kover fora de gradle/libs.versions.toml,Nenhuma versao literal fora do catalogo e plugin aplicado no proprio core-domain,must-have,BR-006
+  AC-010,Kover so no core-domain,Os seis modulos,Inspecionar os plugins aplicados em cada modulo,Kover aplicado somente no core-domain,must-have,BR-004
+  AC-011,ktlint e detekt e testes passam,Codigo e scripts Gradle alterados,./gradlew build,Termina com codigo 0 com ktlintCheck e detekt e test e koverVerify,must-have,BR-005
+  AC-012,Documentacao atualizada,PR da SPEC-002,Revisar CONTRIBUTING.md e runbook.md e project-reference.md e conventions.md e SKILLS.md e core-domain/README.md e decisions.md,Comandos do Kover e local do relatorio e artefato e validacao do wrapper documentados e ADR-012 registrado,must-have,
+  AC-013,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois jobs passam com a validacao do wrapper e o build e o upload do APK executando de fato,should-have,BR-007
+  AC-014,Actions novas por SHA,.github/workflows/ci.yml,Inspecionar as linhas uses das actions novas,wrapper-validation em 8da46b539cd8fe6ab27ca75128919a18d757604c com comentario v6.4.1 e upload-artifact em cf430e030ddbb5b0abf93d22962f4752f3646cd9 com comentario v7.0.2,must-have,BR-008
+  AC-015,Job Build e testes limpo,.github/workflows/ci.yml,Inspecionar o job Build e testes,Sem o passo Verifica se o projeto Gradle existe e sem condicoes if que dependem dele e sem chmod +x gradlew; o build executa sem pular,must-have,BR-009

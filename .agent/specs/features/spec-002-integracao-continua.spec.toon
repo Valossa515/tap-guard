@@ -1,0 +1,56 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-002-integracao-continua.spec.toon
+# SPEC-002 (issue #3) – sem HTTP: outputs.*.status representa o codigo de saida do job ou do comando (0 sucesso, 1 falha)
+
+feature:
+  id: FT-002
+  name: SPEC-002 Integracao continua
+  version: 1.0
+  status: draft
+
+requirement:
+  summary: O workflow de CI que ja roda ./gradlew build no JDK 21 passa a validar o gradle-wrapper.jar antes de executa-lo e a publicar o APK de debug do app como artefato. O core-domain passa a ter cobertura medida pelo Kover com minimo de 80% de linhas e a verificacao roda dentro do ./gradlew build. O job Build e testes perde os passos que a SPEC-001 tornou desnecessarios (verificacao da existencia do gradlew e condicoes if que dependem dela e chmod +x gradlew). O que ja existe (ktlint e detekt e lint e testes no build e a ruleset da main exigindo os checks Regras do projeto e Build e testes) nao muda.
+  actor: Desenvolvedor do Tap Guard
+  trigger: Pull request para main ou push em main (workflow CI) e ./gradlew build local
+
+inputs[3]{name,type,required,constraints}:
+  evento-ci,evento do GitHub Actions,true,pull_request para main ou push em main
+  comando-build,comando Gradle,true,./gradlew build com o Gradle no JDK 21 e Android SDK 36 (inclui koverVerify do core-domain)
+  comando-cobertura,comando Gradle,false,./gradlew :core-domain:koverVerify ou koverHtmlReport ou koverXmlReport
+
+outputs:
+  success:
+    description: Job Build e testes valida o wrapper e roda ./gradlew build e publica o APK de debug do app como artefato; koverVerify do core-domain passa
+    status: 0
+    body[3]{name,type,value}:
+      artefato,arquivo,app-debug.apk do modulo app anexado ao run do workflow
+      wrapper,verificacao,gradle-wrapper.jar com checksum oficial do Gradle
+      cobertura,relatorio,core-domain/build/reports/kover com cobertura de linhas >= 80% (ou nenhuma linha executavel)
+  errors[3]{code,status,when}:
+    WRAPPER_INVALID,1,o gradle-wrapper.jar nao corresponde a um checksum oficial do Gradle
+    COVERAGE_BELOW_MINIMUM,1,a cobertura de linhas do core-domain fica abaixo de 80%
+    APK_MISSING,1,o build passa mas app/build/outputs/apk/debug/app-debug.apk nao existe para o upload
+
+business-rules[9]{id,rule}:
+  BR-001,O gradle-wrapper.jar e validado no job Build e testes antes de qualquer execucao do gradlew
+  BR-002,Somente o APK de debug do app e publicado como artefato e so quando ./gradlew build passa
+  BR-003,O upload falha se o APK nao existir (nunca publica artefato vazio)
+  BR-004,O Kover e aplicado somente no core-domain e exige no minimo 80% de cobertura de linhas
+  BR-005,A verificacao de cobertura roda dentro de ./gradlew build (check depende de koverVerify) e portanto no CI
+  BR-006,Versoes do Kover ficam somente em gradle/libs.versions.toml e o plugin e aplicado no proprio core-domain (sem subprojects e sem plugin de convencao)
+  BR-007,Os checks obrigatorios da ruleset da main continuam sendo Regras do projeto e Build e testes: os novos passos entram nesses jobs
+  BR-008,Actions novas sao referenciadas pelo SHA do commit da versao escolhida com a versao em comentario na mesma linha: gradle/actions/wrapper-validation 8da46b539cd8fe6ab27ca75128919a18d757604c (v6.4.1) e actions/upload-artifact cf430e030ddbb5b0abf93d22962f4752f3646cd9 (v7.0.2)
+  BR-009,O job Build e testes nao tem o passo Verifica se o projeto Gradle existe nem condicoes if que dependem dele nem chmod +x gradlew (o bit executavel esta no indice do Git)
+
+assumptions[11]:
+  Versoes conferidas em 2026-11-16: Kover 0.9.11 e gradle/actions/wrapper-validation v6.4.1 e actions/upload-artifact v7.0.2
+  gradle/actions v6 escolhida pelo usuario; o componente de cache proprietario (gradle-actions-caching) nao e usado pela wrapper-validation
+  Com zero classes de producao o koverVerify passa sem erro (0/0 e relatorio No sources) verificado em projeto descartavel; a regra comeca a valer na primeira classe com codigo executavel
+  Interfaces nao tem codigo executavel para o Kover; data classes tem
+  Kover fica fora dos modulos Android por nao haver meta de cobertura neles e pelo bug aberto Kotlin/kotlinx-kover#815 com AGP 9
+  O projeto nao liga o configuration cache do Gradle (Kover 0.9.11 tem problema conhecido com ele)
+  Retencao do artefato = padrao do repositorio
+  O APK do decoy-app e o relatorio de cobertura nao sao publicados nesta spec (decisao do usuario)
+  outputs.*.status e o codigo de saida do job ou comando (SKILLS.md Project Overrides Spec format)
+  SHAs conferidos em 2026-11-16 na pagina de releases e na API do GitHub (tag anotada resolvida ate o commit) e no git ls-remote
+  actions/checkout e actions/setup-java continuam com a tag @v4 (atualizacao fora do escopo)
