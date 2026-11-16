@@ -58,7 +58,8 @@ Versões conferidas em 2026-11-16 no Maven Central, no Google Maven, no Gradle P
 4. [x] **`app` e `decoy-app`:** aplicativos com applicationId e namespace próprios, minSdk 26, targetSdk 36, manifesto sem permissões, um teste de fumaça cada. O `app` depende dos quatro `core-*`.
 5. [x] **ktlint e detekt em todos os módulos:** `./gradlew build` verde, incluindo `ktlintCheck`, `detekt` e `test`.
 6. [x] **Documentação (commit `docs:` próprio):** `README.md` de cada módulo (responsabilidade e dependências); comandos em `runbook.md` e na seção "Ambiente" do `CONTRIBUTING.md`, incluindo que é preciso ter um JDK 21 instalado e que `gradle/gradle-daemon-jvm.properties` faz o Gradle rodar nele mesmo com outro `JAVA_HOME`; versões e comandos em `project-reference.md` (§1, §8, §9) e `context.md`; application id, versões, JDK 21 e o override de Kotlin embutido em `SKILLS.md`; um ADR em `decisions.md` com o identificador e a combinação de versões.
-7. [ ] **Conferência dos critérios:** rodar localmente as verificações negativas (import `android.*` no domínio, violação de ktlint, violação de detekt, teste falhando) e desfazê-las sem commit.
+7. [x] **Conferência dos critérios:** rodar localmente as verificações negativas (import `android.*` no domínio, violação de ktlint, violação de detekt, teste falhando) e desfazê-las sem commit.
+   - 2026-11-16, todas desfeitas sem commit: import `android.content.Context` no `core-domain` → `:core-domain:build` falha (`Unresolved reference 'android'`); espaços extras num teste → `ktlintCheck` falha; `if` vazio → `detekt` falha (`EmptyIfBlock`); `assertTrue(false)` → `build` falha em `:core-domain:test`. Depois de desfazer, `./gradlew build` volta a passar.
 
 ## Database changes
 - Nenhuma. O Room entra em specs futuras.
@@ -73,14 +74,14 @@ Versões conferidas em 2026-11-16 no Maven Central, no Google Maven, no Gradle P
 - O `.gitattributes` já força LF em `gradlew` e CRLF em `gradlew.bat`.
 
 ## Acceptance criteria
-- [ ] `./gradlew build` passa (AC-001)
-- [ ] `core-domain` não tem nenhuma dependência Android (AC-002, AC-003)
-- [ ] minSdk 26 configurado (AC-004) e targetSdk 36 nos aplicativos (AC-005)
-- [ ] Versões só no catálogo (AC-006) e dependências entre módulos conforme a arquitetura (AC-007)
-- [ ] Nenhum manifesto declara `INTERNET` (AC-008)
-- [ ] ktlint, detekt e testes passam e falham quando devem (AC-009 a AC-014)
-- [ ] Nenhuma funcionalidade, permissão ou dependência de produção (AC-015)
-- [ ] applicationIds e namespaces definidos (AC-016)
-- [ ] Configuração declarada em cada módulo, sem `build-logic` nem plugins de convenção (AC-019)
-- [ ] Documentação atualizada (AC-017)
+- [x] `./gradlew build` passa (AC-001)
+- [x] `core-domain` não tem nenhuma dependência Android (AC-002, AC-003)
+- [x] minSdk 26 configurado (AC-004) e targetSdk 36 nos aplicativos (AC-005)
+- [x] Versões só no catálogo (AC-006) e dependências entre módulos conforme a arquitetura (AC-007)
+- [x] Nenhum manifesto declara `INTERNET` (AC-008)
+- [x] ktlint, detekt e testes passam e falham quando devem (AC-009 a AC-014)
+- [x] Nenhuma funcionalidade, permissão ou dependência de produção (AC-015)
+- [x] applicationIds e namespaces definidos (AC-016)
+- [x] Configuração declarada em cada módulo, sem `build-logic` nem plugins de convenção (AC-019)
+- [x] Documentação atualizada (AC-017)
 - [ ] CI da PR verde (AC-018)
