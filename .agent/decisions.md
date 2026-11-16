@@ -84,6 +84,19 @@
 - **Alternatives:** JDK 25 (detekt falha); tirar o detekt da SPEC-001 e adiá-lo para a SPEC-002 (desnecessário com o JDK 21); gerar o arquivo do daemon com `updateDaemonJvm` + foojay (rejeitado: baixaria JDKs da internet durante o build).
 - **Consequences:** quem contribui precisa de um JDK 21 instalado, mesmo usando outro JDK no dia a dia (documentado no `CONTRIBUTING.md`). Trocar o JDK ou subir o detekt exige rever este ADR. O identificador sai da lista de decisões pendentes.
 
+## ADR-012 — CI: cobertura do domínio, validação do wrapper e APK de debug
+- **Date:** 2026-11-16
+- **Status:** Aceita (implementada na SPEC-002)
+- **Context:** a Etapa 0 pede um CI que compile, teste e publique o APK de debug. A SPEC-001 já deixou o `./gradlew build` (ktlint, detekt, lint e testes) no job "Build e testes", e a ruleset da `main` exige os checks "Regras do projeto" e "Build e testes". Faltavam a cobertura de 80% no domínio (RNF-08), a validação do `gradle-wrapper.jar` e o artefato. O `core-domain` ainda não tem código de produção.
+- **Decision:**
+  - Kover 0.9.11 só no `core-domain`, com regra de no mínimo 80% de cobertura de linhas, **ligada desde já**. Num projeto descartável (Gradle 9.7.0, Kotlin 2.4.21, JDK 21), o `koverVerify` passou sem erro com zero classes (0/0, "No sources") e com só uma interface; passou com uma classe 100% coberta; falhou com 20% e com uma `data class` sem teste. Numa cópia do repositório, `./gradlew build` passou com o Kover e falhou com uma classe sem teste. A regra passa corretamente sem código e começa a valer sozinha na primeira classe com código executável.
+  - `gradle/actions/wrapper-validation` v6.4.1 no job "Build e testes", antes de qualquer execução do `gradlew`. A v6 tornou proprietário o componente de cache (`gradle-actions-caching`, Termos de Uso da Gradle); a `wrapper-validation` não o usa.
+  - `actions/upload-artifact` v7.0.2 publica só o APK de debug do `app` (artefato `app-debug`), depois de um build verde, falhando se o arquivo não existir.
+  - Actions novas referenciadas pelo SHA do commit da versão, com a versão em comentário: `gradle/actions` `8da46b539cd8fe6ab27ca75128919a18d757604c` (v6.4.1), `actions/upload-artifact` `cf430e030ddbb5b0abf93d22962f4752f3646cd9` (v7.0.2). SHAs conferidos na página de releases, na API do GitHub e no `git ls-remote`.
+  - Passos novos dentro dos jobs existentes, que já são checks obrigatórios; sem job novo e sem mudança na ruleset.
+- **Alternatives:** configurar o Kover agora e ligar os 80% só na SPEC-010 (rejeitada: dois PRs e risco de modelos entrarem sem teste); criar código de produção só para ter o que medir (rejeitada); Kover em todos os módulos (rejeitada: sem meta de cobertura neles e bug aberto `Kotlin/kotlinx-kover#815` com AGP 9); `gradle/actions` v5.0.2, só MIT (rejeitada: sem manutenção); validação do wrapper num job separado (rejeitada: rodaria em paralelo com o build, que já executaria o JAR, e não seria check obrigatório); publicar também o APK do `decoy-app` e o relatório de cobertura (adiado até haver uso).
+- **Consequences:** enquanto o `core-domain` não tiver código, a regra passa sem medir; uma configuração quebrada também mostraria "No sources", por isso a verificação negativa (classe temporária sem teste derruba o build) faz parte da conferência da spec. A SPEC-010 já nasce sob a regra: os modelos (`data class`) precisam de testes. O Kover 0.9.11 tem problema conhecido com o configuration cache do Gradle, que o projeto não liga; ligar exige rever. `actions/checkout` e `actions/setup-java` continuam em `@v4` por tag.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.

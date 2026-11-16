@@ -50,7 +50,7 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Integration tests:** Robolectric com `PackageManager` simulado e Room em memória.
 - **Ponta a ponta:** instalar o `decoy-app` (por `adb install`), rodar a varredura, conferir nível e notificação — emulador no CI e aparelho físico.
 - **Manual:** leitura de cartão real em aparelho físico com NFC.
-- **Coverage:** mínimo de 80% no módulo de domínio. Ferramenta: Kover (a confirmar na SPEC-002).
+- **Coverage:** mínimo de 80% de cobertura de linhas no `core-domain`, medido pelo Kover 0.9.11 e verificado no `./gradlew build` (`:core-domain:koverVerify`). Os outros módulos não têm meta. Sem código de produção a regra passa; interfaces não contam, `data class` conta (ADR-012).
 - **Test naming:** frase entre crases nos testes de JVM e Robolectric; camelCase nos instrumentados. Ver skills/android/testing.md.
 - **Dados de teste:** nunca malware real; nunca dados reais de cartão (vetores TLV sintéticos com número de cartão de teste).
 
@@ -66,5 +66,5 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 
 ## Quality Gates
 - ktlint e detekt e a suíte de testes passam antes de uma spec ser dada como concluída.
-- CI no GitHub Actions.
+- CI no GitHub Actions: jobs "Regras do projeto" e "Build e testes", obrigatórios na ruleset da `main`. Actions novas são referenciadas pelo SHA do commit, com a versão em comentário na mesma linha.
 - Toda spec entrega código, testes e atualização da documentação do módulo.
