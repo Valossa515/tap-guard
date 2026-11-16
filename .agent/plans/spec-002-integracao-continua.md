@@ -60,6 +60,7 @@ Depois, numa cópia descartável do repositório (`git archive`, fora do repo), 
 4. [x] **Kover no `core-domain`** (`chore:`): Kover 0.9.11 no catálogo, `apply false` na raiz, aplicado no `core-domain` com a regra de 80% de linhas. `./gradlew build` verde.
 5. [x] **Documentação** (`docs:`): comandos `koverVerify`, `koverHtmlReport` e `koverXmlReport` e onde fica o relatório (`core-domain/build/reports/kover/`) em `CONTRIBUTING.md` (Ambiente), `runbook.md`, `project-reference.md` §8 e §9 e `core-domain/README.md`; o artefato e a validação do wrapper no `runbook.md`; Kover confirmado em `conventions.md` (Coverage), `context.md` e `SKILLS.md` (Project Overrides); ADR-012 em `decisions.md` (Kover só no domínio com a regra ligada desde já, com o experimento; `wrapper-validation` v6 e o aviso de licença; só o APK do `app`).
 6. [ ] **Conferência dos critérios:** localmente, uma classe temporária sem teste no `core-domain` faz o `./gradlew build` falhar no `koverVerify`, e a alteração é desfeita sem commit. No CI da PR: o passo de validação aparece no log e encontra um wrapper válido, e o artefato com o APK de debug aparece no run e baixa.
+   - 2026-11-16, local, desfeito sem commit: classe `CoverageProbe` sem teste no `core-domain` → `./gradlew build` falha em `:core-domain:koverVerify` (`Rule violated: lines covered percentage is 0.000000, but expected minimum is 80`). Depois de desfazer, `./gradlew build` volta a passar com o `koverVerify` executando. Conferência no CI: pendente (PR).
 
 ## Database changes
 - Nenhuma.
