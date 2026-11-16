@@ -7,6 +7,7 @@ feature:
   name: SPEC-001 Estrutura do projeto
   version: 1.0
   status: draft
+  interface: command
 
 requirement:
   summary: Monorepo Gradle com Kotlin DSL e catalogo de versoes contendo os modulos core-domain e core-detection e core-nfc e core-data e app e decoy-app. Cada modulo tem o minimo para compilar e um teste trivial sem nenhuma funcionalidade. ktlint e detekt aplicados a todos os modulos. Base para todas as specs seguintes (RNF-05 e RNF-08).
