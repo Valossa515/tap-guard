@@ -1,5 +1,5 @@
 [versions]
-jdk = "25"
+jdk = "21"
 minSdk = "26"
 targetSdk = "36"
 compileSdk = "36"
@@ -7,6 +7,7 @@ agp = "9.3.3"
 kotlin = "2.4.21"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
+detekt = "1.23.8"
 junitJupiter = "5.14.4"
 junit4 = "4.13.2"
 
@@ -21,3 +22,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
