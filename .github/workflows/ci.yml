@@ -51,6 +51,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Antes de qualquer execucao do gradlew: confere o gradle-wrapper.jar contra os checksums oficiais do Gradle.
+      - name: Valida o wrapper do Gradle
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
       - name: JDK 21
         uses: actions/setup-java@v4
         with:
