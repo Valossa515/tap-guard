@@ -84,4 +84,4 @@ Versões conferidas em 2026-11-16 no Maven Central, no Google Maven, no Gradle P
 - [x] applicationIds e namespaces definidos (AC-016)
 - [x] Configuração declarada em cada módulo, sem `build-logic` nem plugins de convenção (AC-019)
 - [x] Documentação atualizada (AC-017)
-- [ ] CI da PR verde (AC-018)
+- [x] CI da PR verde (AC-018) — CI do PR #42 passou em 2026-11-16: "Regras do projeto" e "Build e testes" verdes, e o job "Build e testes" rodou o `./gradlew build` de verdade no Temurin 21 (`BUILD SUCCESSFUL in 2m 10s` no log), sem pular
