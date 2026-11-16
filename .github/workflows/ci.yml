@@ -62,12 +62,12 @@ jobs:
             echo "Sem gradlew ainda: build pulado."
           fi
 
-      - name: JDK 17
+      - name: JDK 21
         if: steps.gradle.outputs.exists == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: gradle
 
       - name: Build e testes
