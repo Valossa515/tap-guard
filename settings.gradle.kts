@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "tap-guard"
+
+include(":core-domain")
