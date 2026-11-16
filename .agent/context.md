@@ -1,13 +1,13 @@
 # Project Context
 
-> Fonte: `docs/especificacao.md` (13/11/2026). Ainda não há código: tudo abaixo é **(planned)** até ser implementado.
+> Fonte: `docs/especificacao.md` (13/11/2026). A SPEC-001 criou o projeto Gradle com os seis módulos, ainda sem funcionalidade: o resto continua **(planned)** até ser implementado.
 
 ## Project Overview
-- **Name:** `tap-guard` (repositório). Nome de exibição em português e identificador do pacote: em aberto.
+- **Name:** `tap-guard` (repositório). Nome de exibição em português: em aberto. Identificador do pacote: `io.github.valossa515.tapguard` (`decoy-app`: `io.github.valossa515.tapguard.decoy`).
 - **Type:** App Android, só local, sem backend.
 - **Stack:** Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)**.
-- **Build tool:** Gradle com Kotlin DSL e catálogo de versões, monorepo de seis módulos **(planned)**.
-- **Runtime version:** Android 8.0 (API 26) ou superior. SDK alvo: o mais recente exigido pela Play Store na data da entrega. Versões de Kotlin/JDK/AGP: TODO: no code yet.
+- **Build tool:** Gradle 9.7.0 com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos (criado na SPEC-001).
+- **Runtime version:** Android 8.0 (API 26) ou superior; targetSdk e compileSdk 36. Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
 
 ## Problem
 - Golpistas entram em contato por SMS, WhatsApp ou ligação, se passando por banco ou operadora de cartão.
@@ -54,10 +54,10 @@ Não se aplica: sem backend e sem API HTTP. As telas T1–T9 estão em `project-
 - **Processo:** 8 etapas e 38 specs (SPEC-000 a SPEC-074, issues #1 a #38); uma branch e um PR por spec.
 
 ## Dependencies
-Ver `project-reference.md` §8. Versões: TODO: no code yet.
+Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. Já no catálogo: AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 (motor 1.8.0), detekt 1.23.8, JUnit 5.14.4 e JUnit 4.13.2. As bibliotecas de produção entram nas specs que as usam.
 
 ## Open Decisions (especificação, seção 13)
-- Nome de exibição do app em português e identificador do pacote.
+- Nome de exibição do app em português. (O identificador do pacote foi decidido na SPEC-001: ADR-011.)
 - Licença do código.
 - Lista inicial de bancos e carteiras na versão 1.0 (pacotes de carteiras a levantar na SPEC-015).
 - Publicar na Play Store já na 1.0 ou só depois de validar com usuários.

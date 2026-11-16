@@ -35,7 +35,7 @@
 - **Date:** 2026-11-13
 - **Status:** Aceita (planned)
 - **Decision:** Kotlin; Gradle Kotlin DSL com catálogo de versões; Jetpack Compose, Material 3, Navigation Compose; corrotinas e Flow; Hilt; um ViewModel por tela com estado como fluxo imutável.
-- **Consequences:** versões exatas: TODO: no code yet.
+- **Consequences:** versões do build e da toolchain fixadas no ADR-011; as das bibliotecas de produção (Compose, Hilt etc.) entram nas specs que as usam.
 
 ## ADR-006 — Room para histórico, DataStore para preferências
 - **Date:** 2026-11-13
@@ -69,8 +69,23 @@
 - **Decision:** declarar apenas `QUERY_ALL_PACKAGES`, `NFC` e `POST_NOTIFICATIONS`; recurso NFC com `required=false`.
 - **Consequences:** `QUERY_ALL_PACKAGES` exige declaração de app de segurança na Play Store; se recusada, distribuição pelo GitHub (o README deve explicar a contradição de instalar por APK).
 
+## ADR-011 — Identificador do pacote e combinação de versões do build
+- **Date:** 2026-11-16
+- **Status:** Aceita (implementada na SPEC-001)
+- **Context:** a SPEC-001 cria o monorepo Gradle e precisa do identificador do pacote (decisão em aberto na seção 13 da especificação) e de uma combinação de Kotlin, AGP, Gradle e JDK que compile, rode o lint do Android, o ktlint e o detekt.
+- **Decision:**
+  - Identificador base `io.github.valossa515.tapguard`. applicationId e namespace do `app` = `io.github.valossa515.tapguard`; do `decoy-app` = `io.github.valossa515.tapguard.decoy`. Namespaces das bibliotecas: `io.github.valossa515.tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`.
+  - Kotlin 2.4.21 + AGP 9.3.3 + Gradle 9.7.0 + JDK 21. minSdk 26, targetSdk 36, compileSdk 36. ktlint-gradle 14.2.0 com motor 1.8.0; detekt 1.23.8; JUnit 5.14.4 no `core-domain`, JUnit 4.13.2 nos módulos Android.
+  - AGP 9.3.3 fica um patch fora da tabela de compatibilidade do Kotlin 2.4.20–2.4.21 (que vai até 9.3.1). 9.3.2 e 9.3.3 são correções da mesma linha; a 9.3.2 corrige um crash do lint no JDK 17. O teste de compatibilidade da combinação passou em compilação, D8, lint, ktlint e detekt.
+  - Nos módulos Android, Kotlin embutido do AGP 9, sem o plugin `org.jetbrains.kotlin.android`.
+  - JDK 21 em vez do 25 (fora do plano original): o detekt 1.23.8 roda no processo do Gradle e o compilador Kotlin embutido nele não reconhece o JVM 25 (`IllegalArgumentException: 25`). O JDK 21 é o toolchain de todos os módulos, o JDK do CI e o JDK do daemon do Gradle.
+  - `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) escrito à mão (fora do plano original): o `./gradlew updateDaemonJvm` do Gradle 9.7.0 exige um repositório de download de JDK (plugin foojay), que o projeto não quer configurar. Verificado em 2026-11-16 com `JAVA_HOME` no JDK 25: o daemon roda no Temurin 21 e `./gradlew help` passa.
+  - Cada módulo declara a própria configuração com o catálogo; sem `build-logic` nem plugins de convenção.
+- **Alternatives:** JDK 25 (detekt falha); tirar o detekt da SPEC-001 e adiá-lo para a SPEC-002 (desnecessário com o JDK 21); gerar o arquivo do daemon com `updateDaemonJvm` + foojay (rejeitado: baixaria JDKs da internet durante o build).
+- **Consequences:** quem contribui precisa de um JDK 21 instalado, mesmo usando outro JDK no dia a dia (documentado no `CONTRIBUTING.md`). Trocar o JDK ou subir o detekt exige rever este ADR. O identificador sai da lista de decisões pendentes.
+
 ## Pending decisions (especificação, seção 13)
-- Nome de exibição em português e identificador do pacote.
+- Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
 - Lista inicial de bancos e carteiras na 1.0.
 - Play Store já na 1.0 ou depois de validar com usuários.

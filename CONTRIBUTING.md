@@ -52,4 +52,34 @@ O repositório usa o [SDD](https://github.com/valossa515/sdd). O contexto do pro
 
 ## Ambiente
 
-Os comandos de build e de teste serão documentados aqui quando a SPEC-001 criar o projeto Gradle.
+### Pré-requisitos
+
+- **JDK 21 instalado (obrigatório).** O arquivo `gradle/gradle-daemon-jvm.properties` fixa o JDK do daemon do Gradle em 21 (`toolchainVersion=21`). Com ele, o Gradle procura um JDK 21 instalado e roda nele mesmo que o `JAVA_HOME` aponte para outra versão. Sem JDK 21 na máquina, o Gradle não acha um JVM compatível e para. O motivo: o detekt 1.23.8 roda dentro do processo do Gradle e não reconhece JVMs mais novos (falha no JDK 25).
+- **Android SDK** com a plataforma 36 (compileSdk e targetSdk) e o Build Tools correspondente.
+- **`local.properties` na raiz** com o caminho do Android SDK. O Android Studio cria o arquivo ao sincronizar. Fora dele, crie à mão:
+
+  ```properties
+  # Windows (barras invertidas escapadas)
+  sdk.dir=C\:\\Users\\<usuario>\\AppData\\Local\\Android\\Sdk
+  # Linux / macOS
+  sdk.dir=/home/<usuario>/Android/Sdk
+  ```
+
+  O `local.properties` é pessoal e está no `.gitignore`: nunca faça commit dele. A variável de ambiente `ANDROID_HOME` também serve.
+
+### Comandos
+
+Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
+
+```bash
+./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt e testes (é o que o CI roda)
+./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android
+./gradlew ktlintCheck    # estilo (ktlint 1.8.0)
+./gradlew ktlintFormat   # corrige o que o ktlint consegue corrigir sozinho
+./gradlew detekt         # análise estática (detekt 1.23.8)
+./gradlew :app:assembleDebug   # APK de debug do app
+```
+
+Para um módulo só, use o prefixo do módulo, por exemplo `./gradlew :core-domain:test`.
+
+Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, JUnit) ficam só em `gradle/libs.versions.toml`.

@@ -9,13 +9,14 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `tap-guard` (repositório). Nome de exibição em português: em aberto (especificação, seção 13) |
+| **Application id** | `app`: `io.github.valossa515.tapguard`; `decoy-app`: `io.github.valossa515.tapguard.decoy` (ADR-011) |
 | **Description** | App Android que avisa o usuário comum quando há no aparelho um app com o perfil dos usados em golpes de retransmissão de cartão por NFC, e ensina por que nenhum banco pede para encostar o cartão no celular |
-| **Type** | App Android (sem backend) **(planned)** |
+| **Type** | App Android (sem backend). Projeto Gradle criado na SPEC-001, ainda sem funcionalidade |
 | **Stack** | Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)** |
-| **Build tool** | Gradle com Kotlin DSL e catálogo de versões, monorepo de seis módulos **(planned)** |
-| **Runtime version** | `minSdk` 26 (Android 8.0). `targetSdk`: o mais recente exigido pela Play Store na data da entrega **(planned)**. Versão do Kotlin/JDK/AGP: TODO: no code yet |
-| **Source root** | TODO: no code yet (módulos planejados: `core-domain`, `core-detection`, `core-nfc`, `core-data`, `app`, `decoy-app`) |
-| **Test root** | TODO: no code yet |
+| **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
+| **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 36. Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
+| **Source root** | `<módulo>/src/main/kotlin` nos módulos `core-domain`, `core-detection`, `core-nfc`, `core-data`, `app`, `decoy-app` (ainda vazios) |
+| **Test root** | `<módulo>/src/test/kotlin` (um teste de fumaça por módulo) |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -35,7 +36,7 @@
 
 - **Style:** monorepo Gradle multimódulo; lógica de detecção isolada em módulos sem interface gráfica (para virar SDK depois sem reescrita). Dentro do `app`: camadas Interface → Domínio (casos de uso dos `core-*`) → Dados (repositórios do `core-data`).
 - **Packaging:** por módulo de capacidade (`core-domain`, `core-detection`, `core-nfc`, `core-data`). Organização de pacotes dentro de cada módulo: TODO: no code yet.
-- **Base package / application id:** em aberto (especificação, seção 13).
+- **Base package / application id:** `io.github.valossa515.tapguard` (decidido na SPEC-001, ADR-011). Namespaces: `…tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`; `app` = `io.github.valossa515.tapguard`; `decoy-app` = `io.github.valossa515.tapguard.decoy`.
 
 ### Layer Map
 
@@ -173,7 +174,21 @@ Ver `glossary.md`.
 
 ## 8. Dependencies (planned)
 
-Versões: TODO: no code yet (catálogo de versões ainda não existe).
+Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001):
+
+| Item | Versão | Uso |
+|------|--------|-----|
+| Gradle (wrapper) | 9.7.0 | Build |
+| Android Gradle Plugin | 9.3.3 | Módulos Android (Kotlin embutido; sem `org.jetbrains.kotlin.android`) |
+| Kotlin (`org.jetbrains.kotlin.jvm`) | 2.4.21 | `core-domain` |
+| JDK | 21 | Toolchain, daemon do Gradle (`gradle/gradle-daemon-jvm.properties`) e CI |
+| minSdk / targetSdk / compileSdk | 26 / 36 / 36 | Módulos Android |
+| ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |
+| detekt (`io.gitlab.arturbosch.detekt`) | 1.23.8 | Análise estática, todos os módulos |
+| JUnit 5 (BOM) + `junit-platform-launcher` | 5.14.4 / 1.14.4 | Testes do `core-domain` |
+| JUnit 4 | 4.13.2 | Testes dos módulos Android |
+
+Ainda planejadas (versões definidas na spec que as introduzir):
 
 | Dependency | Purpose |
 |------------|---------|
@@ -196,17 +211,21 @@ Versões: TODO: no code yet (catálogo de versões ainda não existe).
 ## 9. How to Run
 
 ```bash
-# Build
-TODO: no code yet
+# Pré-requisitos: JDK 21 instalado, Android SDK 36, local.properties com sdk.dir
 
-# Run
-TODO: no code yet
+# Build (compila, lint do Android, ktlint, detekt e testes — o mesmo que o CI)
+./gradlew build
+
+# Run (APK de debug; o app ainda não tem Activity)
+./gradlew :app:assembleDebug
 
 # Test
-TODO: no code yet
+./gradlew test
+./gradlew :core-domain:test
 
 # Lint (ktlint + detekt)
-TODO: no code yet
+./gradlew ktlintCheck detekt
+./gradlew ktlintFormat
 ```
 
 O app isca é instalado com `adb install` para simular origem fora da loja (especificação, seção 11).
