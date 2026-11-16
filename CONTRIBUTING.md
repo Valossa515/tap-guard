@@ -48,7 +48,85 @@ Um pull request por spec. Mudanças que não pertencem à spec vão em outro pul
 
 ## Desenvolvimento com agentes de IA
 
-O repositório usa o [SDD](https://github.com/valossa515/sdd). O contexto do projeto fica em `.agent/`. Quem usa um agente deve começar cada tarefa pedindo que ele leia `.agent/SKILLS.md` e siga as skills listadas. Código gerado por agente passa pelas mesmas regras e pela mesma revisão que qualquer outro.
+O repositório usa o [SDD](https://github.com/valossa515/sdd) com a stack `android`. Usar um agente é opcional. Código gerado por agente passa pelas mesmas regras, pelo mesmo CI e pela mesma revisão que qualquer outro, e quem abre o pull request responde pelo conteúdo.
+
+### O que já está no repositório
+
+| Caminho | Conteúdo |
+| --- | --- |
+| `.agent/SKILLS.md` | Ponto de entrada. Lista as skills ativas e, em "Project Overrides", as regras do projeto que têm precedência sobre elas |
+| `.agent/context.md`, `architecture.md`, `conventions.md`, `decisions.md`, `backlog_rules.md`, `glossary.md`, `runbook.md`, `project-reference.md` | Contexto do projeto, escrito a partir de `docs/especificacao.md` |
+| `.agent/skills/android/` | Convenções de arquitetura e de testes para Android |
+| `.agent/agents/` | Os papéis do SDD: planner, architect, builder, tester, reviewer e conductor |
+| `.agent/plans/` | Um plano por spec |
+| `.agent/specs/features/` e `.agent/specs/acceptance/` | A spec e os critérios de aceite de cada spec, em formato `.toon` |
+
+Você não precisa instalar nada: a pasta `.agent/` já está versionada.
+
+### Fluxo de uma spec
+
+1. **Prepare a branch.** A partir da `main` atualizada, crie `spec-NNN-descricao-curta`.
+2. **Planeje** com `@planning`. O agente escreve o plano e os dois arquivos `.toon`, sem código.
+3. **Revise o plano.** Confira versões, decisões e o que ficou em aberto. Responda às perguntas do agente antes de liberar a implementação.
+4. **Implemente** com `@implementation`, um commit por tarefa do plano.
+5. **Teste** com `@test-plan` e `@test`, quando a spec tiver comportamento para testar.
+6. **Revise** com `@review` antes de abrir o pull request.
+7. **Abra o pull request** seguindo o template, com `Closes #N`.
+
+Em specs só de estrutura, como a SPEC-001, o builder também escreve os testes de fumaça e a etapa do architect pode ser pulada, porque não há contrato de API.
+
+### Exemplos de pedido
+
+Planejar uma spec:
+
+```
+@planning
+Planeje a SPEC-010 (issue #6): modelos e contratos do domínio.
+
+Critérios de aceite: compila em Kotlin puro; modelos imutáveis.
+
+Leia .agent/SKILLS.md e siga as skills listadas. Se não tiver certeza de uma versão ou de uma decisão que a especificação não cobre, pergunte em vez de inventar. Não escreva código ainda. Me mostre o plano.
+```
+
+Implementar depois do plano aprovado:
+
+```
+@implementation
+Plano da SPEC-010 aprovado. Implemente um commit por tarefa, sem push. Se um passo falhar, pare e me mostre o erro, sem contornar. Ao fim, me mostre a saída de "./gradlew build".
+```
+
+Abrir o pull request:
+
+```
+Rode "git fetch origin" e "git merge origin/main". Se houver conflito, pare e me mostre.
+Faça o push da branch e abra o pull request seguindo .github/pull_request_template.md, com SPEC-010 e "Closes #6".
+Marque no checklist só o que foi verificado, e diga como. Não faça o merge.
+```
+
+Para um agente que não reconhece os comandos com `@`, peça o papel pelo arquivo:
+
+```
+Leia .agent/SKILLS.md e siga as skills listadas. Depois aja como o planner definido em .agent/agents/planner.md e planeje a SPEC-010 (issue #6).
+```
+
+### Combinados que valem para qualquer agente
+
+- **Perguntar em vez de inventar.** Versão de biblioteca, nome de pacote, permissão ou regra que a especificação não define é pergunta, não suposição.
+- **Parar quando falha.** Se uma ferramenta não funciona com as versões do projeto, o agente para e avisa. Ele não troca versão, não desliga verificação e não cria código só para um teste passar.
+- **Um commit por tarefa, sem push** até a revisão de quem está conduzindo.
+- **Nada fora da spec.** Permissão, dependência ou arquivo que a spec não nomeia fica de fora. O que aparecer no caminho vira anotação em "Fora do escopo ou pendente" no pull request.
+- **Checklist honesto.** Item que não se aplica fica desmarcado com "não se aplica". Item marcado diz como foi verificado.
+- **O merge é de uma pessoa.** O agente abre o pull request e informa o resultado do CI. Quem faz o merge é o mantenedor.
+
+### Particularidades deste projeto
+
+- **Specs sem HTTP.** O schema do SDD foi pensado para APIs. Aqui, o campo `status` das specs guarda o código de saída do comando (`0` ou `1`), e a checagem de código HTTP do validador não se aplica. Está registrado em "Project Overrides" no `SKILLS.md`.
+- **AGP 9.** O Kotlin já vem embutido no plugin do Android, então o plugin `kotlin-android` que a skill mostra não é aplicado.
+- **Regras do projeto vencem as skills.** Quando `conventions.md` ou "Project Overrides" dizem uma coisa e um exemplo da skill diz outra, vale a regra do projeto.
+
+### Atualizar o SDD
+
+Quando sair uma versão nova do SDD, rode o instalador de novo com a stack `android`, com tudo já commitado, em um pull request só para isso. A reinstalação substitui as skills, os scripts e os agentes, e preserva o `SKILLS.md` e os documentos de contexto. Confira o `git diff` antes do commit: só devem mudar arquivos em `.agent/skills/`, `.agent/scripts/` e `.agent/agents/`.
 
 ## Ambiente
 
