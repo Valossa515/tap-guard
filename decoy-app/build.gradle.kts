@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -31,4 +33,8 @@ kotlin {
 
 dependencies {
     testImplementation(libs.junit4)
+}
+
+ktlint {
+    version.set(libs.versions.ktlint)
 }

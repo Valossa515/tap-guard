@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -35,4 +37,8 @@ dependencies {
     implementation(project(":core-nfc"))
     implementation(project(":core-data"))
     testImplementation(libs.junit4)
+}
+
+ktlint {
+    version.set(libs.versions.ktlint)
 }
