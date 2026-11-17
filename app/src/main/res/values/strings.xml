@@ -10,8 +10,8 @@
     <string name="risk_level_yellow_icon_description">Nível amarelo</string>
     <string name="risk_level_red_icon_description">Nível vermelho</string>
 
-    <!-- Títulos das telas: nomes da especificação (seção 10). -->
-    <string name="onboarding_title">Onboarding</string>
+    <!-- Títulos das telas: nomes da especificação (seção 10); a T1 em português, sem termo técnico (RNF-07). -->
+    <string name="onboarding_title">Boas-vindas</string>
     <string name="home_title">Início</string>
     <string name="scan_result_title">Resultado</string>
     <string name="app_detail_title">Detalhe do app</string>
