@@ -96,6 +96,12 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
    - exportar o serviço do Room faz o teste falhar;
    - mudar uma coluna de uma entidade sem subir a versão faz o teste de migração falhar contra o schema commitado;
    - tirar um dos três atributos de backup do manifesto faz o script do passo novo do CI falhar (rodado localmente).
+   - 2026-11-17, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma):
+     - `allowBackup="true"` → `MergedManifestTest` falha em `backup is disabled` (1 de 6).
+     - `device_root` retirado do `<device-transfer>` → falha em `data extraction rules exclude every domain…` (1 de 6).
+     - `MultiInstanceInvalidationService` exportado (`tools:replace`) → falha em `exported components are main activity and profile install receiver` (1 de 6).
+     - Passo "Regras de backup no manifesto" rodado localmente sem cada um dos três atributos → sai com código 1 e indica o atributo que falta; com o manifesto original passa.
+     - **Não funcionou:** coluna nova (`note`) em `UserDecisionEntity` sem subir a versão → o teste de migração **passa**. O KSP do Room regenera `core-data/schemas/.../1.json` no build com o schema novo, e o `MigrationTestHelper` valida contra o arquivo já reescrito. A mudança só aparece como diff do `1.json` no Git; nenhum teste nem passo do CI a barra. O AC-009 (parte negativa, `SCHEMA_MISMATCH`) **não está atendido** como especificado. Resolver exige algo fora do contrato (por exemplo, um passo no CI que falhe se o build alterar `core-data/schemas`): decisão do usuário.
 
 ## Database changes
 - **Banco novo, versão 1**, com quatro tabelas:
