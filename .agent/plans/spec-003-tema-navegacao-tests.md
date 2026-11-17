@@ -1,7 +1,7 @@
 # Test Plan: SPEC-003 Tema e navegação
 
 > Fonte: `test-strategy` do contrato `.agent/specs/contracts/spec-003-tema-navegacao.contract.toon` e critérios de `.agent/specs/acceptance/spec-003-tema-navegacao.acceptance.toon` · 2026-11-17
-> Sem desvio da estratégia aprovada: 5 classes, 25 cenários.
+> Sem desvio da estratégia aprovada: 5 classes, 26 cenários (25 + 1 da emenda 1.1 do contrato).
 
 ## Scope
 Navegação entre T1 e T9 pela Activity real, componente de nível isolado, tema claro e escuro, cores dos níveis (função pura) e manifesto mesclado (permissões e Activity exportada). Tudo em `app/src/test`, rodando no `./gradlew build` sem aparelho.
@@ -50,8 +50,9 @@ O "voltar" é acionado por `onBackPressedDispatcher.onBackPressed()` na Activity
 | 2 | yellow light | claro | "Encontramos apps que merecem atenção." e ícone "Nível amarelo" | AC-014 |
 | 3 | red light | claro | "Encontramos um app com perfil de golpe. Veja o que fazer." e ícone "Nível vermelho" | AC-015 |
 | 4 a 6 | os três | escuro (`@Config(qualifiers = "+night")`) | idem | AC-013 a AC-015 |
+| 7 | forced-dark-theme-on-light-system-uses-dark-level-colors (emenda 1.1) | sistema claro, `TapGuardTheme(darkTheme = true)` | cor do texto do verde = `riskLevelColors(GREEN, darkTheme = true).content`, lida por `SemanticsActions.GetTextLayoutResult` | AC-013, BR-009 |
 
-A cor não é lida da tela: fica coberta pelo `RiskLevelColorsTest` e pela revisão de que o `RiskLevelIndicator` usa `riskLevelColors` (AC-013 a AC-015).
+Todos os cenários envolvem o componente no `TapGuardTheme`. A cor de cada nível fica coberta pelo `RiskLevelColorsTest` e pela revisão de que o `RiskLevelIndicator` usa `riskLevelColors` (AC-013 a AC-015). O cenário 7 confere que o componente segue o modo do tema, não o do sistema.
 
 ### Tema — `ui/theme/TapGuardThemeTest.kt` (isolado)
 | # | Scenario | Modo | Expected result | AC |
@@ -76,4 +77,5 @@ A cor não é lida da tela: fica coberta pelo `RiskLevelColorsTest` e pela revis
 
 ## Execução
 - [x] `./gradlew build` verde, com os 25 cenários + `AppSmokeTest` (26 testes, 0 falhas), em 2026-11-17.
+- [x] Emenda 1.1: com o cenário 7, 27 testes, 0 falhas. Com o componente fixo no modo claro, só o cenário 7 falha.
 - Regras de teste do Compose em `androidx.compose.ui.test.junit4.v2` (`createAndroidComposeRule`, `createEmptyComposeRule`): as versões sem `v2` estão depreciadas no Compose 1.12. Mesmo artefato (`ui-test-junit4`), sem dependência nova.

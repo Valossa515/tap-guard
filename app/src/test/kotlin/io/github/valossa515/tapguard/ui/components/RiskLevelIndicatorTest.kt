@@ -2,11 +2,15 @@ package io.github.valossa515.tapguard.ui.components
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.text.TextLayoutResult
 import io.github.valossa515.tapguard.ui.theme.TapGuardTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -71,12 +75,43 @@ class RiskLevelIndicatorTest {
         compose.onNodeWithContentDescription(RED_ICON).assertIsDisplayed()
     }
 
-    private fun show(level: RiskLevelUi) {
+    @Test
+    fun `forced dark theme on light system uses dark level colors`() {
+        show(RiskLevelUi.GREEN, forcedDarkTheme = true)
+
+        assertEquals(riskLevelColors(RiskLevelUi.GREEN, darkTheme = true).content, textColor(GREEN_TEXT))
+    }
+
+    private fun show(
+        level: RiskLevelUi,
+        forcedDarkTheme: Boolean? = null,
+    ) {
         Robolectric
             .buildActivity(ComponentActivity::class.java)
             .setup()
             .get()
-            .setContent { TapGuardTheme { RiskLevelIndicator(level) } }
+            .setContent {
+                if (forcedDarkTheme == null) {
+                    TapGuardTheme { RiskLevelIndicator(level) }
+                } else {
+                    TapGuardTheme(darkTheme = forcedDarkTheme) { RiskLevelIndicator(level) }
+                }
+            }
+    }
+
+    private fun textColor(text: String): Color {
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose
+            .onNodeWithText(text)
+            .fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult]
+            .action
+            ?.invoke(layouts)
+        return layouts
+            .single()
+            .layoutInput
+            .style
+            .color
     }
 
     private companion object {

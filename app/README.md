@@ -20,8 +20,8 @@ Pacote base `io.github.valossa515.tapguard`:
 |--------|----------|
 | raiz | `MainActivity`: única Activity exportada; só chama `TapGuardTheme { TapGuardNavHost() }` |
 | `navigation` | `Routes.kt` (rotas `@Serializable`, uma por tela) e `TapGuardNavHost.kt` (o grafo; único lugar que conhece o `NavController`) |
-| `ui/theme` | `Color.kt` (paleta fixa, inclusive as cores dos níveis) e `Theme.kt` (`TapGuardTheme`: segue claro/escuro do sistema, sem cores dinâmicas) |
-| `ui/components` | `RiskLevelUi` (`GREEN`, `YELLOW`, `RED`), `riskLevelColors` (função pura) e `RiskLevelIndicator` (cor + ícone + frase) |
+| `ui/theme` | `Color.kt` (paleta fixa, inclusive as cores dos níveis) e `Theme.kt` (`TapGuardTheme`: segue claro/escuro do sistema, sem cores dinâmicas; fornece o modo em uso por `LocalTapGuardDarkTheme`) |
+| `ui/components` | `RiskLevelUi` (`GREEN`, `YELLOW`, `RED`), `riskLevelColors` (função pura) e `RiskLevelIndicator(level, modifier)` (cor + ícone + frase, no modo do `TapGuardTheme` em volta) |
 | `ui/<tela>` | um `{Feature}Screen` por tela: `onboarding`, `home`, `scanresult`, `appdetail`, `cardtestintro`, `cardtestreading`, `emergency`, `settings`, `alerthistory` |
 
 ### Navegação provisória (especificação, seção 10)

@@ -3,7 +3,6 @@ package io.github.valossa515.tapguard.ui.components
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -18,18 +17,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.valossa515.tapguard.R
+import io.github.valossa515.tapguard.ui.theme.LocalTapGuardDarkTheme
 
 /**
  * Mostra um nível de risco sempre com cor, ícone e frase (RNF-06): o nível nunca é
- * comunicado só pela cor.
+ * comunicado só pela cor. As cores seguem o modo do `TapGuardTheme` em volta.
  */
 @Composable
 fun RiskLevelIndicator(
     level: RiskLevelUi,
     modifier: Modifier = Modifier,
-    darkTheme: Boolean = isSystemInDarkTheme(),
 ) {
-    val colors = riskLevelColors(level, darkTheme)
+    val colors = riskLevelColors(level, LocalTapGuardDarkTheme.current)
     Row(
         modifier =
             modifier
