@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "bd0e9ab4a0ec4808fae50b17ae98e678",
+    "identityHash": "329f37397a3af87e3cdcf00e99e51dbc",
     "entities": [
       {
         "tableName": "scan_run",
@@ -144,7 +144,7 @@
       },
       {
         "tableName": "user_decision",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packageName` TEXT NOT NULL, `decision` TEXT NOT NULL, `decidedAt` INTEGER NOT NULL, `note` TEXT NOT NULL, PRIMARY KEY(`packageName`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packageName` TEXT NOT NULL, `decision` TEXT NOT NULL, `decidedAt` INTEGER NOT NULL, PRIMARY KEY(`packageName`))",
         "fields": [
           {
             "fieldPath": "packageName",
@@ -162,12 +162,6 @@
             "fieldPath": "decidedAt",
             "columnName": "decidedAt",
             "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "note",
-            "columnName": "note",
-            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -231,7 +225,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bd0e9ab4a0ec4808fae50b17ae98e678')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '329f37397a3af87e3cdcf00e99e51dbc')"
     ]
   }
 }
