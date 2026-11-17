@@ -1,0 +1,144 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-004-persistencia.contract.toon
+# SPEC-004 (issue #5) – camadas = build e CI e pacotes do core-data e do app e docs
+# Pacotes: io.github.valossa515.tapguard.core.data.{database;database.entity;database.dao;settings;di} e io.github.valossa515.tapguard (app)
+# Emenda 1.3 (2026-11-17, review): passo do schema usa git status --porcelain (pega arquivo novo); DataModuleTest injeta o SettingsDataSource; passo Publica os relatorios de teste (if always) no job Build e testes
+# Emenda 1.2 (2026-11-17): passo Schema do Room commitado no job Build e testes (git diff --exit-code -- core-data/schemas depois do build); AC-009 reescrito
+# Emenda 1.1 (2026-11-17): os dois cenarios de escrita do SettingsDataSource usam Assume.assumeFalse no Windows (renomear o .tmp do DataStore por cima do arquivo falha na JVM do Windows); rodam no Android e no Linux do CI
+
+contract:
+  feature-ref: FT-004
+  version: 1.3
+
+layers:
+  build:
+    files[4]{path,action,description}:
+      gradle/libs.versions.toml,modify,versoes ksp 2.3.14 e hilt 2.60.1 e room 2.8.5 e datastore 1.3.0 e coroutinesTest 1.11.0; bibliotecas hilt-android e hilt-compiler e hilt-android-testing e room-runtime e room-compiler e room-testing e datastore-preferences e kotlinx-coroutines-test; plugins ksp e hilt e room
+      build.gradle.kts,modify,plugins ksp e hilt e room declarados com apply false
+      core-data/build.gradle.kts,modify,aplica ksp e hilt e room; room schemaDirectory em $projectDir/schemas; testOptions unitTests isIncludeAndroidResources; sourceSets test assets.directories com $projectDir/schemas; dependencias room-runtime e ksp(room-compiler) e datastore-preferences e hilt-android e ksp(hilt-compiler); teste robolectric e androidx-test-core e room-testing e kotlinx-coroutines-test e hilt-android-testing e kspTest(hilt-compiler)
+      app/build.gradle.kts,modify,aplica ksp e hilt; dependencias hilt-android e ksp(hilt-compiler)
+  ci:
+    files[1]{path,action,description}:
+      .github/workflows/ci.yml,modify,passo Regras de backup no manifesto no job Regras do projeto (falha se app/src/main/AndroidManifest.xml nao tiver android:allowBackup="false" e android:dataExtractionRules e android:fullBackupContent); passo Publica os relatorios de teste no job Build e testes depois do build com if always (artefato test-reports com */build/reports/tests/ pelo upload-artifact fixado por SHA); passo Schema do Room commitado no job Build e testes depois do build (falha se git status --porcelain -- core-data/schemas nao for vazio: arquivo alterado ou novo; pede para commitar o schema regerado)
+  core-data-entity:
+    files[4]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/entity/ScanRunEntity.kt,create,tabela scan_run: id Long PK autoincremento; startedAt Long; finishedAt Long?; trigger String; totalApps Int; redCount Int; yellowCount Int
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/entity/AppSnapshotEntity.kt,create,tabela app_snapshot: PK scanId e packageName; FK scanId para scan_run.id ON DELETE CASCADE; label String; versionCode Long; installer String?; firstInstallTime Long; lastUpdateTime Long; signals Int; score Int; level String
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/entity/UserDecisionEntity.kt,create,tabela user_decision: packageName String PK; decision String; decidedAt Long
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/entity/AlertEventEntity.kt,create,tabela alert_event: id Long PK autoincremento; type String; packageName String?; versionCode Long?; level String?; createdAt Long; readAt Long?
+  core-data-dao:
+    files[4]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDao.kt,create,insert(ScanRunEntity) Long; getById(id) ScanRunEntity?; observeAll() Flow de lista ordenada por startedAt decrescente
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/AppSnapshotDao.kt,create,insertAll(lista de AppSnapshotEntity); getByScanId(scanId) lista
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/UserDecisionDao.kt,create,insert(UserDecisionEntity); getByPackageName(packageName) UserDecisionEntity?
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/AlertEventDao.kt,create,insert(AlertEventEntity) Long; getById(id) AlertEventEntity?
+  core-data-database:
+    files[2]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/TapGuardDatabase.kt,create,@Database versao 1 com exportSchema e as quatro entidades; um acessor por DAO; constante DATABASE_NAME = tapguard.db
+      core-data/schemas/io.github.valossa515.tapguard.core.data.database.TapGuardDatabase/1.json,create,schema da versao 1 gerado pelo build (KSP do Room) e commitado
+  core-data-settings:
+    files[1]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/settings/SettingsDataSource.kt,create,@Inject constructor(DataStore de Preferences); Flow e escrita suspend para onboardingDone (padrao false) e monitoringEnabled (padrao true) e scanIntervalHours (padrao 6) e lastDefaultPaymentComponent (padrao null; escrever null remove a chave); constante DATASTORE_NAME = settings; sem validacao
+  core-data-di:
+    files[1]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/di/DataModule.kt,create,object @Module @InstallIn(SingletonComponent): @Singleton TapGuardDatabase por Room.databaseBuilder com DATABASE_NAME; um provider por DAO; @Singleton DataStore de Preferences por PreferenceDataStoreFactory com preferencesDataStoreFile(DATASTORE_NAME)
+  app:
+    files[4]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/TapGuardApplication.kt,create,Application com @HiltAndroidApp; sem logica
+      app/src/main/AndroidManifest.xml,modify,application com android:name .TapGuardApplication e android:allowBackup false e android:dataExtractionRules @xml/data_extraction_rules e android:fullBackupContent @xml/full_backup_content
+      app/src/main/res/xml/data_extraction_rules.xml,create,data-extraction-rules com cloud-backup e device-transfer excluindo os nove dominios (root file database sharedpref external device_root device_file device_database device_sharedpref) com path .
+      app/src/main/res/xml/full_backup_content.xml,create,full-backup-content excluindo os nove dominios com path . (Android 11 ou anterior; exigido pelo lint com minSdk 26)
+  docs:
+    files[10]{path,action,description}:
+      core-data/README.md,modify,estado; pacotes; tabelas e colunas e chaves; preferencias e padroes; nomes de arquivo; schemas; comandos; corrige compileSdk 36 para 37
+      app/README.md,modify,TapGuardApplication e Hilt; backup desligado e as duas regras; o que o MergedManifestTest confere
+      CONTRIBUTING.md,modify,Ambiente: schemas commitados; testes do core-data
+      .agent/runbook.md,modify,testes do core-data e migracao; schema em core-data/schemas; troubleshooting de schema e de backup
+      .agent/project-reference.md,modify,secao 1; secao 3 com entidades e DAOs e DataModule e SettingsDataSource; secao 5 com tipos e chaves e versao 1 do schema; secao 8 com as versoes
+      .agent/conventions.md,modify,Database: colunas em camelCase da secao 9; schemas nos assets do teste local; MigrationTestHelper com driver; backup desligado
+      .agent/context.md,modify,persistencia criada na SPEC-004 e versoes
+      .agent/SKILLS.md,modify,Persistence; versoes; so KSP; divergencias (colunas camelCase; DataStore sem interface no core-domain ate a SPEC-018; teste do grafo do Hilt no core-data); MigrationTestHelper com driver; MultiInstanceInvalidationService em Permissions; backup desligado e o que o MergedManifestTest e o CI conferem
+      .agent/decisions.md,modify,ADR-014 Room 2 em vez de Room 3; so KSP; colunas em camelCase; backup e transferencia entre aparelhos desligados
+      .agent/plans/spec-004-persistencia.md,modify,marcar tarefas e registrar a conferencia
+
+migrations[1]{file,description}:
+  core-data/schemas/io.github.valossa515.tapguard.core.data.database.TapGuardDatabase/1.json,Schema inicial versao 1 (sem Migration: nao ha versao anterior)
+
+dependencies:
+  uses[5]:
+    core-data/build.gradle.kts e app/build.gradle.kts (existentes: namespace e SDKs e toolchain e ktlint e detekt)
+    io.github.valossa515.tapguard.MergedManifestTest (existente: estendido)
+    Job Regras do projeto do ci.yml (existente: novo passo)
+    Robolectric 4.18 e androidx.test:core 1.7.0 (existentes no catalogo)
+    androidx.sqlite AndroidSQLiteDriver (transitivo do room-runtime; usado so no teste de migracao)
+  introduces[11]:
+    com.google.devtools.ksp 2.3.14 (plugin)
+    com.google.dagger.hilt.android 2.60.1 (plugin)
+    com.google.dagger:hilt-android e hilt-compiler 2.60.1
+    androidx.room 2.8.5 (plugin)
+    androidx.room:room-runtime e room-compiler 2.8.5
+    androidx.datastore:datastore-preferences 1.3.0
+    com.google.dagger:hilt-android-testing 2.60.1 (teste)
+    androidx.room:room-testing 2.8.5 (teste)
+    org.jetbrains.kotlinx:kotlinx-coroutines-test 1.11.0 (teste)
+    Componente androidx.room.MultiInstanceInvalidationService no manifesto mesclado (nao exportado)
+    Atributos de backup no manifesto do app
+
+test-strategy:
+  unit-tests:
+    - target: SettingsDataSource
+      type: junit4-jvm (as duas escritas ignoradas no Windows por Assume e verificadas no CI)
+      scenarios[3]:
+        first-read-returns-the-four-defaults
+        written-values-are-read-back
+        writing-null-removes-last-default-payment-component
+  integration-tests:
+    - target: ScanRunDao
+      type: robolectric-room-in-memory
+      scenarios[3]:
+        insert-generates-id-and-get-by-id-returns-the-row
+        observe-all-emits-inserted-rows-newest-first
+        optional-finished-at-round-trips-as-null
+    - target: AppSnapshotDao
+      type: robolectric-room-in-memory
+      scenarios[4]:
+        insert-all-and-get-by-scan-id-returns-the-rows
+        duplicate-scan-id-and-package-name-is-rejected
+        orphan-scan-id-is-rejected
+        deleting-the-scan-run-cascades-to-its-snapshots
+    - target: UserDecisionDao
+      type: robolectric-room-in-memory
+      scenarios[1]:
+        insert-and-get-by-package-name-returns-the-decision
+    - target: AlertEventDao
+      type: robolectric-room-in-memory
+      scenarios[2]:
+        insert-with-all-fields-and-get-by-id-returns-the-row
+        optional-fields-round-trip-as-null
+    - target: TapGuardDatabase migration
+      type: robolectric-migration-test-helper
+      scenarios[1]:
+        version-1-is-created-and-validated-from-the-exported-schema
+    - target: DataModule (Hilt graph)
+      type: robolectric-hilt
+      scenarios[2]:
+        injects-database-daos-datastore-and-settings-data-source
+        database-and-datastore-are-singletons
+    - target: MergedManifestTest (app)
+      type: robolectric
+      scenarios[6]:
+        requested-permissions-are-within-the-explicit-allowlist
+        application-class-is-tap-guard-application
+        exported-components-are-main-activity-and-profile-install-receiver
+        backup-is-disabled
+        data-extraction-rules-exclude-every-domain-in-cloud-backup-and-device-transfer
+        full-backup-content-excludes-every-domain
+  excluded[8]{target,reason}:
+    Entidades,Dados sem logica; cobertos pelos testes dos DAOs
+    TapGuardDatabase,Sem logica propria; coberto pelos testes dos DAOs e da migracao
+    TapGuardApplication,So a anotacao @HiltAndroidApp; grafo coberto no core-data e ligacao no manifesto coberta pelo MergedManifestTest (applicationInfo.className)
+    data_extraction_rules.xml e full_backup_content.xml,Cobertos pelo MergedManifestTest; ligacao no manifesto coberta pelo passo do CI
+    1.json,Gerado pelo build; coberto pelo teste de migracao
+    Passo Regras de backup no manifesto,Shell no CI; verificado no CI da PR e no caso negativo local da conferencia (AC-023)
+    Passo Schema do Room commitado,Shell no CI; verificado no CI da PR e nos casos negativos locais (coluna temporaria regera o 1.json; 2.json novo nao commitado) (AC-009)
+    Passo Publica os relatorios de teste,Configuracao do CI; verificado no CI da PR (artefato test-reports com o SettingsDataSourceTest executando os 3 testes no Linux)

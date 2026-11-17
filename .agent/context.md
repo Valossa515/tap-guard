@@ -7,6 +7,7 @@
 - **Type:** App Android, só local, sem backend.
 - **Stack:** Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)**.
 - **Build tool:** Gradle 9.7.0 com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos (criado na SPEC-001).
+- **Persistência e injeção (SPEC-004):** Hilt por KSP; banco Room `tapguard.db` versão 1 com as quatro tabelas da seção 9; DataStore `settings` com as quatro preferências; backup do app desligado. Repositórios e retenção na SPEC-018.
 - **Runtime version:** Android 8.0 (API 26) ou superior; compileSdk 37 e targetSdk 36 (separados desde a SPEC-003, ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
 
 ## Problem
@@ -54,7 +55,7 @@ Não se aplica: sem backend e sem API HTTP. As telas T1–T9 estão em `project-
 - **Processo:** 8 etapas e 38 specs (SPEC-000 a SPEC-074, issues #1 a #38); uma branch e um PR por spec.
 
 ## Dependencies
-Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. Já no catálogo: AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 (motor 1.8.0), detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2. As bibliotecas de produção entram nas specs que as usam.
+Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. Já no catálogo: AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 (motor 1.8.0), detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; desde a SPEC-004, KSP 2.3.14, Hilt 2.60.1, Room 2.8.5 e DataStore 1.3.0. As demais bibliotecas de produção entram nas specs que as usam.
 
 ## Open Decisions (especificação, seção 13)
 - Nome de exibição do app em português. (O identificador do pacote foi decidido na SPEC-001: ADR-011.)

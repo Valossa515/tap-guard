@@ -1,0 +1,32 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-004-persistencia.acceptance.toon
+# SPEC-004 (issue #5) – testes sem aparelho (Robolectric e JUnit 4 em src/test)
+
+acceptance:
+  feature-ref: FT-004
+  version: 1.0
+
+criteria[23]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,DAO de scan_run em memoria,Banco Room em memoria,Inserir um ScanRunEntity e ler por id e pelo Flow,A linha lida e igual a gravada e o Flow a emite; id gerado automaticamente,must-have,BR-002
+  AC-002,DAO de app_snapshot em memoria,Banco em memoria com um scan_run,Inserir snapshots e ler pelo scanId,Os snapshots lidos sao iguais aos gravados,must-have,BR-004
+  AC-003,DAO de user_decision em memoria,Banco em memoria,Inserir uma decisao TRUSTED e ler pelo packageName,A decisao lida e igual a gravada,must-have,BR-004
+  AC-004,DAO de alert_event em memoria,Banco em memoria,Inserir alertas com e sem os campos opcionais e ler,Os alertas lidos sao iguais aos gravados e os opcionais voltam null quando nao informados,must-have,BR-003
+  AC-005,Snapshot duplicado recusado,Snapshot gravado para um scanId e packageName,Inserir outro com o mesmo scanId e packageName,A insercao falha (DUPLICATE_SNAPSHOT ConstraintViolation),must-have,BR-004
+  AC-006,Snapshot orfao recusado,Banco em memoria sem scan_run com o id usado,Inserir app_snapshot com esse scanId,A insercao falha (ORPHAN_SNAPSHOT ConstraintViolation),must-have,BR-004
+  AC-007,Cascata ao apagar varredura,scan_run com snapshots,Apagar o scan_run por SQL direto no teste,Os snapshots daquele scanId deixam de existir,must-have,BR-004
+  AC-008,Schema versionado e commitado,Build do core-data,Inspecionar core-data/schemas e o Git,core-data/schemas/<banco>/1.json existe e esta no repositorio,must-have,BR-006
+  AC-009,Migracao inicial validada e schema commitado,MigrationTestHelper com arquivo e driver e schemas nos assets do teste local; passo Schema do Room commitado no job Build e testes,Criar a versao 1 e validar contra o schema; mudar uma entidade e rodar o build e o passo do CI sem commitar o schema regerado,A versao 1 e criada e validada sem erro; mudar uma entidade sem commitar o schema regerado faz o CI falhar (SCHEMA_NOT_COMMITTED Failure) e a alteracao e desfeita sem commit,must-have,BR-006
+  AC-010,Preferencias com os padroes,DataStore novo e vazio,Ler as quatro preferencias,onboardingDone false; monitoringEnabled true; scanIntervalHours 6; lastDefaultPaymentComponent null,must-have,BR-007
+  AC-011,Preferencias gravadas e relidas,DataStore novo,Escrever as quatro preferencias e ler de novo; depois apagar lastDefaultPaymentComponent,Os valores lidos sao os escritos e lastDefaultPaymentComponent volta a null,must-have,BR-007
+  AC-012,Hilt fornece a persistencia,Teste Hilt no core-data (HiltTestApplication),Injetar o banco e os quatro DAOs e o DataStore,Todos injetados; banco e DataStore singletons,must-have,BR-008
+  AC-013,Application do Hilt,Manifesto mesclado do app,MergedManifestTest le applicationInfo.className,io.github.valossa515.tapguard.TapGuardApplication (anotada com @HiltAndroidApp),must-have,BR-008
+  AC-014,So KSP e versoes no catalogo,Arquivos Gradle,Buscar kapt e versoes literais fora do catalogo,Nenhum kapt; nenhuma versao literal; Room e Hilt processados por KSP,must-have,BR-009
+  AC-015,Backup desligado,Manifesto mesclado do app,MergedManifestTest le a flag de backup da application,FLAG_ALLOW_BACKUP desligada; religar o backup faz o teste falhar e a alteracao e desfeita sem commit,must-have,BR-010
+  AC-016,Regras excluem tudo,data_extraction_rules.xml e full_backup_content.xml,MergedManifestTest le os dois arquivos,Os nove dominios excluidos em cloud-backup e device-transfer e em full-backup-content; tirar um dominio faz o teste falhar e a alteracao e desfeita sem commit; os dois arquivos ligados no manifesto mesclado (inspecao),must-have,BR-010
+  AC-017,Componentes exportados conferidos,Manifesto mesclado do app,MergedManifestTest le Activities e servicos e receptores e provedores,Exportados = MainActivity e ProfileInstallReceiver; exportar o servico do Room faz o teste falhar e a alteracao e desfeita sem commit,must-have,BR-011
+  AC-018,Permissoes inalteradas,Manifesto mesclado do app,MergedManifestTest le as permissoes,Todas dentro da lista existente; nenhuma INTERNET,must-have,BR-012
+  AC-019,Sem dado de cartao,Entidades e chaves de preferencias,Revisar as colunas e as chaves,Nenhuma coluna ou chave guarda dado de cartao,must-have,BR-013
+  AC-020,ktlint e detekt e lint e testes passam,Codigo da spec,./gradlew build,Termina com codigo 0 sem aviso novo de lint ou do Room,must-have,
+  AC-021,Documentacao atualizada,PR da SPEC-004,Revisar core-data/README.md e app/README.md e CONTRIBUTING.md e runbook.md e project-reference.md e conventions.md e context.md e SKILLS.md e decisions.md,Tabelas e preferencias e comandos documentados; divergencias registradas no SKILLS.md; ADR-014 registrado,must-have,
+  AC-022,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,
+  AC-023,CI confere a ligacao das regras de backup,Passo novo no job Regras do projeto,Rodar o passo com o manifesto atual e depois sem um dos tres atributos (localmente e desfeito sem commit),Passa com os tres atributos e falha (BACKUP_RULES_MISSING Failure) sem qualquer um deles; no CI da PR o passo roda e passa,must-have,BR-015

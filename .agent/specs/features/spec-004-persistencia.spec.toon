@@ -1,0 +1,69 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-004-persistencia.spec.toon
+# SPEC-004 (issue #5) – interface library: outputs.*.status e o resultado devolvido ou a excecao lancada
+
+feature:
+  id: FT-004
+  name: SPEC-004 Base de persistencia e injecao
+  version: 1.0
+  status: draft
+  interface: library
+
+requirement:
+  summary: Infraestrutura de dados e de injecao sem regra de negocio. Banco Room versao 1 no core-data com as tabelas scan_run e app_snapshot e user_decision e alert_event da secao 9 e schema exportado em core-data/schemas e commitado. DataStore com as preferencias onboardingDone e monitoringEnabled e scanIntervalHours e lastDefaultPaymentComponent e seus padroes. Hilt fornece o banco e os DAOs e o DataStore; o app tem TapGuardApplication. Backup do app desligado inclusive a transferencia direta entre aparelhos.
+  actor: Codigo das specs seguintes (repositorios da SPEC-018 e telas)
+  trigger: DAOs e fonte de preferencias chamados pelo codigo; injecao pelo Hilt
+
+inputs[4]{name,type,required,constraints}:
+  entidade,ScanRunEntity ou AppSnapshotEntity ou UserDecisionEntity ou AlertEventEntity,true,colunas e tipos da secao 9 conforme as decisoes do plano
+  chave-de-leitura,Long ou String,false,id da varredura ou do alerta; scanId para os snapshots; packageName para a decisao
+  preferencia,chave do DataStore,true,onboardingDone ou monitoringEnabled ou scanIntervalHours ou lastDefaultPaymentComponent
+  valor,Boolean ou Int ou String?,false,valor escrito na preferencia; null apaga lastDefaultPaymentComponent
+
+outputs:
+  success:
+    description: A entidade e gravada e lida de volta igual; o Flow emite o estado atual; a preferencia devolve o valor escrito ou o padrao
+    status: Success
+    body[4]{name,type,value}:
+      banco,arquivo,versao 1 com quatro tabelas e schema core-data/schemas/<banco>/1.json
+      preferencias-padrao,valores,onboardingDone false; monitoringEnabled true; scanIntervalHours 6; lastDefaultPaymentComponent null
+      injecao,grafo Hilt,banco singleton e quatro DAOs e DataStore singleton
+      backup,manifesto,allowBackup false e regras que excluem todos os dominios em cloud-backup e device-transfer e full-backup-content
+  errors[4]{code,status,when}:
+    DUPLICATE_SNAPSHOT,ConstraintViolation,insercao de app_snapshot com o mesmo scanId e packageName de outro snapshot
+    ORPHAN_SNAPSHOT,ConstraintViolation,insercao de app_snapshot com scanId que nao existe em scan_run
+    SCHEMA_NOT_COMMITTED,Failure,entidade alterada sem commitar o schema regerado: o passo Schema do Room commitado do CI falha
+    BACKUP_RULES_MISSING,Failure,o manifesto do app nao tem um dos tres atributos de backup (o job Regras do projeto falha)
+
+business-rules[16]{id,rule}:
+  BR-001,Tabelas e colunas com os nomes exatos da secao 9 em camelCase (conventions.md); divergencia com a skill de banco registrada no SKILLS.md
+  BR-002,Tipos: id Long autoincremento; datas em milissegundos Long; enums como texto; level GREEN ou YELLOW ou RED; signals e score Int; versionCode Long
+  BR-003,Opcionais: scan_run.finishedAt e app_snapshot.installer e alert_event.packageName e alert_event.versionCode e alert_event.level e alert_event.readAt
+  BR-004,app_snapshot tem chave scanId e packageName e chave estrangeira scanId para scan_run.id com exclusao em cascata; user_decision tem chave packageName
+  BR-005,DAOs so inserem e leem; nenhuma consulta de retencao ou duplicidade ou comparacao (SPEC-018)
+  BR-006,Banco versao 1 com exportSchema; schema em core-data/schemas commitado; toda versao seguinte traz Migration e teste
+  BR-007,Preferencias: onboardingDone padrao false; monitoringEnabled padrao true; scanIntervalHours padrao 6 sem validacao das opcoes; lastDefaultPaymentComponent null quando nunca registrado
+  BR-008,Hilt fornece o banco e o DataStore como singletons e cada DAO; TapGuardApplication com @HiltAndroidApp no manifesto
+  BR-009,Room e Hilt so por KSP; sem kapt; versoes so no catalogo
+  BR-010,android:allowBackup false; dataExtractionRules exclui os nove dominios em cloud-backup e device-transfer; fullBackupContent exclui os nove dominios
+  BR-011,Componentes exportados do manifesto mesclado = MainActivity e ProfileInstallReceiver; MultiInstanceInvalidationService do Room aceito e nao exportado
+  BR-012,Permissoes do manifesto mesclado continuam dentro da lista do MergedManifestTest; nunca INTERNET
+  BR-013,Nenhum dado de cartao entra no banco nem nas preferencias
+  BR-014,Nomes de arquivo: banco tapguard.db; DataStore settings
+  BR-016,Regra de schema: ate a primeira versao publica o schema da versao 1 pode mudar com o 1.json commitado junto e sem migracao; a partir dela o schema de versao publicada fica congelado e mudanca exige subir a versao e Migration e teste; o CI barra schema regerado e nao commitado desde ja e barra alteracao em N.json existente na main a partir da SPEC-073
+  BR-015,O job Regras do projeto do CI falha se app/src/main/AndroidManifest.xml nao tiver android:allowBackup="false" e android:dataExtractionRules e android:fullBackupContent
+
+assumptions[13]:
+  Versoes conferidas em 2026-11-17: KSP 2.3.14 e Hilt 2.60.1 e Room 2.8.5 e DataStore 1.3.0 e hilt-android-testing 2.60.1 e room-testing 2.8.5 e kotlinx-coroutines-test 1.11.0
+  Room 2 (androidx.room) por decisao do usuario; Room 3 fora
+  Experimento: compila com KSP no app e no core-data; DAO em memoria e grafo do Hilt passam sob Robolectric
+  MigrationTestHelper com arquivo e driver (AndroidSQLiteDriver) passa sob Robolectric; o construtor classico falha
+  Schemas nos assets do teste local por assets.directories.add (forma nao depreciada do AGP 9)
+  Teste do grafo do Hilt no core-data (no app o KSP nao resolve os tipos implementation do core-data)
+  Com targetSdk 31+ allowBackup false pode nao desligar a transferencia direta entre aparelhos (documentacao de Auto Backup); por isso as regras de extracao
+  dataExtractionRulesRes nao e API publica; o teste confere a flag de backup e le os arquivos de regras
+  Nomes de arquivo tapguard.db e settings decididos pelo usuario
+  A interface de repositorio no core-domain para as preferencias vem na SPEC-018 (divergencia com a skill registrada)
+  Transferencia para iOS exige configuracao explicita de app iOS que nao existe; fora das regras
+  outputs.*.status e o resultado devolvido ou a excecao lancada (feature.interface library)
+  O KSP do Room regera core-data/schemas a cada build: o teste de migracao sozinho nao detecta entidade alterada sem subir a versao (verificado na conferencia); o passo do CI cobre o schema nao commitado

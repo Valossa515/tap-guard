@@ -32,6 +32,22 @@ jobs:
           fi
           echo "OK: nenhum manifesto declara INTERNET"
 
+      # O MergedManifestTest nao consegue ler dataExtractionRules nem fullBackupContent (nao sao API publica).
+      - name: Regras de backup no manifesto
+        run: |
+          MANIFEST=app/src/main/AndroidManifest.xml
+          MISSING=0
+          for ATTR in 'android:allowBackup="false"' 'android:dataExtractionRules=' 'android:fullBackupContent='; do
+            if ! grep -qF "$ATTR" "$MANIFEST"; then
+              echo "Falta $ATTR em $MANIFEST (RNF-01: nada sai do aparelho por backup)."
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            exit 1
+          fi
+          echo "OK: backup desligado e regras de backup no manifesto"
+
       - name: Scripts shell com final de linha LF
         run: |
           BAD=$(git ls-files '*.sh' gradlew | while read -r f; do
@@ -64,6 +80,28 @@ jobs:
 
       - name: Build e testes
         run: ./gradlew build --no-daemon
+
+      # Mesmo se o build falhar: os relatorios mostram quais testes rodaram, falharam ou foram ignorados.
+      - name: Publica os relatorios de teste
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: '*/build/reports/tests/'
+          if-no-files-found: warn
+
+      # O build regera core-data/schemas a partir das entidades. Arquivo alterado ou novo (ex.: 2.json) aqui =
+      # entidade ou versao mudou sem o schema commitado.
+      - name: Schema do Room commitado
+        run: |
+          CHANGED=$(git status --porcelain -- core-data/schemas)
+          if [ -n "$CHANGED" ]; then
+            echo "$CHANGED"
+            echo "O build regerou o schema do Room em core-data/schemas e ele difere do commitado."
+            echo "Rode ./gradlew build localmente e commite o schema regerado junto com a mudanca na entidade."
+            exit 1
+          fi
+          echo "OK: schema do Room igual ao commitado"
 
       # So roda se o build passar. Falha se o APK nao existir, em vez de publicar artefato vazio.
       - name: Publica o APK de debug

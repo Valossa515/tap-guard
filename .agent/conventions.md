@@ -41,6 +41,13 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 ## Database
 - **Data access:** Room (histórico); DataStore (preferências).
 - **Migrations:** schema do Room exportado em `core-data/schemas` e versionado. Cada mudança de versão traz uma `Migration` e um teste de migração. `fallbackToDestructiveMigration()` é proibido em release.
+- **Regra de schema (ADR-014):**
+  - **Até a primeira versão pública**, o schema da versão 1 pode mudar, com o `1.json` regerado e commitado junto, sem `Migration`: não há banco instalado em aparelho de usuário.
+  - **A partir da primeira versão pública**, o schema de uma versão publicada fica congelado: mudança exige subir a versão, uma `Migration` e um teste de migração. O CI deve barrar alteração em `N.json` já existente na `main` (passo da SPEC-073).
+  - **Desde já**, o passo "Schema do Room commitado" do CI falha se o `./gradlew build` regerar `core-data/schemas` com diferença do commitado (entidade mudou sem o schema junto).
+- **Colunas:** nomes exatos da especificação (seção 9), em camelCase (`startedAt`), e não em `snake_case` como na skill de banco. Datas em milissegundos (`Long`); enums como texto.
+- **Testes de banco:** DAOs em banco em memória (Robolectric); migração com o `MigrationTestHelper` no construtor com arquivo e driver (`AndroidSQLiteDriver`), lendo os schemas dos assets do teste local (`sourceSets.test.assets.directories`). O construtor clássico falha sob Robolectric.
+- **Backup:** desligado (`allowBackup="false"`), com `dataExtractionRules` e `fullBackupContent` excluindo todos os domínios.
 - **Soft delete:** não previsto; retenção por limpeza (10 varreduras, 90 dias de alertas).
 - **Audit fields:** timestamps específicos por tabela (`startedAt`, `finishedAt`, `decidedAt`, `createdAt`, `readAt`); sem padrão genérico.
 - **Sinais persistidos** como máscara de bits em `app_snapshot.signals`. S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada.

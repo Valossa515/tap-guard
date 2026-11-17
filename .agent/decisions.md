@@ -105,6 +105,19 @@
 - **Alternatives:** manter compileSdk 36 e voltar Compose BOM, Navigation e Lifecycle para versões mais antigas (rejeitada: versões já conferidas e testadas; compileSdk não muda o comportamento em execução); subir também o targetSdk para 37 (rejeitada: o targetSdk segue a Play Store e muda o comportamento em execução).
 - **Consequences:** compileSdk e targetSdk deixam de andar juntos. O compileSdk sobe quando uma biblioteca exigir; o targetSdk sobe quando a Play Store exigir, com teste das mudanças de comportamento. Quem contribui precisa da plataforma 37 no SDK. O ADR-011 continua válido em todo o resto.
 
+## ADR-014 — Base de persistência: Room 2 por KSP, colunas da especificação, backup desligado e regra de schema
+- **Date:** 2026-11-17
+- **Status:** Aceita (implementada na SPEC-004)
+- **Context:** a SPEC-004 cria o banco (seção 9), as preferências e o Hilt. É a primeira spec com KSP, Room e DataStore. O app guarda histórico de apps e decisões e não pode deixar nada sair do aparelho (RNF-01).
+- **Decision:**
+  - **Room 2.8.5** (`androidx.room`), não o Room 3 (`androidx.room3`). Room e Hilt **só por KSP** 2.3.14; o kapt é incompatível com o Kotlin embutido do AGP 9. Hilt 2.60.1, DataStore 1.3.0. Combinação verificada num projeto descartável com Kotlin 2.4.21, AGP 9.3.3, Gradle 9.7.0 e JDK 21.
+  - **Colunas com os nomes da especificação** (camelCase), `id` `Long` autoincremento, datas em milissegundos, enums como texto, `level` `GREEN`/`YELLOW`/`RED`. Diverge da skill de banco (`snake_case`, UUID, `created_at`/`updated_at`). `app_snapshot` com chave `scanId` + `packageName` e FK para `scan_run` com exclusão em cascata.
+  - **Backup desligado:** `allowBackup="false"`. A documentação de Auto Backup diz que, com targetSdk 31+, em aparelhos de alguns fabricantes isso não desliga a transferência direta entre aparelhos. Por isso entram também `dataExtractionRules` e `fullBackupContent`, excluindo os nove domínios. O `MergedManifestTest` confere a flag e os dois arquivos; um passo do CI confere a ligação no manifesto.
+  - **Regra de schema:** até a primeira versão pública, o schema da versão 1 pode mudar, com o `1.json` commitado junto, sem `Migration`, porque não há banco instalado em aparelho de usuário. A partir da primeira versão pública, o schema de uma versão publicada fica congelado: mudança exige subir a versão, uma `Migration` e um teste de migração, e o CI deve barrar alteração em `N.json` já existente na `main` (passo da SPEC-073). O build regera o schema a cada compilação, então o teste de migração sozinho não detecta entidade alterada; desde já, o passo "Schema do Room commitado" do CI falha se o build regerar `core-data/schemas` com diferença do commitado.
+  - Banco `tapguard.db`; DataStore `settings`.
+- **Alternatives:** Room 3 (rejeitada pelo usuário; skill e convenções seguem o Room 2); kapt (incompatível com o AGP 9); colunas em `snake_case` (rejeitada: os nomes da especificação são o vocabulário do projeto); só `allowBackup="false"` (insuficiente no Android 12+); `MigrationTestHelper` clássico (falha no Robolectric); teste instrumentado da migração (exigiria emulador no CI).
+- **Consequences:** a SPEC-018 pode ajustar a versão 1 (índices, colunas) enquanto não houver versão pública, sempre com o schema commitado. A SPEC-073 acrescenta a trava dos schemas publicados. Testes que gravam com DataStore real mais de uma vez são ignorados no Windows e verificados pelo CI.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
