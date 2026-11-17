@@ -45,6 +45,8 @@ O app também passa a **não sair do aparelho por backup**: backup desligado e r
 | Ligação das regras de backup (2026-11-17) | novo passo no job "Regras do projeto" do `ci.yml`: falha se o `app/src/main/AndroidManifest.xml` não tiver `android:allowBackup="false"`, `android:dataExtractionRules` e `android:fullBackupContent`. Cobre o que o `MergedManifestTest` não consegue ler. Commit próprio na tarefa 5 |
 | Divergências com as skills (2026-11-17) | aprovadas para o `SKILLS.md`: colunas em camelCase (skill de banco); preferências sem interface no `core-domain` até a SPEC-018 (skill Android › DataStore); teste do grafo do Hilt no `core-data` |
 | Testes de escrita do DataStore no Windows (2026-11-17) | os dois cenários do `SettingsDataSourceTest` que gravam mais de uma vez usam `Assume.assumeFalse(<Windows>)`: no Windows, renomear o `.tmp` do DataStore por cima do arquivo existente falha na JVM (`Unable to rename …`). No Android e no Linux do CI eles rodam. O teste de padrões roda em todos os sistemas. Regra no `SKILLS.md`. A descrição do PR precisa dizer que esses dois testes só rodam no CI |
+| Schema do Room no CI (2026-11-17) | passo "Schema do Room commitado" no job "Build e testes", depois do `./gradlew build`: `git diff --exit-code -- core-data/schemas` falha se o build regerou o schema e ele difere do commitado, e pede para commitar o regerado. Commit próprio (`ci: falha se o schema do Room não estiver commitado`). AC-009 reescrito: mudar uma entidade sem commitar o schema regerado faz o CI falhar; o teste de migração continua criando e validando a versão 1 |
+| Regra de schema (2026-11-17) | até a primeira versão pública, o schema da versão 1 pode mudar, com o `1.json` commitado junto, sem migração (não há banco instalado em aparelho de usuário); a partir da primeira versão pública, o schema de uma versão publicada fica congelado: mudança exige subir a versão, uma `Migration` e um teste de migração, e o CI deve barrar alteração em `N.json` já existente na `main` (passo da SPEC-073). Registrada no ADR-014 e em `conventions.md` |
 | `MergedManifestTest` | passa a conferir **todos os componentes exportados** (Activities, serviços, receptores e provedores) contra uma lista explícita, que hoje é `MainActivity` e `ProfileInstallReceiver`. Também confere que o backup está desligado e que as duas regras de backup excluem todos os domínios. A lista de permissões continua igual |
 
 ### Experimento (projeto descartável `%TEMP%\tap-guard-spec004-probe-20261117`)
@@ -89,8 +91,8 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
    - `project-reference.md` (§1, §3, §5 com tipos, chaves e versão do schema, §8);
    - `conventions.md` (Database) e `context.md`;
    - `SKILLS.md`: Persistence; versões; só KSP; divergência das colunas com a skill de banco; divergência do DataStore sem interface no domínio; teste do Hilt no módulo dos tipos; `MigrationTestHelper` com driver; schemas nos assets do teste local; `MultiInstanceInvalidationService` em Permissions; backup desligado e o que o `MergedManifestTest` confere;
-   - **ADR-014** em `decisions.md` (Room 2 em vez de Room 3, só KSP, colunas em camelCase, backup e transferência entre aparelhos desligados).
-8. [ ] **Conferência dos critérios:** localmente, desfazendo sem commit:
+   - **ADR-014** em `decisions.md` (Room 2 em vez de Room 3, só KSP, colunas em camelCase, backup e transferência entre aparelhos desligados, regra de schema e o passo do CI) e a regra de schema em `conventions.md`.
+8. [x] **Conferência dos critérios:** localmente, desfazendo sem commit:
    - religar o backup (`allowBackup="true"`) faz o `MergedManifestTest` falhar;
    - tirar um domínio de uma das regras faz o teste falhar;
    - exportar o serviço do Room faz o teste falhar;
@@ -101,7 +103,7 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
      - `device_root` retirado do `<device-transfer>` → falha em `data extraction rules exclude every domain…` (1 de 6).
      - `MultiInstanceInvalidationService` exportado (`tools:replace`) → falha em `exported components are main activity and profile install receiver` (1 de 6).
      - Passo "Regras de backup no manifesto" rodado localmente sem cada um dos três atributos → sai com código 1 e indica o atributo que falta; com o manifesto original passa.
-     - **Não funcionou:** coluna nova (`note`) em `UserDecisionEntity` sem subir a versão → o teste de migração **passa**. O KSP do Room regenera `core-data/schemas/.../1.json` no build com o schema novo, e o `MigrationTestHelper` valida contra o arquivo já reescrito. A mudança só aparece como diff do `1.json` no Git; nenhum teste nem passo do CI a barra. O AC-009 (parte negativa, `SCHEMA_MISMATCH`) **não está atendido** como especificado. Resolver exige algo fora do contrato (por exemplo, um passo no CI que falhe se o build alterar `core-data/schemas`): decisão do usuário.
+     - Coluna nova (`note`) em `UserDecisionEntity` sem subir a versão → o teste de migração **passa**: o KSP do Room regera `core-data/schemas/.../1.json` no build, e o `MigrationTestHelper` valida contra o arquivo regerado. Resolvido pela emenda 1.2 (decisão do usuário): o passo "Schema do Room commitado" do CI, rodado localmente com a coluna temporária e o build regerando o `1.json`, sai com código 1 e pede para commitar o schema; com a árvore restaurada passa. AC-009 reescrito para essa verificação.
 
 ## Database changes
 - **Banco novo, versão 1**, com quatro tabelas:
@@ -117,6 +119,7 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
 ## Risks & open questions
 - **Índice da chave estrangeira:** a chave composta (`scanId`, `packageName`) começa por `scanId` e deve servir de índice. Se o Room avisar sobre a FK sem índice, a implementação para e pergunta, para não aceitar aviso novo.
 - **`PRAGMA foreign_keys`:** a cascata depende das chaves estrangeiras ligadas na conexão. O teste da cascata confirma.
+- **Schema regerado a cada build:** o teste de migração não detecta entidade alterada sem subir a versão. O passo "Schema do Room commitado" do CI cobre o schema não commitado. A trava de `N.json` publicado fica para a SPEC-073 (regra de schema).
 - **`MigrationTestHelper` clássico** falhou no Robolectric (experimento, item 2). O contrato usa o construtor com driver. O motivo da falha não foi identificado; não achei o erro registrado.
 - **DataStore no Windows:** a segunda gravação no mesmo arquivo falha na JVM do Windows (renomear o `.tmp` por cima do existente). Os dois testes de escrita são ignorados no Windows e verificados no CI (Linux). Tentado e descartado: `createWithPath` (Okio), que na versão Android usa o mesmo armazenamento por arquivo.
 - **DataStore singleton:** dois `DataStore` no mesmo arquivo derrubam o app. O Hilt fornece um só (`@Singleton`), e os testes criam o seu num arquivo temporário.

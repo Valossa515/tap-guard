@@ -32,10 +32,10 @@ outputs:
   errors[4]{code,status,when}:
     DUPLICATE_SNAPSHOT,ConstraintViolation,insercao de app_snapshot com o mesmo scanId e packageName de outro snapshot
     ORPHAN_SNAPSHOT,ConstraintViolation,insercao de app_snapshot com scanId que nao existe em scan_run
-    SCHEMA_MISMATCH,MigrationFailure,entidade alterada sem subir a versao: o banco criado nao bate com o schema 1.json commitado
+    SCHEMA_NOT_COMMITTED,Failure,entidade alterada sem commitar o schema regerado: o passo Schema do Room commitado do CI falha
     BACKUP_RULES_MISSING,Failure,o manifesto do app nao tem um dos tres atributos de backup (o job Regras do projeto falha)
 
-business-rules[15]{id,rule}:
+business-rules[16]{id,rule}:
   BR-001,Tabelas e colunas com os nomes exatos da secao 9 em camelCase (conventions.md); divergencia com a skill de banco registrada no SKILLS.md
   BR-002,Tipos: id Long autoincremento; datas em milissegundos Long; enums como texto; level GREEN ou YELLOW ou RED; signals e score Int; versionCode Long
   BR-003,Opcionais: scan_run.finishedAt e app_snapshot.installer e alert_event.packageName e alert_event.versionCode e alert_event.level e alert_event.readAt
@@ -50,9 +50,10 @@ business-rules[15]{id,rule}:
   BR-012,Permissoes do manifesto mesclado continuam dentro da lista do MergedManifestTest; nunca INTERNET
   BR-013,Nenhum dado de cartao entra no banco nem nas preferencias
   BR-014,Nomes de arquivo: banco tapguard.db; DataStore settings
+  BR-016,Regra de schema: ate a primeira versao publica o schema da versao 1 pode mudar com o 1.json commitado junto e sem migracao; a partir dela o schema de versao publicada fica congelado e mudanca exige subir a versao e Migration e teste; o CI barra schema regerado e nao commitado desde ja e barra alteracao em N.json existente na main a partir da SPEC-073
   BR-015,O job Regras do projeto do CI falha se app/src/main/AndroidManifest.xml nao tiver android:allowBackup="false" e android:dataExtractionRules e android:fullBackupContent
 
-assumptions[12]:
+assumptions[13]:
   Versoes conferidas em 2026-11-17: KSP 2.3.14 e Hilt 2.60.1 e Room 2.8.5 e DataStore 1.3.0 e hilt-android-testing 2.60.1 e room-testing 2.8.5 e kotlinx-coroutines-test 1.11.0
   Room 2 (androidx.room) por decisao do usuario; Room 3 fora
   Experimento: compila com KSP no app e no core-data; DAO em memoria e grafo do Hilt passam sob Robolectric
@@ -65,3 +66,4 @@ assumptions[12]:
   A interface de repositorio no core-domain para as preferencias vem na SPEC-018 (divergencia com a skill registrada)
   Transferencia para iOS exige configuracao explicita de app iOS que nao existe; fora das regras
   outputs.*.status e o resultado devolvido ou a excecao lancada (feature.interface library)
+  O KSP do Room regera core-data/schemas a cada build: o teste de migracao sozinho nao detecta entidade alterada sem subir a versao (verificado na conferencia); o passo do CI cobre o schema nao commitado
