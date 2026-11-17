@@ -32,6 +32,22 @@ jobs:
           fi
           echo "OK: nenhum manifesto declara INTERNET"
 
+      # O MergedManifestTest nao consegue ler dataExtractionRules nem fullBackupContent (nao sao API publica).
+      - name: Regras de backup no manifesto
+        run: |
+          MANIFEST=app/src/main/AndroidManifest.xml
+          MISSING=0
+          for ATTR in 'android:allowBackup="false"' 'android:dataExtractionRules=' 'android:fullBackupContent='; do
+            if ! grep -qF "$ATTR" "$MANIFEST"; then
+              echo "Falta $ATTR em $MANIFEST (RNF-01: nada sai do aparelho por backup)."
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -ne 0 ]; then
+            exit 1
+          fi
+          echo "OK: backup desligado e regras de backup no manifesto"
+
       - name: Scripts shell com final de linha LF
         run: |
           BAD=$(git ls-files '*.sh' gradlew | while read -r f; do
