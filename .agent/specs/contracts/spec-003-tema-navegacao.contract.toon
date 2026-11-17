@@ -1,0 +1,133 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-003-tema-navegacao.contract.toon
+# SPEC-003 (issue #4) – camadas = pacotes do modulo app (skill Android) mais build e recursos e docs
+# Pacote base: io.github.valossa515.tapguard  ·  K = app/src/main/kotlin/io/github/valossa515/tapguard
+
+contract:
+  feature-ref: FT-003
+  version: 1.0
+
+layers:
+  build:
+    files[5]{path,action,description}:
+      gradle/libs.versions.toml,modify,compileSdk 37; versoes composeBom activityCompose navigationCompose serialization robolectric testCore; bibliotecas material3 e activity-compose e navigation-compose e kotlinx-serialization-json e ui-test-junit4 e robolectric e androidx-test-core; plugins kotlin-compose e kotlin-serialization na versao do kotlin
+      build.gradle.kts,modify,plugins kotlin-compose e kotlin-serialization declarados com apply false
+      app/build.gradle.kts,modify,aplica kotlin-compose e kotlin-serialization; buildFeatures compose; testOptions unitTests isIncludeAndroidResources; dependencias de producao e de teste pelo catalogo; bloco detekt com buildUponDefaultConfig e config app/detekt.yml
+      .editorconfig,create,secao para arquivos kt e kts com ktlint_function_naming_ignore_when_annotated_with = Composable (texto exato do plano)
+      app/detekt.yml,create,naming FunctionNaming ignoreAnnotated Composable
+  manifest-resources:
+    files[8]{path,action,description}:
+      app/src/main/AndroidManifest.xml,modify,application com label @string/app_name e icon @drawable/ic_launcher_shield e tema @style/Theme.TapGuard; MainActivity exported com MAIN e LAUNCHER (unica Activity exportada); nenhuma permissao
+      app/src/main/res/values/themes.xml,create,Theme.TapGuard com parent android:Theme.Material.Light.NoActionBar (janela clara no modo claro)
+      app/src/main/res/values-night/themes.xml,create,Theme.TapGuard com parent android:Theme.Material.NoActionBar (janela escura no modo escuro; nao pisca em branco antes do Compose)
+      app/src/main/res/values/strings.xml,create,app_name Tap Guard (provisorio); titulos T1 a T9; rotulos dos botoes (T2 com os textos da especificacao e os demais provisorios); frases exatas dos tres niveis; descricoes dos icones de nivel
+      app/src/main/res/drawable/ic_launcher_shield.xml,create,icone provisorio do app: escudo vetorial (Material Symbols Apache 2.0)
+      app/src/main/res/drawable/ic_level_green.xml,create,icone de visto do nivel verde (Material Symbols Apache 2.0)
+      app/src/main/res/drawable/ic_level_yellow.xml,create,icone de alerta do nivel amarelo (Material Symbols Apache 2.0)
+      app/src/main/res/drawable/ic_level_red.xml,create,icone de erro do nivel vermelho (Material Symbols Apache 2.0)
+  entry:
+    files[1]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/MainActivity.kt,create,ComponentActivity que chama setContent com TapGuardTheme envolvendo TapGuardNavHost; sem logica
+  navigation:
+    files[2]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/navigation/Routes.kt,create,rotas @Serializable OnboardingRoute HomeRoute ScanResultRoute AppDetailRoute(packageName: String) CardTestIntroRoute CardTestReadingRoute EmergencyRoute SettingsRoute AlertHistoryRoute
+      app/src/main/kotlin/io/github/valossa515/tapguard/navigation/TapGuardNavHost.kt,create,NavHost com inicio em OnboardingRoute; fluxo da secao 10; T1 para T2 com popUpTo OnboardingRoute inclusive; T6 volta para a HomeRoute existente sem empilhar outra; T3 e T9 navegam para AppDetailRoute com packageName provisorio io.github.valossa515.tapguard.decoy
+  ui-theme:
+    files[2]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/theme/Color.kt,create,paleta fixa clara e escura incluindo fundo e conteudo dos niveis verde amarelo e vermelho
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/theme/Theme.kt,create,TapGuardTheme com lightColorScheme ou darkColorScheme por isSystemInDarkTheme; sem dynamicColorScheme
+  ui-components:
+    files[3]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/components/RiskLevelUi.kt,create,enum GREEN YELLOW RED (tipo do app ate o RiskLevel da SPEC-010; sem logica de score)
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/components/RiskLevelColors.kt,create,funcao pura riskLevelColors(level e darkTheme) que devolve fundo e conteudo do nivel a partir da paleta de ui/theme
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/components/RiskLevelIndicator.kt,create,composable RiskLevelIndicator(level e modifier) com icone do nivel (contentDescription) e frase exata nas cores de riskLevelColors
+  ui-screens:
+    files[9]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/onboarding/OnboardingScreen.kt,create,T1 vazia: titulo e botao para a T2
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/home/HomeScreen.kt,create,T2 vazia: titulo e botoes Verificar agora (T3) e Testar meu cartao (T5) e Acho que cai em um golpe (T7) e configuracoes (T8)
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/scanresult/ScanResultScreen.kt,create,T3 vazia: titulo e item provisorio que abre a T4
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/appdetail/AppDetailScreen.kt,create,T4 vazia: titulo e o packageName recebido
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/cardtestintro/CardTestIntroScreen.kt,create,T5 vazia: titulo e botao para a T6
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/cardtestreading/CardTestReadingScreen.kt,create,T6 vazia: titulo e botao que volta para a T2
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/emergency/EmergencyScreen.kt,create,T7 vazia: titulo
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/settings/SettingsScreen.kt,create,T8 vazia: titulo e botao para a T9
+      app/src/main/kotlin/io/github/valossa515/tapguard/ui/alerthistory/AlertHistoryScreen.kt,create,T9 vazia: titulo e alerta provisorio que abre a T4
+  docs:
+    files[7]{path,action,description}:
+      app/README.md,modify,estado do modulo; pacotes navigation e ui; rotas e componente de nivel; comandos installDebug e testes; origem dos icones (Material Symbols Apache 2.0); nome e icone provisorios
+      CONTRIBUTING.md,modify,Ambiente: plataforma 37 no Android SDK; instalar e abrir o app
+      .agent/runbook.md,modify,How to Run com installDebug; plataforma 37; testes Robolectric do app
+      .agent/project-reference.md,modify,secao 1 SDKs; secao 3 rotas e componentes; secao 4 telas; secao 8 versoes; secao 9 comandos
+      .agent/conventions.md,modify,composables em PascalCase aceitos por .editorconfig e app/detekt.yml; testes de composable isolado com Robolectric.buildActivity
+      .agent/SKILLS.md,modify,override de SDK (compileSdk 37 e targetSdk 36); nomes de composable; divergencia do teste de composable isolado; Permissions com a permissao e os componentes do AndroidX e o motivo de cada um; teste de permissoes como verificacao da lista
+      .agent/decisions.md,modify,ADR-013 separacao entre compileSdk 37 e targetSdk 36 (sem reescrever o ADR-011)
+
+migrations[0]{file,description}:
+
+dependencies:
+  uses[4]:
+    app/build.gradle.kts (existente: namespace e applicationId e toolchain e dependencias dos quatro core-* e ktlint e detekt)
+    gradle/libs.versions.toml (existente: catalogo unico de versoes)
+    io.github.valossa515.tapguard.AppSmokeTest (existente: mantido sem alteracao)
+    Plugins ktlint 14.2.0 e detekt 1.23.8 (existentes)
+  introduces[9]:
+    androidx.compose:compose-bom 2026.09.00 (material3 e ui-test-junit4 sem versao propria)
+    androidx.activity:activity-compose 1.13.0
+    androidx.navigation:navigation-compose 2.10.2
+    org.jetbrains.kotlinx:kotlinx-serialization-json 1.13.0
+    org.jetbrains.kotlin.plugin.compose 2.4.21
+    org.jetbrains.kotlin.plugin.serialization 2.4.21
+    org.robolectric:robolectric 4.18 (teste)
+    androidx.test:core 1.7.0 (teste)
+    Plataforma android-37.0 (compileSdk; baixada pelo AGP)
+
+test-strategy:
+  unit-tests:
+    - target: RiskLevelColors
+      type: junit4-jvm
+      scenarios[4]:
+        three-levels-have-distinct-colors-in-light-mode
+        three-levels-have-distinct-colors-in-dark-mode
+        each-level-content-on-container-contrast-at-least-4.5-in-light-mode
+        each-level-content-on-container-contrast-at-least-4.5-in-dark-mode
+  integration-tests:
+    - target: TapGuardNavHost via MainActivity
+      type: robolectric-compose-activity
+      scenarios[11]:
+        app-starts-on-onboarding
+        onboarding-goes-to-home
+        home-goes-to-scan-result
+        home-goes-to-card-test-intro
+        home-goes-to-emergency
+        home-goes-to-settings
+        scan-result-goes-to-app-detail-with-provisional-package-name
+        card-test-intro-goes-to-card-test-reading
+        settings-goes-to-alert-history-then-app-detail-with-provisional-package-name
+        back-on-home-after-onboarding-closes-the-app
+        card-test-reading-returns-to-existing-home-and-back-closes-the-app
+    - target: RiskLevelIndicator
+      type: robolectric-compose-isolated
+      scenarios[6]:
+        green-shows-check-icon-and-exact-phrase-in-light-mode
+        yellow-shows-warning-icon-and-exact-phrase-in-light-mode
+        red-shows-error-icon-and-exact-phrase-in-light-mode
+        green-shows-check-icon-and-exact-phrase-in-dark-mode
+        yellow-shows-warning-icon-and-exact-phrase-in-dark-mode
+        red-shows-error-icon-and-exact-phrase-in-dark-mode
+    - target: TapGuardTheme
+      type: robolectric-compose-isolated
+      scenarios[2]:
+        light-color-scheme-in-light-mode
+        dark-color-scheme-in-night-mode
+    - target: Merged manifest (PackageManager)
+      type: robolectric
+      scenarios[2]:
+        requested-permissions-are-within-the-explicit-allowlist
+        main-activity-is-the-only-exported-activity
+  excluded[6]{target,reason}:
+    Routes,Dados @Serializable sem logica; cobertos pelos testes de navegacao
+    Screens T1 a T9,Telas vazias sem estado; cobertas pelos testes de navegacao pela Activity real
+    MainActivity,So chama setContent; coberta pelos testes de navegacao
+    Color.kt,Constantes da paleta; cobertas pelo teste de RiskLevelColors e pelo teste do tema
+    RiskLevelUi,Enum sem logica; usado nos testes de RiskLevelColors e RiskLevelIndicator
+    Recursos (strings e drawables),Conferidos na revisao (AC-018 e AC-024); frases dos niveis cobertas pelos testes de RiskLevelIndicator
