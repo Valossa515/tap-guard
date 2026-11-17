@@ -1,4 +1,12 @@
 <resources>
     <!-- Nome exibido provisório (o nome em português é decisão em aberto, especificação seção 13). -->
     <string name="app_name">Tap Guard</string>
+
+    <!-- Níveis de risco: frases exatas da especificação (seção 10). -->
+    <string name="risk_level_green_text">Nada suspeito encontrado.</string>
+    <string name="risk_level_yellow_text">Encontramos apps que merecem atenção.</string>
+    <string name="risk_level_red_text">Encontramos um app com perfil de golpe. Veja o que fazer.</string>
+    <string name="risk_level_green_icon_description">Nível verde</string>
+    <string name="risk_level_yellow_icon_description">Nível amarelo</string>
+    <string name="risk_level_red_icon_description">Nível vermelho</string>
 </resources>
