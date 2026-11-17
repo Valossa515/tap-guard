@@ -46,6 +46,7 @@ dependencies {
     implementation(project(":core-domain"))
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
+    implementation(libs.datastore.preferences)
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
