@@ -44,6 +44,7 @@ O app também passa a **não sair do aparelho por backup**: backup desligado e r
 | Nomes de arquivo (2026-11-17) | banco **`tapguard.db`**; DataStore **`settings`** (arquivo `settings.preferences_pb`) |
 | Ligação das regras de backup (2026-11-17) | novo passo no job "Regras do projeto" do `ci.yml`: falha se o `app/src/main/AndroidManifest.xml` não tiver `android:allowBackup="false"`, `android:dataExtractionRules` e `android:fullBackupContent`. Cobre o que o `MergedManifestTest` não consegue ler. Commit próprio na tarefa 5 |
 | Divergências com as skills (2026-11-17) | aprovadas para o `SKILLS.md`: colunas em camelCase (skill de banco); preferências sem interface no `core-domain` até a SPEC-018 (skill Android › DataStore); teste do grafo do Hilt no `core-data` |
+| Testes de escrita do DataStore no Windows (2026-11-17) | os dois cenários do `SettingsDataSourceTest` que gravam mais de uma vez usam `Assume.assumeFalse(<Windows>)`: no Windows, renomear o `.tmp` do DataStore por cima do arquivo existente falha na JVM (`Unable to rename …`). No Android e no Linux do CI eles rodam. O teste de padrões roda em todos os sistemas. Regra no `SKILLS.md`. A descrição do PR precisa dizer que esses dois testes só rodam no CI |
 | `MergedManifestTest` | passa a conferir **todos os componentes exportados** (Activities, serviços, receptores e provedores) contra uma lista explícita, que hoje é `MainActivity` e `ProfileInstallReceiver`. Também confere que o backup está desligado e que as duas regras de backup excluem todos os domínios. A lista de permissões continua igual |
 
 ### Experimento (projeto descartável `%TEMP%\tap-guard-spec004-probe-20261117`)
@@ -74,14 +75,14 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
   - **Manifesto:** o `MergedManifestTest` estendido.
 
 ## Tasks
-1. [ ] **Versões e plugins** (`chore:`): KSP, Hilt, Room, DataStore e as bibliotecas de teste no catálogo; plugins com `apply false` na raiz. `./gradlew build` verde.
-2. [ ] **Banco Room** (`feat:`): no `core-data`, plugins KSP e Room, as quatro entidades com tipos, chaves e cascata aprovados, os quatro DAOs (inserir e ler), o banco versão 1 com `exportSchema`, e o `schemas/.../1.json` gerado e commitado. Schemas nos assets do teste local.
-3. [ ] **Preferências** (`feat:`): fonte fina sobre `DataStore<Preferences>` com as quatro chaves e os padrões aprovados.
-4. [ ] **Hilt** (`feat:`): plugin Hilt no `core-data` e no `app`; módulo do Hilt no `core-data` (banco, DAOs, DataStore); `TapGuardApplication` com `@HiltAndroidApp` e `android:name` no manifesto.
-5. [ ] **Backup desligado** (dois commits):
+1. [x] **Versões e plugins** (`chore:`): KSP, Hilt, Room, DataStore e as bibliotecas de teste no catálogo; plugins com `apply false` na raiz. `./gradlew build` verde.
+2. [x] **Banco Room** (`feat:`): no `core-data`, plugins KSP e Room, as quatro entidades com tipos, chaves e cascata aprovados, os quatro DAOs (inserir e ler), o banco versão 1 com `exportSchema`, e o `schemas/.../1.json` gerado e commitado. Schemas nos assets do teste local.
+3. [x] **Preferências** (`feat:`): fonte fina sobre `DataStore<Preferences>` com as quatro chaves e os padrões aprovados.
+4. [x] **Hilt** (`feat:`): plugin Hilt no `core-data` e no `app`; módulo do Hilt no `core-data` (banco, DAOs, DataStore); `TapGuardApplication` com `@HiltAndroidApp` e `android:name` no manifesto.
+5. [x] **Backup desligado** (dois commits):
    - `feat:` `allowBackup="false"`, `data_extraction_rules.xml` e `full_backup_content.xml` excluindo os nove domínios;
    - `ci: confere as regras de backup no manifesto`: passo no job "Regras do projeto" que falha se faltar `android:allowBackup="false"`, `android:dataExtractionRules` ou `android:fullBackupContent` no manifesto do `app`.
-6. [ ] **Testes** (`test:`, papel tester): DAOs, restrições e cascata, migração inicial, preferências, grafo do Hilt e o `MergedManifestTest` estendido (componentes exportados, backup, regras).
+6. [x] **Testes** (`test:`, papel tester): DAOs, restrições e cascata, migração inicial, preferências, grafo do Hilt e o `MergedManifestTest` estendido (componentes exportados, backup, regras).
 7. [ ] **Documentação** (`docs:`):
    - `core-data/README.md` (estado, tabelas, preferências, comandos; corrige o compileSdk 36 que ficou da SPEC-001) e `app/README.md`;
    - `CONTRIBUTING.md` e `runbook.md`;
@@ -111,6 +112,7 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
 - **Índice da chave estrangeira:** a chave composta (`scanId`, `packageName`) começa por `scanId` e deve servir de índice. Se o Room avisar sobre a FK sem índice, a implementação para e pergunta, para não aceitar aviso novo.
 - **`PRAGMA foreign_keys`:** a cascata depende das chaves estrangeiras ligadas na conexão. O teste da cascata confirma.
 - **`MigrationTestHelper` clássico** falhou no Robolectric (experimento, item 2). O contrato usa o construtor com driver. O motivo da falha não foi identificado; não achei o erro registrado.
+- **DataStore no Windows:** a segunda gravação no mesmo arquivo falha na JVM do Windows (renomear o `.tmp` por cima do existente). Os dois testes de escrita são ignorados no Windows e verificados no CI (Linux). Tentado e descartado: `createWithPath` (Okio), que na versão Android usa o mesmo armazenamento por arquivo.
 - **DataStore singleton:** dois `DataStore` no mesmo arquivo derrubam o app. O Hilt fornece um só (`@Singleton`), e os testes criam o seu num arquivo temporário.
 - **Transferência para iOS** (`<cross-platform-transfer>`, Android 16 QPR2): só acontece com configuração explícita de bundle e time do app iOS, que não existe aqui. Não entra nas regras.
 - **Tamanho da PR:** estimativa de 600 a 800 linhas entre código e testes, acima das 500 do planner. Fica numa PR pela regra "um pull request por spec".

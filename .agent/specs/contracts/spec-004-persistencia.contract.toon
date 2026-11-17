@@ -2,10 +2,11 @@
 # .agent/specs/contracts/spec-004-persistencia.contract.toon
 # SPEC-004 (issue #5) – camadas = build e CI e pacotes do core-data e do app e docs
 # Pacotes: io.github.valossa515.tapguard.core.data.{database;database.entity;database.dao;settings;di} e io.github.valossa515.tapguard (app)
+# Emenda 1.1 (2026-11-17): os dois cenarios de escrita do SettingsDataSource usam Assume.assumeFalse no Windows (renomear o .tmp do DataStore por cima do arquivo falha na JVM do Windows); rodam no Android e no Linux do CI
 
 contract:
   feature-ref: FT-004
-  version: 1.0
+  version: 1.1
 
 layers:
   build:
@@ -84,7 +85,7 @@ dependencies:
 test-strategy:
   unit-tests:
     - target: SettingsDataSource
-      type: junit4-jvm
+      type: junit4-jvm (as duas escritas ignoradas no Windows por Assume e verificadas no CI)
       scenarios[3]:
         first-read-returns-the-four-defaults
         written-values-are-read-back
