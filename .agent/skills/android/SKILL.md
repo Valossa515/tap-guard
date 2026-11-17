@@ -14,7 +14,7 @@ You are an expert Android engineer building apps in Kotlin with Jetpack Compose.
 - **Kotlin**: 2.x, coroutines and Flow throughout
 - **Android Gradle Plugin**: 9.x with **built-in Kotlin**, Gradle with Kotlin DSL (`build.gradle.kts`) and a version catalog (`gradle/libs.versions.toml`)
 - **JDK**: one version for the toolchain, the Gradle daemon and CI (see Gradle → JDK)
-- **SDK levels**: `minSdk`, `targetSdk` and `compileSdk` come from the project's convention (see `.agent/SKILLS.md` → Project Overrides); never raise or lower them inside a feature task
+- **SDK levels**: `minSdk`, `targetSdk` and `compileSdk` come from the project's convention (see `.agent/SKILLS.md` → Project Overrides); never raise or lower them inside a feature task. `compileSdk` may be higher than `targetSdk`: recent AndroidX libraries require a recent `compileSdk`, which only decides which APIs compile, while `targetSdk` decides runtime behaviour and follows the Play Store requirement. Record such a split as a decision
 - **UI**: Jetpack Compose via the Compose BOM, Material 3, Navigation Compose with type-safe routes
 - **DI**: Hilt 2.59.2+ (KSP 2.3.6+, the minimums for AGP 9)
 - **Persistence**: Room (KSP) for relational data, DataStore (Preferences) for settings
@@ -226,6 +226,25 @@ sealed interface CardReadResult {
 
 ## UI — Compose
 
+### Lint rules for composables
+
+Composables are named in PascalCase (`ScanResultScreen`), which the default function-naming rules of ktlint and detekt reject. Exempt only functions annotated with `@Composable`; every other function stays checked.
+
+```ini
+# .editorconfig (repository root)
+[*.{kt,kts}]
+ktlint_function_naming_ignore_when_annotated_with = Composable
+```
+
+```yaml
+# <module>/detekt.yml, applied with buildUponDefaultConfig = true
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+```
+
+Do not silence the rule with `@Suppress` or by disabling it. When detekt's `MagicNumber` flags color literals, give each one a named `const val` in the theme's `Color.kt`.
+
 Each screen has a stateful entry point that owns the ViewModel and a stateless content composable that is easy to preview and test.
 
 ```kotlin
@@ -284,6 +303,9 @@ fun ScanResultContent(
 - Meaning is never carried by color alone: pair color with an icon and text, and give icons a `contentDescription`
 - The stateless `*Content` composable takes `modifier: Modifier = Modifier` as its last optional parameter
 - One-off events (navigation, snackbars) are modelled as state that the UI consumes and acknowledges, not as a `SharedFlow` the UI might miss
+- Components that pick their own colors (statuses, risk levels) read the theme's mode from a `CompositionLocal` provided by the app theme, never from `isSystemInDarkTheme()` directly: otherwise a theme forced to light or dark is ignored
+- Call `enableEdgeToEdge()` in the Activity before `setContent`, and pad content with `safeDrawingPadding()`; from Android 15 with a recent `targetSdk` the system draws edge-to-edge anyway, so this keeps older versions consistent
+- Set a window theme for light and dark (`res/values/themes.xml` and `res/values-night/themes.xml`), so the window does not flash white before Compose draws in dark mode
 
 ---
 
@@ -350,6 +372,8 @@ object DataModule {
 
 Pure domain classes (`RiskScorer`) have no Hilt annotations: provide them from a module in the Android module that uses them.
 
+Keep Room and DataStore as `implementation` dependencies of the data module. Hilt still assembles the whole graph in `app`, but the `app` module cannot see those types, so the test that injects the database, the DAOs and the `DataStore` lives in the data module (see `testing.md` → Hilt graph). Do not turn them into `api` just to test from `app`.
+
 ---
 
 ## Persistence — Room
@@ -400,17 +424,52 @@ class RoomScanRepository @Inject constructor(
 - Every version bump ships a `Migration` and a migration test
 - Multi-table writes run inside `withTransaction`
 - Repositories map entities to domain models; entities never reach a ViewModel
+- Room and Hilt use KSP only; `kapt` does not work with AGP 9's built-in Kotlin
+
+### Schema files
+
+Apply the Room Gradle plugin so the schema is exported to a fixed folder, and commit what it generates:
+
+```kotlin
+// core-data/build.gradle.kts
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
+}
+
+room { schemaDirectory("$projectDir/schemas") }
+```
+
+The build **rewrites** the JSON of the current version every time. A migration test therefore compares the code with itself and cannot catch an entity that changed without a version bump. What catches it is a CI step after the build that fails when the build changed the schema folder. Use `git status`, not `git diff`, so a new `N.json` that was never committed is caught too:
+
+```yaml
+- name: Room schema committed
+  run: |
+    CHANGED=$(git status --porcelain -- core-data/schemas)
+    if [ -n "$CHANGED" ]; then
+      echo "$CHANGED"
+      echo "The build regenerated the Room schema. Commit it together with the entity change."
+      exit 1
+    fi
+```
+
+Decide when a schema version is frozen and record it in the project's decisions. Before the first public release no device has the database, so version 1 may still change with its JSON committed and no migration. From the first release on, a published `N.json` never changes: any change is a new version with a `Migration` and a test, and CI should reject edits to a published `N.json`.
 
 ### DataStore
 
-Settings and flags go in Preferences DataStore behind a repository interface defined in `core-domain`.
+Settings and flags go in Preferences DataStore behind a repository interface defined in `core-domain`. Exactly one `DataStore` instance per file: provide it as a `@Singleton`; two instances on the same file corrupt each other and throw.
+
+Reads catch `IOException` and emit empty preferences, so the defaults apply when the file cannot be read. Rethrow anything else.
 
 ```kotlin
 class DataStoreSettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
     override val monitoringEnabled: Flow<Boolean> =
-        dataStore.data.map { it[MONITORING_ENABLED] ?: true }
+        dataStore.data
+            .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+            .map { it[MONITORING_ENABLED] ?: true }
 
     override suspend fun setMonitoringEnabled(enabled: Boolean) {
         dataStore.edit { it[MONITORING_ENABLED] = enabled }
@@ -477,6 +536,7 @@ Periodic work has a 15-minute minimum interval and the system may delay it. Anyt
 - Hardware the app can work without is declared `android:required="false"`, and the code checks for it at runtime
 - Runtime permissions are requested in context, right before the feature that needs them, with `rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission())`. A denial never blocks the rest of the app
 - Components are `android:exported="false"` unless another app must start them
+- Libraries add permissions and components to the merged manifest (AndroidX core, profileinstaller, startup, WorkManager, Room). Check the merged manifest whenever a dependency is added, and enforce an allowlist with a test (see `testing.md` → Manifest and Privacy Checks)
 
 ```xml
 <uses-permission android:name="android.permission.NFC" />
@@ -509,6 +569,34 @@ Periodic work has a 15-minute minimum interval and the system may delay it. Anyt
 - Sensitive values are not written to Room, DataStore, `SavedStateHandle`, crash reports or analytics
 - Screens that show sensitive data set `WindowManager.LayoutParams.FLAG_SECURE`
 - If the product promises offline or local-only behaviour, the manifest must not declare `android.permission.INTERNET`, and a test enforces it
+- An app that keeps sensitive data on the device turns backup off. `android:allowBackup="false"` alone is not enough: from `targetSdk` 31, some devices still run device-to-device transfer. Add `android:dataExtractionRules` excluding every domain in `<cloud-backup>` and `<device-transfer>`, and `android:fullBackupContent` excluding them for Android 11 and lower. A test reads both XML files, and a CI step checks that the three attributes are in the manifest, because the rule files are not readable through public APIs
+
+```xml
+<application
+    android:allowBackup="false"
+    android:dataExtractionRules="@xml/data_extraction_rules"
+    android:fullBackupContent="@xml/full_backup_content">
+```
+
+```xml
+<!-- res/xml/data_extraction_rules.xml -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <!-- the same nine excludes -->
+    </device-transfer>
+</data-extraction-rules>
+```
 
 ---
 
@@ -556,3 +644,8 @@ See `testing.md` for the full testing guide. Quick rules:
 - ❌ Applying `org.jetbrains.kotlin.android` or `kapt` on AGP 9
 - ❌ HTTP statuses in the spec of a screen, use case or worker — set `feature.interface`
 - ❌ Changing a version or disabling a check to make an incompatible plugin run
+- ❌ `@Suppress` or a disabled rule to get composables past ktlint or detekt — exempt `@Composable` in the config
+- ❌ Reading `isSystemInDarkTheme()` inside a component instead of the mode the app theme provides
+- ❌ Two `DataStore` instances for the same file, or reading `dataStore.data` without handling `IOException`
+- ❌ Trusting the migration test alone to catch schema changes — the build rewrites the current schema; check it in CI
+- ❌ Relying on `allowBackup="false"` alone to keep data on the device

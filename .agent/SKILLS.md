@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────
 name: tap-guard
 stack: android
-sdd-version: "1.4.0"
+sdd-version: "1.6.0"
 ---
 
 # Project Agent Skills
@@ -109,8 +109,8 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. With no production code the rule passes (0/0); it starts biting at the first class with executable code (interfaces do not count, `data class` does). Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
 - **CI**: new GitHub Actions are pinned by commit SHA with the version in a comment on the same line (e.g. `uses: owner/action@<sha> # vX.Y.Z`). New CI steps go into the existing jobs "Regras do projeto" or "Build e testes", which are the required checks of the `main` ruleset.
 - **Composable names**: `@Composable` functions use PascalCase. `.editorconfig` (`ktlint_function_naming_ignore_when_annotated_with = Composable`) and `app/detekt.yml` (`naming > FunctionNaming > ignoreAnnotated: ['Composable']`, applied with `buildUponDefaultConfig = true`) exempt only composables; plain functions are still checked. In detekt, write colors as named `const val` ARGB values and pass `dp` sizes as named arguments (`MagicNumber` ignores both by default) instead of suppressing the rule.
-- **Isolated composable tests** (overrides `skills/android/testing.md`): use `Robolectric.buildActivity(ComponentActivity::class.java)` + `createEmptyComposeRule()` in `src/test`, **not** `createComposeRule()` with `ui-test-manifest` in `debugImplementation`, which would ship a test Activity in the published debug APK. Full-screen and navigation tests use `createAndroidComposeRule<MainActivity>()`. Use the `androidx.compose.ui.test.junit4.v2` rules (the others are deprecated in Compose 1.12).
-- **DataStore tests on Windows**: tests that write to a real DataStore more than once start with `Assume.assumeFalse(<Windows>)`. On the Windows JVM, renaming DataStore's `.tmp` file over the existing file fails from the second write on (`Unable to rename …`). They are skipped on Windows and verified by CI (Linux), the same as on Android. Single-write and read-only tests run everywhere. Mention it in the PR description.
+- **Compose test rules**: use the rules from `androidx.compose.ui.test.junit4.v2` (`createEmptyComposeRule`, `createAndroidComposeRule`); the ones outside `v2` are deprecated in Compose 1.12. The rest of the Compose test setup follows `skills/android/testing.md`.
+- **Tests skipped on Windows** (as `skills/android/testing.md` › DataStore prescribes): the PR description names the tests that only run in CI.
 - **ktlint and detekt** are applied in every module; `./gradlew build` runs both plus Android lint and tests. ktlint also checks `*.gradle.kts` (break chained calls such as `libs.versions.minSdk.get().toInt()` before each `.`).
 
 ### Persistence (infrastructure since SPEC-004; repositories in SPEC-018)
@@ -119,8 +119,6 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Annotation processing**: KSP 2.3.14 only (Room and Hilt). **Never kapt**.
 - **Divergence from `skills/shared/database/SKILL.md`**: column names are the exact camelCase names of the spec (section 9), not `snake_case`; ids are `Long` autoincrement, not UUID; no generic `created_at`/`updated_at`.
 - **Divergence from `skills/android/SKILL.md` › DataStore**: until SPEC-018, preferences are read through a thin `SettingsDataSource` in `core-data`, without a repository interface in `core-domain`.
-- **Hilt graph test** lives in `core-data` (`DataModuleTest`, `HiltTestApplication`), the module that owns the Room and DataStore types; in `app`, KSP cannot resolve those `implementation` types.
-- **Migration tests**: `MigrationTestHelper(instrumentation, file, AndroidSQLiteDriver(), TapGuardDatabase::class)` under Robolectric; the classic `(instrumentation, Class)` constructor fails there. Schemas reach the local test assets through `android.sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")` (the Room plugin only covers `androidTest`).
 - **Schema rule (ADR-014)**: until the first public release, version 1 may change with the regenerated `1.json` committed alongside, without a `Migration`. After it, a published schema is frozen: a change bumps the version and ships a `Migration` and a migration test, and CI must block edits to an existing `N.json` on `main` (step planned for SPEC-073). Today CI step "Schema do Room commitado" fails when `./gradlew build` regenerates `core-data/schemas` with a diff (the build rewrites the schema on every compile, so the migration test alone cannot catch it).
 - **Retention**: keep the 10 most recent scans; keep alerts for 90 days
 - **Migrations / schema export**: Room schema exported to `core-data/schemas` and versioned. Every version change ships a `Migration` and a migration test. `fallbackToDestructiveMigration()` is forbidden in release.
