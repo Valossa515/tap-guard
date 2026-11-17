@@ -48,6 +48,10 @@ jobs:
           fi
           echo "OK: backup desligado e regras de backup no manifesto"
 
+      # Specs do SDD (.agent/specs): estrutura, IDs e referencias. Roda em todo PR, inclusive nos so de documentacao.
+      - name: Specs validas
+        run: bash .agent/scripts/validate-spec.sh .agent/specs
+
       - name: Scripts shell com final de linha LF
         run: |
           BAD=$(git ls-files '*.sh' gradlew | while read -r f; do
@@ -64,14 +68,47 @@ jobs:
     name: Build e testes
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth 2: no pull request o HEAD e o merge com a main, e HEAD^1 e a main. A diferenca entre os dois
+      # e exatamente o que o PR muda.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # O job e obrigatorio na ruleset da main, entao ele sempre roda e sempre reporta resultado. Num PR que so
+      # muda documentacao, os passos pesados sao pulados e o job passa. Em push na main, o build roda sempre.
+      # Qualquer arquivo fora da lista abaixo conta como codigo: na duvida, roda tudo.
+      - name: Detecta se o PR muda codigo
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Push na main: build completo."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CODE=false
+          while IFS= read -r FILE; do
+            [ -n "$FILE" ] || continue
+            case "$FILE" in
+              *.md | docs/* | LICENSE | .agent/* | .github/agents/* | .github/ISSUE_TEMPLATE/* | .github/CODEOWNERS)
+                echo "documentacao: $FILE" ;;
+              *)
+                echo "codigo:       $FILE"
+                CODE=true ;;
+            esac
+          done < <(git diff --name-only HEAD^1 HEAD)
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" = "false" ]; then
+            echo "Nenhum arquivo de codigo, build ou CI mudou: build e testes pulados."
+          fi
 
       # Antes de qualquer execucao do gradlew: confere o gradle-wrapper.jar contra os checksums oficiais do Gradle.
       - name: Valida o wrapper do Gradle
+        if: steps.changes.outputs.code == 'true'
         uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - name: JDK 21
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -79,11 +116,12 @@ jobs:
           cache: gradle
 
       - name: Build e testes
+        if: steps.changes.outputs.code == 'true'
         run: ./gradlew build --no-daemon
 
       # Mesmo se o build falhar: os relatorios mostram quais testes rodaram, falharam ou foram ignorados.
       - name: Publica os relatorios de teste
-        if: always()
+        if: always() && steps.changes.outputs.code == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports
@@ -93,6 +131,7 @@ jobs:
       # O build regera core-data/schemas a partir das entidades. Arquivo alterado ou novo (ex.: 2.json) aqui =
       # entidade ou versao mudou sem o schema commitado.
       - name: Schema do Room commitado
+        if: steps.changes.outputs.code == 'true'
         run: |
           CHANGED=$(git status --porcelain -- core-data/schemas)
           if [ -n "$CHANGED" ]; then
@@ -105,6 +144,7 @@ jobs:
 
       # So roda se o build passar. Falha se o APK nao existir, em vez de publicar artefato vazio.
       - name: Publica o APK de debug
+        if: steps.changes.outputs.code == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-debug
