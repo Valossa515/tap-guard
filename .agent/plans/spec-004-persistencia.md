@@ -85,7 +85,7 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
    - `feat:` `allowBackup="false"`, `data_extraction_rules.xml` e `full_backup_content.xml` excluindo os nove domínios;
    - `ci: confere as regras de backup no manifesto`: passo no job "Regras do projeto" que falha se faltar `android:allowBackup="false"`, `android:dataExtractionRules` ou `android:fullBackupContent` no manifesto do `app`.
 6. [x] **Testes** (`test:`, papel tester): DAOs, restrições e cascata, migração inicial, preferências, grafo do Hilt e o `MergedManifestTest` estendido (componentes exportados, backup, regras).
-7. [ ] **Documentação** (`docs:`):
+7. [x] **Documentação** (`docs:`):
    - `core-data/README.md` (estado, tabelas, preferências, comandos; corrige o compileSdk 36 que ficou da SPEC-001) e `app/README.md`;
    - `CONTRIBUTING.md` e `runbook.md`;
    - `project-reference.md` (§1, §3, §5 com tipos, chaves e versão do schema, §8);

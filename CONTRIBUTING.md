@@ -151,7 +151,7 @@ Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
 
 ```bash
 ./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt, testes e a cobertura do core-domain (é o que o CI roda)
-./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android (Robolectric no app)
+./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android (Robolectric no app e no core-data)
 ./gradlew ktlintCheck    # estilo (ktlint 1.8.0)
 ./gradlew ktlintFormat   # corrige o que o ktlint consegue corrigir sozinho
 ./gradlew detekt         # análise estática (detekt 1.23.8)
@@ -164,7 +164,13 @@ Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
 
 Para um módulo só, use o prefixo do módulo, por exemplo `./gradlew :core-domain:test`.
 
-Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, Kover, JUnit) ficam só em `gradle/libs.versions.toml`.
+Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, Kover, KSP, Hilt, Room, DataStore, JUnit) ficam só em `gradle/libs.versions.toml`.
+
+### Banco de dados
+
+- O schema do Room fica em `core-data/schemas` e vai para o Git. O build regera o arquivo: ao mudar uma entidade, rode `./gradlew build` e commite o schema junto. O CI falha se o schema regerado for diferente do commitado.
+- Até a primeira versão pública, a versão 1 do banco pode mudar assim. Depois dela, mudar o schema exige subir a versão, uma `Migration` e um teste de migração.
+- **No Windows**, dois testes do `SettingsDataSourceTest` (os que gravam no DataStore mais de uma vez) aparecem como ignorados: a JVM do Windows não consegue renomear o arquivo temporário do DataStore por cima do existente. Eles rodam no CI (Linux).
 
 ### Cobertura
 

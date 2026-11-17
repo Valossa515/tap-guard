@@ -113,9 +113,15 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **DataStore tests on Windows**: tests that write to a real DataStore more than once start with `Assume.assumeFalse(<Windows>)`. On the Windows JVM, renaming DataStore's `.tmp` file over the existing file fails from the second write on (`Unable to rename …`). They are skipped on Windows and verified by CI (Linux), the same as on Android. Single-write and read-only tests run everywhere. Mention it in the PR description.
 - **ktlint and detekt** are applied in every module; `./gradlew build` runs both plus Android lint and tests. ktlint also checks `*.gradle.kts` (break chained calls such as `libs.versions.minSdk.get().toInt()` before each `.`).
 
-### Persistence (planned)
-- **Database**: Room — tables `scan_run`, `app_snapshot`, `user_decision`, `alert_event` (see project-reference.md §5)
-- **Settings**: DataStore — `onboardingDone`, `monitoringEnabled`, `scanIntervalHours`, `lastDefaultPaymentComponent`
+### Persistence (infrastructure since SPEC-004; repositories in SPEC-018)
+- **Database**: Room 2.8.5 (`androidx.room`, not Room 3) in `core-data` — `TapGuardDatabase` version 1, file `tapguard.db`, tables `scan_run`, `app_snapshot`, `user_decision`, `alert_event` (see project-reference.md §5). DAOs only insert and read until SPEC-018.
+- **Settings**: DataStore Preferences 1.3.0 — file `settings`, keys `onboardingDone` (default false), `monitoringEnabled` (true), `scanIntervalHours` (6), `lastDefaultPaymentComponent` (null when never recorded), read through `SettingsDataSource`
+- **Annotation processing**: KSP 2.3.14 only (Room and Hilt). **Never kapt**.
+- **Divergence from `skills/shared/database/SKILL.md`**: column names are the exact camelCase names of the spec (section 9), not `snake_case`; ids are `Long` autoincrement, not UUID; no generic `created_at`/`updated_at`.
+- **Divergence from `skills/android/SKILL.md` › DataStore**: until SPEC-018, preferences are read through a thin `SettingsDataSource` in `core-data`, without a repository interface in `core-domain`.
+- **Hilt graph test** lives in `core-data` (`DataModuleTest`, `HiltTestApplication`), the module that owns the Room and DataStore types; in `app`, KSP cannot resolve those `implementation` types.
+- **Migration tests**: `MigrationTestHelper(instrumentation, file, AndroidSQLiteDriver(), TapGuardDatabase::class)` under Robolectric; the classic `(instrumentation, Class)` constructor fails there. Schemas reach the local test assets through `android.sourceSets.getByName("test").assets.directories.add("$projectDir/schemas")` (the Room plugin only covers `androidTest`).
+- **Schema rule (ADR-014)**: until the first public release, version 1 may change with the regenerated `1.json` committed alongside, without a `Migration`. After it, a published schema is frozen: a change bumps the version and ships a `Migration` and a migration test, and CI must block edits to an existing `N.json` on `main` (step planned for SPEC-073). Today CI step "Schema do Room commitado" fails when `./gradlew build` regenerates `core-data/schemas` with a diff (the build rewrites the schema on every compile, so the migration test alone cannot catch it).
 - **Retention**: keep the 10 most recent scans; keep alerts for 90 days
 - **Migrations / schema export**: Room schema exported to `core-data/schemas` and versioned. Every version change ships a `Migration` and a migration test. `fallbackToDestructiveMigration()` is forbidden in release.
 - No card data ever enters the database or preferences
@@ -132,8 +138,11 @@ Brought in by AndroidX dependencies (accepted in SPEC-003; not declared by the p
 - `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (declared and used) — from `androidx.core`. Signature-level, held only by this app; `ContextCompat.registerReceiver` with `RECEIVER_NOT_EXPORTED` needs it below Android 13, so removing it would break that call.
 - `androidx.profileinstaller.ProfileInstallReceiver` (exported, protected by `android.permission.DUMP`) — from `androidx.profileinstaller`. Only the shell and the system hold `DUMP`; it installs baseline profiles for faster cold start (RNF-03).
 - `androidx.startup.InitializationProvider` (not exported) — from `androidx.startup`, used by AndroidX libraries to initialize at startup.
+- `androidx.room.MultiInstanceInvalidationService` (not exported) — from Room (SPEC-004), used for multi-process invalidation; unused by the app but declared by the library.
 
-Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manifest and fails on any permission outside `QUERY_ALL_PACKAGES`, `NFC`, `POST_NOTIFICATIONS` and `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or on any exported Activity other than `MainActivity`. A new permission needs a recorded decision here and an update to that list in the same spec.
+Backup (SPEC-004): `android:allowBackup="false"`, `android:dataExtractionRules` (all nine domains excluded in `<cloud-backup>` and `<device-transfer>`, because on some devices `allowBackup` alone does not stop device-to-device transfer with targetSdk 31+) and `android:fullBackupContent` (all nine domains excluded, Android 11 and lower).
+
+Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manifest and fails on any permission outside `QUERY_ALL_PACKAGES`, `NFC`, `POST_NOTIFICATIONS` and `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`; on an `Application` other than `TapGuardApplication`; on any exported component (activity, service, receiver or provider) other than `MainActivity` and `androidx.profileinstaller.ProfileInstallReceiver`; on backup being enabled; or on either backup rules file leaving a domain out. The wiring of the two rules files in the manifest (not public API) is checked by CI step "Regras de backup no manifesto". A new permission or exported component needs a recorded decision here and an update to that list in the same spec.
 
 ### How data and platform layers are tested (planned)
 - `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)

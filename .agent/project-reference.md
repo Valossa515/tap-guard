@@ -11,12 +11,12 @@
 | **Name** | `tap-guard` (repositório). Nome de exibição em português: em aberto (especificação, seção 13) |
 | **Application id** | `app`: `io.github.valossa515.tapguard`; `decoy-app`: `io.github.valossa515.tapguard.decoy` (ADR-011) |
 | **Description** | App Android que avisa o usuário comum quando há no aparelho um app com o perfil dos usados em golpes de retransmissão de cartão por NFC, e ensina por que nenhum banco pede para encostar o cartão no celular |
-| **Type** | App Android (sem backend). Projeto Gradle desde a SPEC-001; desde a SPEC-003 o app abre, com tema, componente de nível e nove telas vazias |
+| **Type** | App Android (sem backend). Projeto Gradle desde a SPEC-001; desde a SPEC-003 o app abre, com tema, componente de nível e nove telas vazias; desde a SPEC-004 tem Hilt, banco Room e DataStore (infraestrutura, sem regra) |
 | **Stack** | Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)** |
 | **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
 | **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 37 (ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
-| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`). Ainda vazios: `core-domain`, `core-detection`, `core-nfc`, `core-data`, `decoy-app` |
-| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto |
+| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`) e `core-data` (pacote `io.github.valossa515.tapguard.core.data`). Ainda vazios: `core-domain`, `core-detection`, `core-nfc`, `decoy-app` |
+| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -95,6 +95,17 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 | `RiskLevelIndicator` | `ui/components` | Nível com cor, ícone e frase exata (RNF-06) |
 | `{Feature}Screen` (9) | `ui/<tela>` | Telas vazias: título e botões de saída |
 
+### Persistência e injeção (SPEC-004)
+
+| Classe | Pacote | Responsibility |
+|--------|--------|----------------|
+| `TapGuardDatabase` | `core.data.database` | Room versão 1, arquivo `tapguard.db`, quatro tabelas |
+| `ScanRunEntity`, `AppSnapshotEntity`, `UserDecisionEntity`, `AlertEventEntity` | `core.data.database.entity` | Formas de persistência da seção 9 (sem modelo de domínio ainda) |
+| `ScanRunDao`, `AppSnapshotDao`, `UserDecisionDao`, `AlertEventDao` | `core.data.database.dao` | Só inserir e ler |
+| `SettingsDataSource` | `core.data.settings` | As quatro preferências com padrões, sobre o DataStore `settings` |
+| `DataModule` | `core.data.di` | Hilt: banco e DataStore únicos, e cada DAO |
+| `TapGuardApplication` | `app` (raiz) | `@HiltAndroidApp` |
+
 ### Demais classes (ViewModels, repositórios, DAOs, workers, receptores)
 
 TODO: no code yet.
@@ -123,16 +134,18 @@ Começa sempre na T1, sem persistência (provisório). A T3 e a T9 abrem a T4 co
 
 ---
 
-## 5. Database Schema (planned, especificação seção 9)
+## 5. Database Schema (especificação seção 9; versão 1 desde a SPEC-004)
 
 ### Tables (Room)
 
+Colunas com os nomes da especificação (camelCase); datas em milissegundos (`Long`); enums como texto. `?` = opcional.
+
 | Table | Key Columns | Notes |
 |-------|-------------|-------|
-| `scan_run` | `id`, `startedAt`, `finishedAt`, `trigger`, `totalApps`, `redCount`, `yellowCount` | Uma linha por varredura. Retenção: 10 varreduras mais recentes |
-| `app_snapshot` | chave `scanId` + `packageName`; `label`, `versionCode`, `installer`, `firstInstallTime`, `lastUpdateTime`, `signals` (máscara de bits), `score`, `level` | Estado de cada app em cada varredura |
-| `user_decision` | `packageName`, `decision`, `decidedAt` | Apps marcados como confiáveis |
-| `alert_event` | `id`, `type`, `packageName`, `versionCode`, `level`, `createdAt`, `readAt` | Histórico de alertas e controle de duplicidade. Retenção: 90 dias |
+| `scan_run` | `id` (`Long`, autoincremento); `startedAt`, `finishedAt?`, `trigger`, `totalApps`, `redCount`, `yellowCount` | Uma linha por varredura. Retenção: 10 varreduras mais recentes (SPEC-018) |
+| `app_snapshot` | chave `scanId` + `packageName`; FK `scanId` → `scan_run.id` ON DELETE CASCADE; `label`, `versionCode` (`Long`), `installer?`, `firstInstallTime`, `lastUpdateTime`, `signals` (`Int`, máscara de bits), `score` (`Int`), `level` | Estado de cada app em cada varredura |
+| `user_decision` | chave `packageName`; `decision`, `decidedAt` | Apps marcados como confiáveis |
+| `alert_event` | `id` (`Long`, autoincremento); `type`, `packageName?`, `versionCode?`, `level?`, `createdAt`, `readAt?` | Histórico de alertas e controle de duplicidade. Retenção: 90 dias (SPEC-018) |
 
 Nenhum dado de cartão entra no banco nem nas preferências.
 
@@ -140,10 +153,10 @@ Nenhum dado de cartão entra no banco nem nas preferências.
 
 | Chave | Tipo | Padrão |
 |-------|------|--------|
-| `onboardingDone` | booleano | TODO: não definido na especificação |
+| `onboardingDone` | booleano | falso (decidido na SPEC-004) |
 | `monitoringEnabled` | booleano | verdadeiro |
 | `scanIntervalHours` | inteiro (1, 6, 12, 24) | 6 |
-| `lastDefaultPaymentComponent` | texto | — (usado para detectar troca) |
+| `lastDefaultPaymentComponent` | texto | nulo quando nunca registrado (usado para detectar troca) |
 
 ### Enums / Status Values
 
@@ -152,11 +165,11 @@ Nenhum dado de cartão entra no banco nem nas preferências.
 | Gatilho da varredura | `MANUAL`, `APP_OPEN`, `PERIODIC` | `scan_run.trigger` |
 | Decisão do usuário | `TRUSTED` | `user_decision.decision` |
 | Tipo de alerta | `RISKY_APP`, `DEFAULT_PAYMENT_CHANGED` | `alert_event.type` |
-| Nível de risco | verde, amarelo, vermelho (identificadores no código: TODO: no code yet) | `app_snapshot.level`, `alert_event.level` |
+| Nível de risco | `GREEN`, `YELLOW`, `RED` | `app_snapshot.level`, `alert_event.level` |
 | Sinais | S1–S9 | `app_snapshot.signals` (máscara de bits; S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada.) |
 
-Versão do schema: TODO: no code yet.
-Migrações: schema do Room exportado em `core-data/schemas` e versionado. Cada mudança de versão traz uma `Migration` e um teste de migração. `fallbackToDestructiveMigration()` é proibido em release.
+Versão do schema: 1 (`core-data/schemas/io.github.valossa515.tapguard.core.data.database.TapGuardDatabase/1.json`, commitado). Arquivos: banco `tapguard.db`, preferências `settings`.
+Migrações: até a primeira versão pública, a versão 1 pode mudar com o schema regerado e commitado junto; depois, cada mudança sobe a versão e traz uma `Migration` e um teste de migração (ADR-014). O CI falha se o build regerar o schema com diferença do commitado. `fallbackToDestructiveMigration()` é proibido em release.
 
 ---
 
@@ -189,7 +202,7 @@ Ver `glossary.md`.
 
 ## 8. Dependencies (planned)
 
-Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001 a SPEC-003):
+Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001 a SPEC-004):
 
 | Item | Versão | Uso |
 |------|--------|-----|
@@ -203,7 +216,13 @@ Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-0
 | `androidx.activity:activity-compose` | 1.13.0 | `app` |
 | `androidx.navigation:navigation-compose` | 2.10.2 | `app` (rotas tipadas) |
 | Robolectric | 4.18 | Testes do `app` |
-| `androidx.test:core` | 1.7.0 | Testes do `app` |
+| `androidx.test:core` | 1.7.0 | Testes do `app` e do `core-data` |
+| KSP (`com.google.devtools.ksp`) | 2.3.14 | Room e Hilt (sem kapt) |
+| Hilt (`com.google.dagger.hilt.android`, `hilt-android`, `hilt-compiler`) | 2.60.1 | `app` e `core-data` |
+| Room (`androidx.room`, `room-runtime`, `room-compiler`) | 2.8.5 | `core-data` |
+| DataStore Preferences | 1.3.0 | `core-data` |
+| `hilt-android-testing`, `room-testing` | 2.60.1 / 2.8.5 | Testes do `core-data` |
+| `kotlinx-coroutines-test` | 1.11.0 | Testes do `core-data` |
 | ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |
 | detekt (`io.gitlab.arturbosch.detekt`) | 1.23.8 | Análise estática, todos os módulos |
 | Kover (`org.jetbrains.kotlinx.kover`) | 0.9.11 | Cobertura, só no `core-domain` (mínimo de 80% de linhas) — SPEC-002 |

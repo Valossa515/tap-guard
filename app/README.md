@@ -62,10 +62,27 @@ Vetores em `src/main/res/drawable`, sem a dependência `material-icons`: `ic_lau
 
 **Origem:** [Material Symbols](https://github.com/google/material-design-icons) (estilo Rounded, preenchido), do Google, sob a licença **Apache 2.0**. Arquivos Android do repositório `google/material-design-icons`, commit `10ecc14`. O `android:tint` de tema foi retirado: a cor vem do componente, e no ícone do app vem da cor primária fixa.
 
+## Hilt
+
+`TapGuardApplication` (`@HiltAndroidApp`) é a raiz do grafo e está ligada no manifesto (`android:name`). O banco, os DAOs e o DataStore vêm do `DataModule` do `core-data`. Nenhuma tela é injetada ainda.
+
+## Backup
+
+Nada sai do aparelho por backup (RNF-01):
+
+- `android:allowBackup="false"`;
+- `res/xml/data_extraction_rules.xml` (Android 12+): exclui os nove domínios em `<cloud-backup>` e em `<device-transfer>`, porque em alguns aparelhos o `allowBackup` sozinho não desliga a transferência direta entre aparelhos;
+- `res/xml/full_backup_content.xml` (Android 11 ou anterior): exclui os nove domínios.
+
 ## Regras
 
 - O manifesto nunca declara `android.permission.INTERNET`. O CI falha se ela aparecer.
-- Só entram as permissões listadas em `.agent/SKILLS.md` › Permissions. O `MergedManifestTest` lê o manifesto mesclado e falha se houver qualquer permissão fora da lista explícita, ou outra Activity exportada além da `MainActivity`.
+- O `MergedManifestTest` lê o manifesto mesclado e falha se:
+  - houver permissão fora da lista explícita;
+  - a `Application` não for a `TapGuardApplication`;
+  - houver componente exportado (Activity, serviço, receptor ou provedor) além da `MainActivity` e do `ProfileInstallReceiver`;
+  - o backup estiver ligado, ou alguma das duas regras deixar um domínio de fora.
+- A ligação das regras de backup no manifesto, que o teste não consegue ler, é conferida pelo passo "Regras de backup no manifesto" do CI.
 - Todo texto visível fica em `strings.xml` (RNF-07). O nível nunca é comunicado só por cor (RNF-06).
 - Composables podem ter nome em PascalCase: `.editorconfig` (ktlint) e `detekt.yml` (detekt) ignoram a regra de nome de função só para `@Composable`.
 
