@@ -42,3 +42,8 @@ dependencies {
 ktlint {
     version.set(libs.versions.ktlint)
 }
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("detekt.yml"))
+}
