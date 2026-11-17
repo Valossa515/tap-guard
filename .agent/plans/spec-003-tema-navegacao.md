@@ -70,7 +70,7 @@ Activity com Material 3, duas rotas tipadas e testes de clique via Robolectric, 
      - "Verificar agora" apontando para `SettingsRoute` → `TapGuardNavHostTest` falha (2 de 11: `home goes to scan result` e `scan result goes to app detail…`).
      - `android.permission.CAMERA` no manifesto → `./gradlew build` falha no `MergedManifestTest` ("Permissões fora da lista: [android.permission.CAMERA]").
      - Depois de desfazer tudo, `./gradlew build` volta a passar (26 testes, 0 falhas).
-   - Pendente: confirmar no primeiro CI da PR que o runner baixa a `Android SDK Platform 37.0`.
+   - CI (PR #46, run 44115154399): o build passou com compileSdk 37. O runner não baixou a plataforma: a imagem `ubuntu-26.04` (20261111.196) já traz a `android-37.0 (rev 2)`. Se uma imagem futura não a trouxer, o AGP baixa sozinho, porque as licenças estão aceitas no runner.
 
 ## Database changes
 - Nenhuma.
@@ -84,7 +84,7 @@ Activity com Material 3, duas rotas tipadas e testes de clique via Robolectric, 
   O job "Regras do projeto" só procura `INTERNET`. Os três ficam registrados no `SKILLS.md` com o motivo: remover a permissão quebraria o `ContextCompat.registerReceiver` com `RECEIVER_NOT_EXPORTED` abaixo do Android 13; o receptor só atende o shell e serve aos perfis de inicialização (RNF-03, abertura em até 2 s); o provider não é exportado. O teste de permissões passa a barrar qualquer permissão nova fora da lista.
 - **Uma dependência nova que traga permissão** faz o teste de permissões falhar. É o comportamento desejado: a permissão só entra com decisão registrada e a lista do teste atualizada na mesma spec.
 - **Tipo de nível no `app`** até a SPEC-010 criar o `RiskLevel` do domínio. Não é lógica de score, só apresentação; a SPEC-030 liga os dois.
-- **CI e plataforma 37:** o runner precisa baixar a `android-37.0` (o AGP baixa se as licenças estiverem aceitas, como baixou a 36 na SPEC-001). Confirmar no primeiro CI da PR.
+- **CI e plataforma 37 (resolvido, PR #46):** a imagem do runner (`ubuntu-26.04`, 20261111.196) já traz a `android-37.0`, e o build passou com compileSdk 37 sem download. Se faltar numa imagem futura, o AGP baixa sozinho, porque as licenças estão aceitas.
 - **Robolectric baixa o `android-all-instrumented`** do Maven Central no primeiro teste. Precisa de rede no CI (já tem).
 - **compileSdk 37 vale para os seis módulos** (catálogo único). Sem efeito em execução; o targetSdk 36 continua.
 - **Estados das telas:** as telas desta spec não têm dados, então não têm os quatro estados obrigatórios. Eles chegam com o conteúdo de cada tela.
@@ -102,4 +102,4 @@ Activity com Material 3, duas rotas tipadas e testes de clique via Robolectric, 
 - [ ] Textos em `strings.xml` (AC-024)
 - [ ] ktlint, detekt e testes passam, sem aparelho (AC-025)
 - [ ] Documentação atualizada, com o ADR-013 (AC-026)
-- [ ] CI da PR verde, com a plataforma 37 baixada pelo runner (AC-027)
+- [x] CI da PR verde, compilando com a plataforma 37 (AC-027). Verificado no PR #46 (run 44115154399, commit `8dbac86`): "Regras do projeto" e "Build e testes" passaram, com `BUILD SUCCESSFUL` e compileSdk 37. O log não mostra download porque a imagem do runner (`ubuntu-26.04`, versão 20261111.196) já traz a `android-37.0 (rev 2)` instalada, segundo o README da imagem
