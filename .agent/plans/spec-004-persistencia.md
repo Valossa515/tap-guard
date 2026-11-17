@@ -139,4 +139,4 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
 - [x] Nenhum dado de cartão no banco nem nas preferências (AC-019)
 - [x] ktlint, detekt, lint e testes passam (AC-020)
 - [x] Documentação atualizada, com o ADR-014 (AC-021)
-- [ ] CI da PR verde (AC-022)
+- [x] CI da PR verde (AC-022). PR #48, run 44185653261 (commit `fe1e076`): "Regras do projeto" (com o passo de backup) e "Build e testes" (com o passo do schema) passaram. No artefato `test-reports` (Linux), o `SettingsDataSourceTest` executou os 3 testes, 0 ignorados e 0 falhas; o `core-data` teve 17 testes, 0 falhas e 0 ignorados

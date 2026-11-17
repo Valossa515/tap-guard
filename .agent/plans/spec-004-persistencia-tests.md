@@ -84,4 +84,4 @@ Emenda 1.1 do contrato: os cenários 2 e 3 começam com `Assume.assumeFalse(<Win
 
 ## Execução
 - [x] `./gradlew build` verde, sem aviso novo, em 2026-11-17 (Windows): `core-data` com **17 testes** (16 desta spec + o de fumaça): **15 aprovados e 2 ignorados** por Assume (as escritas do `SettingsDataSourceTest`); `app` com os **6** cenários do `MergedManifestTest` aprovados. As duas escritas rodam no CI (Linux).
-- [ ] CI da PR: artefato `test-reports` com o `SettingsDataSourceTest` executando os 3 testes no Linux, sem ignorados.
+- [x] CI da PR #48 (run 44185653261, Linux): no artefato `test-reports`, o `SettingsDataSourceTest` executou os 3 testes (0 ignorados, 0 falhas), incluindo as duas gravações; o `core-data` teve 17 testes, 0 falhas e 0 ignorados.
