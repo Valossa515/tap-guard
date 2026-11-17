@@ -8,7 +8,7 @@ Aplicativo Tap Guard: telas, navegação, vigia agendada, notificações e inje�
 
 - **Módulos:** `core-domain`, `core-detection`, `core-nfc` e `core-data`.
 - **Plugins:** `com.android.application` (Kotlin embutido do AGP 9), `org.jetbrains.kotlin.plugin.compose`, `org.jetbrains.kotlin.plugin.serialization`, ktlint e detekt (com `detekt.yml` deste módulo).
-- **Bibliotecas:** Compose BOM 2026.09.00 (Material 3), `activity-compose` 1.13.0, `navigation-compose` 2.10.2, `kotlinx-serialization-json` 1.13.0.
+- **Bibliotecas:** Compose BOM 2026.09.00 (Material 3), `activity-compose` 1.13.0, `navigation-compose` 2.10.2 (traz o `kotlinx-serialization-core` usado pelas rotas tipadas).
 - **Testes:** JUnit 4, Robolectric 4.18, `androidx.test:core` 1.7.0 e `ui-test-junit4` (do BOM). Tudo em `src/test`, sem aparelho.
 - **applicationId e namespace:** `io.github.valossa515.tapguard` · minSdk 26 · targetSdk 36 · **compileSdk 37** (ADR-013).
 

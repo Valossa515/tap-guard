@@ -202,7 +202,6 @@ Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-0
 | Compose BOM (Material 3, `ui-test-junit4`) | 2026.09.00 | `app` |
 | `androidx.activity:activity-compose` | 1.13.0 | `app` |
 | `androidx.navigation:navigation-compose` | 2.10.2 | `app` (rotas tipadas) |
-| `org.jetbrains.kotlinx:kotlinx-serialization-json` | 1.13.0 | `app` |
 | Robolectric | 4.18 | Testes do `app` |
 | `androidx.test:core` | 1.7.0 | Testes do `app` |
 | ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |

@@ -2,17 +2,18 @@
 # .agent/specs/contracts/spec-003-tema-navegacao.contract.toon
 # SPEC-003 (issue #4) – camadas = pacotes do modulo app (skill Android) mais build e recursos e docs
 # Pacote base: io.github.valossa515.tapguard  ·  K = app/src/main/kotlin/io/github/valossa515/tapguard
+# Emenda 1.3 (2026-11-17, review): kotlinx-serialization-json retirada (sem uso); plugin de serializacao mantido
 # Emenda 1.2 (2026-11-17, review): .agent/context.md entra na camada docs (linha de SDK)
 # Emenda 1.1 (2026-11-17, review): TapGuardTheme fornece LocalTapGuardDarkTheme; RiskLevelIndicator volta a (level e modifier) e le o modo dali; novo cenario de tema forcado
 
 contract:
   feature-ref: FT-003
-  version: 1.2
+  version: 1.3
 
 layers:
   build:
     files[5]{path,action,description}:
-      gradle/libs.versions.toml,modify,compileSdk 37; versoes composeBom activityCompose navigationCompose serialization robolectric testCore; bibliotecas material3 e activity-compose e navigation-compose e kotlinx-serialization-json e ui-test-junit4 e robolectric e androidx-test-core; plugins kotlin-compose e kotlin-serialization na versao do kotlin
+      gradle/libs.versions.toml,modify,compileSdk 37; versoes composeBom activityCompose navigationCompose robolectric testCore; bibliotecas material3 e activity-compose e navigation-compose e ui-test-junit4 e robolectric e androidx-test-core; plugins kotlin-compose e kotlin-serialization na versao do kotlin
       build.gradle.kts,modify,plugins kotlin-compose e kotlin-serialization declarados com apply false
       app/build.gradle.kts,modify,aplica kotlin-compose e kotlin-serialization; buildFeatures compose; testOptions unitTests isIncludeAndroidResources; dependencias de producao e de teste pelo catalogo; bloco detekt com buildUponDefaultConfig e config app/detekt.yml
       .editorconfig,create,secao para arquivos kt e kts com ktlint_function_naming_ignore_when_annotated_with = Composable (texto exato do plano)
@@ -73,11 +74,10 @@ dependencies:
     gradle/libs.versions.toml (existente: catalogo unico de versoes)
     io.github.valossa515.tapguard.AppSmokeTest (existente: mantido sem alteracao)
     Plugins ktlint 14.2.0 e detekt 1.23.8 (existentes)
-  introduces[9]:
+  introduces[8]:
     androidx.compose:compose-bom 2026.09.00 (material3 e ui-test-junit4 sem versao propria)
     androidx.activity:activity-compose 1.13.0
     androidx.navigation:navigation-compose 2.10.2
-    org.jetbrains.kotlinx:kotlinx-serialization-json 1.13.0
     org.jetbrains.kotlin.plugin.compose 2.4.21
     org.jetbrains.kotlin.plugin.serialization 2.4.21
     org.robolectric:robolectric 4.18 (teste)

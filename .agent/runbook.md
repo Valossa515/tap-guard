@@ -6,7 +6,7 @@
 - **JDK 21 instalado (obrigatório).** `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) faz o daemon do Gradle rodar num JDK 21 instalado mesmo com outro `JAVA_HOME`. Sem JDK 21, o Gradle para.
 - Android SDK com a plataforma 37 (`platforms;android-37.0`) e o Build Tools correspondente (minSdk 26, targetSdk 36, compileSdk 37; ADR-013).
 - `local.properties` na raiz com `sdk.dir=<caminho do Android SDK>` (o Android Studio cria ao sincronizar; nunca vai para o Git). `ANDROID_HOME` também serve.
-- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; no `app`, Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, `kotlinx-serialization-json` 1.13.0, Robolectric 4.18 e `androidx.test:core` 1.7.0.
+- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; no `app`, Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, Robolectric 4.18 e `androidx.test:core` 1.7.0.
 - `adb`, para instalar o `decoy-app` (simula origem fora da loja).
 - Emulador Android (CI e testes ponta a ponta).
 - Aparelho físico com NFC e um cartão Visa ou Mastercard por aproximação, para o teste manual do F2.

@@ -14,7 +14,6 @@ junit4 = "4.13.2"
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 navigationCompose = "2.10.2"
-serialization = "1.13.0"
 robolectric = "4.18"
 testCore = "1.7.0"
 
@@ -28,7 +27,6 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
-kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "testCore" }
 

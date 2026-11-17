@@ -31,7 +31,7 @@ Nomes das telas, em inglês como manda a convenção de código: T1 `onboarding/
 ## Dependencies
 - **Reusing:** a configuração existente do `app` (namespace, applicationId, toolchain, dependências de projeto dos quatro `core-*`, ktlint, detekt); o catálogo; o `AppSmokeTest`, que continua como está.
 - **New** (versões aprovadas no plano, todas no catálogo):
-  - produção: Compose BOM 2026.09.00 (`material3`), `activity-compose` 1.13.0, `navigation-compose` 2.10.2, `kotlinx-serialization-json` 1.13.0;
+  - produção: Compose BOM 2026.09.00 (`material3`), `activity-compose` 1.13.0, `navigation-compose` 2.10.2 (o `kotlinx-serialization-core` das rotas vem por ele; a `kotlinx-serialization-json`, aprovada no plano, foi retirada na emenda 1.3 por não ter uso);
   - plugins: `org.jetbrains.kotlin.plugin.compose` e `org.jetbrains.kotlin.plugin.serialization` 2.4.21;
   - teste: `ui-test-junit4` (versão do BOM), Robolectric 4.18, `androidx.test:core` 1.7.0.
 - **Não entram:** `material-icons`, `ui-test-manifest`, `navigation-testing`, `ui-tooling`.

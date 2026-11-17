@@ -17,7 +17,7 @@ Dar ao `app` uma Activity com Compose, um tema Material 3 claro e escuro, os com
 
 | Item | Decisão |
 |------|---------|
-| Versões | Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, `kotlinx-serialization-json` 1.13.0, Robolectric 4.18, `androidx.test:core` 1.7.0. Plugins `org.jetbrains.kotlin.plugin.compose` e `org.jetbrains.kotlin.plugin.serialization` na versão do Kotlin (2.4.21). Conferidas nos repositórios oficiais |
+| Versões | Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, Robolectric 4.18, `androidx.test:core` 1.7.0. Plugins `org.jetbrains.kotlin.plugin.compose` e `org.jetbrains.kotlin.plugin.serialization` na versão do Kotlin (2.4.21). Conferidas nos repositórios oficiais |
 | SDK | **compileSdk 37**, targetSdk 36, minSdk 26. Motivo: o Compose 1.12 (BOM 2026.09.00), o `navigation-compose` 2.10.2 e o `lifecycle-*-compose` 2.11.0 exigem compileSdk ≥ 37 (o `checkDebugAarMetadata` recusa 12 artefatos com compileSdk 36). O targetSdk segue a exigência da Play Store, que hoje é 36. compileSdk só libera APIs para compilar; não muda o comportamento em execução |
 | Plataforma 37 | `platforms;android-37.0`, canal stable, sem codinome (catálogo oficial `repository2-3.xml`). Instalada nesta máquina pelo próprio AGP no build (revision 2); não havia `sdkmanager` |
 | Nomes de composables | ktlint: `.editorconfig` na raiz com `[*.{kt,kts}]` e `ktlint_function_naming_ignore_when_annotated_with = Composable`. detekt: `app/detekt.yml` com `naming > FunctionNaming > ignoreAnnotated: ['Composable']`, aplicado só ao `app` com `buildUponDefaultConfig = true` |
@@ -30,6 +30,7 @@ Dar ao `app` uma Activity com Compose, um tema Material 3 claro e escuro, os com
 | Ícones (2026-11-17) | vetores em `res/drawable`, sem a dependência `material-icons`; origem (Material Symbols, Apache 2.0) registrada no `app/README.md` |
 | `packageName` provisório da T4 (2026-11-17) | `io.github.valossa515.tapguard.decoy` |
 | Teste de composable isolado (2026-11-17) | divergência aprovada: `Robolectric.buildActivity` + `createEmptyComposeRule()`, sem `ui-test-manifest` |
+| `kotlinx-serialization-json` (2026-11-17, review) | **retirada** do `app` e do catálogo: nenhum código a usava. As rotas tipadas precisam só do plugin `org.jetbrains.kotlin.plugin.serialization` (mantido) e do `kotlinx-serialization-core`, que vem pelo `navigation-compose`. Build e os 11 testes de navegação passam sem ela |
 
 ### Experimento (projeto descartável `%TEMP%\tap-guard-spec003-probe-20261116-1`)
 Activity com Material 3, duas rotas tipadas e testes de clique via Robolectric, sobre as versões acima:
