@@ -98,15 +98,18 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 
 ### SDK levels
 - **minSdk**: 26 (Android 8.0)
-- **targetSdk / compileSdk**: 36 (the level the Play Store currently requires); raise it when the Play Store requirement changes
+- **targetSdk**: 36 (the level the Play Store currently requires); raise it when the Play Store requirement changes
+- **compileSdk**: 37 (`platforms;android-37.0`, stable), separate from targetSdk: Compose 1.12 (BOM 2026.09.00), `navigation-compose` 2.10.2 and `lifecycle-*-compose` 2.11.0 require compileSdk ≥ 37. compileSdk only exposes APIs at build time; runtime behavior follows targetSdk (ADR-013)
 - **Application id**: `io.github.valossa515.tapguard` (`app`) and `io.github.valossa515.tapguard.decoy` (`decoy-app`). Namespaces: `io.github.valossa515.tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`; `app` and `decoy-app` use their application id (ADR-011)
 
 ### Build and toolchain
-- **Versions** (only in `gradle/libs.versions.toml` — never a literal version in a `build.gradle.kts`): Gradle 9.7.0, AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 with ktlint 1.8.0, detekt 1.23.8, JUnit 5.14.4 (+ `junit-platform-launcher` 1.14.4) in `core-domain`, JUnit 4.13.2 in Android modules.
+- **Versions** (only in `gradle/libs.versions.toml` — never a literal version in a `build.gradle.kts`): Gradle 9.7.0, AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 with ktlint 1.8.0, detekt 1.23.8, JUnit 5.14.4 (+ `junit-platform-launcher` 1.14.4) in `core-domain`, JUnit 4.13.2 in Android modules. In `app`: Compose BOM 2026.09.00 (Material 3), `activity-compose` 1.13.0, `navigation-compose` 2.10.2, `kotlinx-serialization-json` 1.13.0, Compose and serialization compiler plugins 2.4.21; tests: Robolectric 4.18, `androidx.test:core` 1.7.0, `ui-test-junit4` (BOM).
 - **JDK 21** is required: it is the toolchain of every module (`kotlin { jvmToolchain(...) }`), the CI JDK, and the Gradle daemon JDK. `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) makes the daemon run on an installed JDK 21 regardless of `JAVA_HOME`. It was written by hand because `./gradlew updateDaemonJvm` needs a JDK download repository (foojay plugin), which the project does not configure. Reason: detekt 1.23.8 runs inside the Gradle process and fails on JDK 25.
 - **No `build-logic`, no convention plugins, no `subprojects {}` / `allprojects {}` configuration**: each module declares its own plugins, `android {}` block, SDKs and dependencies using catalog aliases.
 - **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. With no production code the rule passes (0/0); it starts biting at the first class with executable code (interfaces do not count, `data class` does). Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
 - **CI**: new GitHub Actions are pinned by commit SHA with the version in a comment on the same line (e.g. `uses: owner/action@<sha> # vX.Y.Z`). New CI steps go into the existing jobs "Regras do projeto" or "Build e testes", which are the required checks of the `main` ruleset.
+- **Composable names**: `@Composable` functions use PascalCase. `.editorconfig` (`ktlint_function_naming_ignore_when_annotated_with = Composable`) and `app/detekt.yml` (`naming > FunctionNaming > ignoreAnnotated: ['Composable']`, applied with `buildUponDefaultConfig = true`) exempt only composables; plain functions are still checked. In detekt, write colors as named `const val` ARGB values and pass `dp` sizes as named arguments (`MagicNumber` ignores both by default) instead of suppressing the rule.
+- **Isolated composable tests** (overrides `skills/android/testing.md`): use `Robolectric.buildActivity(ComponentActivity::class.java)` + `createEmptyComposeRule()` in `src/test`, **not** `createComposeRule()` with `ui-test-manifest` in `debugImplementation`, which would ship a test Activity in the published debug APK. Full-screen and navigation tests use `createAndroidComposeRule<MainActivity>()`. Use the `androidx.compose.ui.test.junit4.v2` rules (the others are deprecated in Compose 1.12).
 - **ktlint and detekt** are applied in every module; `./gradlew build` runs both plus Android lint and tests. ktlint also checks `*.gradle.kts` (break chained calls such as `libs.versions.minSdk.get().toInt()` before each `.`).
 
 ### Persistence (planned)
@@ -123,6 +126,13 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - `android.permission.POST_NOTIFICATIONS` — monitoring alerts (Android 13+)
 - `uses-feature android.hardware.nfc` with `required=false`
 - **Never** `android.permission.INTERNET`
+
+Brought in by AndroidX dependencies (accepted in SPEC-003; not declared by the project):
+- `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (declared and used) — from `androidx.core`. Signature-level, held only by this app; `ContextCompat.registerReceiver` with `RECEIVER_NOT_EXPORTED` needs it below Android 13, so removing it would break that call.
+- `androidx.profileinstaller.ProfileInstallReceiver` (exported, protected by `android.permission.DUMP`) — from `androidx.profileinstaller`. Only the shell and the system hold `DUMP`; it installs baseline profiles for faster cold start (RNF-03).
+- `androidx.startup.InitializationProvider` (not exported) — from `androidx.startup`, used by AndroidX libraries to initialize at startup.
+
+Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manifest and fails on any permission outside `QUERY_ALL_PACKAGES`, `NFC`, `POST_NOTIFICATIONS` and `<applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or on any exported Activity other than `MainActivity`. A new permission needs a recorded decision here and an update to that list in the same spec.
 
 ### How data and platform layers are tested (planned)
 - `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)

@@ -97,6 +97,14 @@
 - **Alternatives:** configurar o Kover agora e ligar os 80% só na SPEC-010 (rejeitada: dois PRs e risco de modelos entrarem sem teste); criar código de produção só para ter o que medir (rejeitada); Kover em todos os módulos (rejeitada: sem meta de cobertura neles e bug aberto `Kotlin/kotlinx-kover#815` com AGP 9); `gradle/actions` v5.0.2, só MIT (rejeitada: sem manutenção); validação do wrapper num job separado (rejeitada: rodaria em paralelo com o build, que já executaria o JAR, e não seria check obrigatório); publicar também o APK do `decoy-app` e o relatório de cobertura (adiado até haver uso).
 - **Consequences:** enquanto o `core-domain` não tiver código, a regra passa sem medir; uma configuração quebrada também mostraria "No sources", por isso a verificação negativa (classe temporária sem teste derruba o build) faz parte da conferência da spec. A SPEC-010 já nasce sob a regra: os modelos (`data class`) precisam de testes. O Kover 0.9.11 tem problema conhecido com o configuration cache do Gradle, que o projeto não liga; ligar exige rever. `actions/checkout` e `actions/setup-java` continuam em `@v4` por tag.
 
+## ADR-013 — compileSdk separado do targetSdk
+- **Date:** 2026-11-17
+- **Status:** Aceita (implementada na SPEC-003)
+- **Context:** o ADR-011 fixou targetSdk e compileSdk em 36. Na SPEC-003, o Compose 1.12 (BOM 2026.09.00), o `navigation-compose` 2.10.2 e o `lifecycle-*-compose` 2.11.0 passaram a exigir compileSdk ≥ 37: com 36, o `:app:checkDebugAarMetadata` recusa 12 artefatos. O targetSdk segue a exigência da Play Store, que hoje é 36.
+- **Decision:** **compileSdk 37**, **targetSdk 36**, minSdk 26, para todos os módulos Android (catálogo único). Plataforma `platforms;android-37.0`, conferida como estável no catálogo oficial do SDK (`repository2-3.xml`: canal stable, número sem codinome); as prévias `37.2-beta*` foram descartadas. Nesta máquina, o AGP a instalou no primeiro build (sem `sdkmanager`); no CI, o runner a baixa da mesma forma.
+- **Alternatives:** manter compileSdk 36 e voltar Compose BOM, Navigation e Lifecycle para versões mais antigas (rejeitada: versões já conferidas e testadas; compileSdk não muda o comportamento em execução); subir também o targetSdk para 37 (rejeitada: o targetSdk segue a Play Store e muda o comportamento em execução).
+- **Consequences:** compileSdk e targetSdk deixam de andar juntos. O compileSdk sobe quando uma biblioteca exigir; o targetSdk sobe quando a Play Store exigir, com teste das mudanças de comportamento. Quem contribui precisa da plataforma 37 no SDK. O ADR-011 continua válido em todo o resto.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.

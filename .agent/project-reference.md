@@ -11,12 +11,12 @@
 | **Name** | `tap-guard` (repositório). Nome de exibição em português: em aberto (especificação, seção 13) |
 | **Application id** | `app`: `io.github.valossa515.tapguard`; `decoy-app`: `io.github.valossa515.tapguard.decoy` (ADR-011) |
 | **Description** | App Android que avisa o usuário comum quando há no aparelho um app com o perfil dos usados em golpes de retransmissão de cartão por NFC, e ensina por que nenhum banco pede para encostar o cartão no celular |
-| **Type** | App Android (sem backend). Projeto Gradle criado na SPEC-001, ainda sem funcionalidade |
+| **Type** | App Android (sem backend). Projeto Gradle desde a SPEC-001; desde a SPEC-003 o app abre, com tema, componente de nível e nove telas vazias |
 | **Stack** | Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)** |
 | **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
-| **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 36. Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
-| **Source root** | `<módulo>/src/main/kotlin` nos módulos `core-domain`, `core-detection`, `core-nfc`, `core-data`, `app`, `decoy-app` (ainda vazios) |
-| **Test root** | `<módulo>/src/test/kotlin` (um teste de fumaça por módulo) |
+| **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 37 (ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
+| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`). Ainda vazios: `core-domain`, `core-detection`, `core-nfc`, `core-data`, `decoy-app` |
+| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -82,6 +82,19 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 
 `InstalledApp`, `Signal`, `ScoringContext`, `RiskResult`, `ScanTrigger`, `ScanReport`, `NfcTagHandle`, `CardReadResult`. Campos e forma: TODO: no code yet.
 
+### App (SPEC-003)
+
+| Classe / função | Pacote | Responsibility |
+|-----------------|--------|----------------|
+| `MainActivity` | raiz | Única Activity exportada; `setContent { TapGuardTheme { TapGuardNavHost() } }` |
+| `OnboardingRoute` … `AlertHistoryRoute`, `AppDetailRoute(packageName)` | `navigation` | Rotas `@Serializable`, uma por tela |
+| `TapGuardNavHost` | `navigation` | Grafo provisório da seção 10; único lugar que conhece o `NavController` |
+| `TapGuardTheme` | `ui/theme` | Material 3 com paleta fixa clara/escura, sem cores dinâmicas |
+| `RiskLevelUi` | `ui/components` | `GREEN`, `YELLOW`, `RED`; tipo da interface até o `RiskLevel` do domínio (SPEC-010) |
+| `riskLevelColors` | `ui/components` | Função pura: fundo e conteúdo de cada nível, em claro e escuro |
+| `RiskLevelIndicator` | `ui/components` | Nível com cor, ícone e frase exata (RNF-06) |
+| `{Feature}Screen` (9) | `ui/<tela>` | Telas vazias: título e botões de saída |
+
 ### Demais classes (ViewModels, repositórios, DAOs, workers, receptores)
 
 TODO: no code yet.
@@ -92,19 +105,21 @@ TODO: no code yet.
 
 Não se aplica: o app não tem backend nem API HTTP (especificação, seções 1 e 3).
 
-### Telas (planned, especificação seção 10)
+### Telas (especificação seção 10; vazias e com navegação provisória desde a SPEC-003)
 
-| ID | Tela | Sai para |
-|----|------|----------|
-| T1 | Onboarding | T2 |
-| T2 | Início | T3, T5, T7, T8 |
-| T3 | Resultado | T4 |
-| T4 | Detalhe do app | Telas do sistema |
-| T5 | Teste do cartão: explicação | T6 |
-| T6 | Teste do cartão: leitura e resultado | T2 |
-| T7 | Emergência | Telas do sistema |
-| T8 | Configurações | T9 |
-| T9 | Histórico de alertas | T4 |
+| ID | Tela | Rota | Sai para |
+|----|------|------|----------|
+| T1 | Onboarding (título "Boas-vindas") | `OnboardingRoute` | T2 (sai da pilha) |
+| T2 | Início | `HomeRoute` | T3, T5, T7, T8 |
+| T3 | Resultado | `ScanResultRoute` | T4 |
+| T4 | Detalhe do app | `AppDetailRoute(packageName)` | Telas do sistema (planned) |
+| T5 | Teste do cartão: explicação | `CardTestIntroRoute` | T6 |
+| T6 | Teste do cartão: leitura e resultado | `CardTestReadingRoute` | T2 existente |
+| T7 | Emergência | `EmergencyRoute` | Telas do sistema (planned) |
+| T8 | Configurações | `SettingsRoute` | T9 |
+| T9 | Histórico de alertas | `AlertHistoryRoute` | T4 |
+
+Começa sempre na T1, sem persistência (provisório). A T3 e a T9 abrem a T4 com o pacote provisório `io.github.valossa515.tapguard.decoy`.
 
 ---
 
@@ -174,7 +189,7 @@ Ver `glossary.md`.
 
 ## 8. Dependencies (planned)
 
-Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001 e SPEC-002):
+Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-001 a SPEC-003):
 
 | Item | Versão | Uso |
 |------|--------|-----|
@@ -182,7 +197,14 @@ Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-0
 | Android Gradle Plugin | 9.3.3 | Módulos Android (Kotlin embutido; sem `org.jetbrains.kotlin.android`) |
 | Kotlin (`org.jetbrains.kotlin.jvm`) | 2.4.21 | `core-domain` |
 | JDK | 21 | Toolchain, daemon do Gradle (`gradle/gradle-daemon-jvm.properties`) e CI |
-| minSdk / targetSdk / compileSdk | 26 / 36 / 36 | Módulos Android |
+| minSdk / targetSdk / compileSdk | 26 / 36 / 37 | Módulos Android (compileSdk separado do targetSdk: ADR-013) |
+| Plugins `org.jetbrains.kotlin.plugin.compose` e `.serialization` | 2.4.21 | `app` |
+| Compose BOM (Material 3, `ui-test-junit4`) | 2026.09.00 | `app` |
+| `androidx.activity:activity-compose` | 1.13.0 | `app` |
+| `androidx.navigation:navigation-compose` | 2.10.2 | `app` (rotas tipadas) |
+| `org.jetbrains.kotlinx:kotlinx-serialization-json` | 1.13.0 | `app` |
+| Robolectric | 4.18 | Testes do `app` |
+| `androidx.test:core` | 1.7.0 | Testes do `app` |
 | ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |
 | detekt (`io.gitlab.arturbosch.detekt`) | 1.23.8 | Análise estática, todos os módulos |
 | Kover (`org.jetbrains.kotlinx.kover`) | 0.9.11 | Cobertura, só no `core-domain` (mínimo de 80% de linhas) — SPEC-002 |
@@ -214,17 +236,19 @@ Actions do CI (fora do catálogo, em `.github/workflows/ci.yml`): `actions/check
 ## 9. How to Run
 
 ```bash
-# Pré-requisitos: JDK 21 instalado, Android SDK 36, local.properties com sdk.dir
+# Pré-requisitos: JDK 21 instalado, Android SDK com a plataforma 37, local.properties com sdk.dir
 
 # Build (compila, lint do Android, ktlint, detekt, testes e cobertura do core-domain — o mesmo que o CI)
 ./gradlew build
 
-# Run (APK de debug; o app ainda não tem Activity)
+# Run (APK de debug; instala e abre no aparelho ou emulador conectado)
 ./gradlew :app:assembleDebug
+./gradlew :app:installDebug
 
 # Test
 ./gradlew test
 ./gradlew :core-domain:test
+./gradlew :app:testDebugUnitTest   # Robolectric: navegação, níveis, tema, cores e manifesto
 
 # Lint (ktlint + detekt)
 ./gradlew ktlintCheck detekt

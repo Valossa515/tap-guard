@@ -133,7 +133,7 @@ Quando sair uma versão nova do SDD, rode o instalador de novo com a stack `andr
 ### Pré-requisitos
 
 - **JDK 21 instalado (obrigatório).** O arquivo `gradle/gradle-daemon-jvm.properties` fixa o JDK do daemon do Gradle em 21 (`toolchainVersion=21`). Com ele, o Gradle procura um JDK 21 instalado e roda nele mesmo que o `JAVA_HOME` aponte para outra versão. Sem JDK 21 na máquina, o Gradle não acha um JVM compatível e para. O motivo: o detekt 1.23.8 roda dentro do processo do Gradle e não reconhece JVMs mais novos (falha no JDK 25).
-- **Android SDK** com a plataforma 36 (compileSdk e targetSdk) e o Build Tools correspondente.
+- **Android SDK** com a plataforma 37 (`platforms;android-37.0`, o compileSdk) e o Build Tools correspondente. O targetSdk é 36. Se a plataforma 37 faltar e as licenças do SDK estiverem aceitas, o AGP baixa sozinho no primeiro build; senão, instale pelo SDK Manager do Android Studio.
 - **`local.properties` na raiz** com o caminho do Android SDK. O Android Studio cria o arquivo ao sincronizar. Fora dele, crie à mão:
 
   ```properties
@@ -151,11 +151,12 @@ Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
 
 ```bash
 ./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt, testes e a cobertura do core-domain (é o que o CI roda)
-./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android
+./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android (Robolectric no app)
 ./gradlew ktlintCheck    # estilo (ktlint 1.8.0)
 ./gradlew ktlintFormat   # corrige o que o ktlint consegue corrigir sozinho
 ./gradlew detekt         # análise estática (detekt 1.23.8)
 ./gradlew :app:assembleDebug   # APK de debug do app
+./gradlew :app:installDebug    # instala no aparelho ou emulador conectado; abra pelo ícone "Tap Guard"
 ./gradlew :core-domain:koverVerify       # confere o mínimo de 80% de cobertura de linhas (também roda no build)
 ./gradlew :core-domain:koverHtmlReport   # relatório em core-domain/build/reports/kover/html/index.html
 ./gradlew :core-domain:koverXmlReport    # relatório em core-domain/build/reports/kover/report.xml
