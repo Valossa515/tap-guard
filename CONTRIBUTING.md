@@ -180,5 +180,7 @@ O `core-domain` exige no mínimo 80% de cobertura de linhas (Kover). Abaixo diss
 
 Todo pull request para `main` roda dois jobs, ambos obrigatórios para o merge:
 
-- **Regras do projeto:** nenhum manifesto declara `INTERNET`; scripts shell com final de linha LF.
-- **Build e testes:** valida o `gradle-wrapper.jar` contra os checksums oficiais do Gradle, roda `./gradlew build` no JDK 21 e publica o APK de debug do `app` como artefato `app-debug`, que pode ser baixado na página do run em Actions.
+- **Regras do projeto:** nenhum manifesto declara `INTERNET`; backup desligado e regras de backup no manifesto; specs do SDD válidas (`.agent/scripts/validate-spec.sh .agent/specs`); scripts shell com final de linha LF.
+- **Build e testes:** valida o `gradle-wrapper.jar` contra os checksums oficiais do Gradle, roda `./gradlew build` no JDK 21, confere que o schema do Room está commitado e publica os relatórios de teste (`test-reports`) e o APK de debug do `app` (`app-debug`) como artefatos.
+
+**PR só de documentação:** quando todos os arquivos alterados são de documentação, o job "Build e testes" pula o build e passa. Contam como documentação: arquivos `.md`, `docs/`, `LICENSE`, `.agent/`, `.github/agents/`, `.github/ISSUE_TEMPLATE/` e `.github/CODEOWNERS`. Qualquer outro arquivo (código, recursos, Gradle, schemas, workflows) faz o build rodar inteiro. Em push na `main`, o build roda sempre.
