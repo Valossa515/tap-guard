@@ -47,6 +47,7 @@ O app também passa a **não sair do aparelho por backup**: backup desligado e r
 | Testes de escrita do DataStore no Windows (2026-11-17) | os dois cenários do `SettingsDataSourceTest` que gravam mais de uma vez usam `Assume.assumeFalse(<Windows>)`: no Windows, renomear o `.tmp` do DataStore por cima do arquivo existente falha na JVM (`Unable to rename …`). No Android e no Linux do CI eles rodam. O teste de padrões roda em todos os sistemas. Regra no `SKILLS.md`. A descrição do PR precisa dizer que esses dois testes só rodam no CI |
 | Schema do Room no CI (2026-11-17) | passo "Schema do Room commitado" no job "Build e testes", depois do `./gradlew build`: `git diff --exit-code -- core-data/schemas` falha se o build regerou o schema e ele difere do commitado, e pede para commitar o regerado. Commit próprio (`ci: falha se o schema do Room não estiver commitado`). AC-009 reescrito: mudar uma entidade sem commitar o schema regerado faz o CI falhar; o teste de migração continua criando e validando a versão 1 |
 | Regra de schema (2026-11-17) | até a primeira versão pública, o schema da versão 1 pode mudar, com o `1.json` commitado junto, sem migração (não há banco instalado em aparelho de usuário); a partir da primeira versão pública, o schema de uma versão publicada fica congelado: mudança exige subir a versão, uma `Migration` e um teste de migração, e o CI deve barrar alteração em `N.json` já existente na `main` (passo da SPEC-073). Registrada no ADR-014 e em `conventions.md` |
+| Ajustes do review (2026-11-17) | passo do schema com `git status --porcelain -- core-data/schemas` (pega também arquivo novo, como um `2.json` não commitado); `DataModuleTest` injeta o `SettingsDataSource`; passo "Publica os relatórios de teste" (`if: always()`, artefato `test-reports` com `*/build/reports/tests/`). Emenda 1.3 do contrato |
 | `MergedManifestTest` | passa a conferir **todos os componentes exportados** (Activities, serviços, receptores e provedores) contra uma lista explícita, que hoje é `MainActivity` e `ProfileInstallReceiver`. Também confere que o backup está desligado e que as duas regras de backup excluem todos os domínios. A lista de permissões continua igual |
 
 ### Experimento (projeto descartável `%TEMP%\tap-guard-spec004-probe-20261117`)
@@ -127,15 +128,15 @@ Cópia do repositório com as versões acima, uma entidade, um DAO, o banco, o m
 - **Tamanho da PR:** estimativa de 600 a 800 linhas entre código e testes, acima das 500 do planner. Fica numa PR pela regra "um pull request por spec".
 
 ## Acceptance criteria
-- [ ] Testes de DAO em memória passam para as quatro tabelas (AC-001 a AC-004)
-- [ ] Chaves, chave estrangeira e cascata funcionam (AC-005 a AC-007)
-- [ ] Migração inicial versionada: schema `1.json` commitado e versão 1 criada e validada a partir dele (AC-008, AC-009)
-- [ ] Preferências disponíveis com os padrões aprovados (AC-010, AC-011)
-- [ ] Hilt fornece banco, DAOs e DataStore; `TapGuardApplication` no manifesto (AC-012, AC-013)
-- [ ] Só KSP, sem kapt; versões só no catálogo (AC-014)
-- [ ] Backup desligado, inclusive a transferência entre aparelhos (AC-015, AC-016), e os três atributos conferidos pelo CI no manifesto (AC-023)
-- [ ] Componentes exportados e permissões conferidos pelo `MergedManifestTest` (AC-017, AC-018)
-- [ ] Nenhum dado de cartão no banco nem nas preferências (AC-019)
-- [ ] ktlint, detekt, lint e testes passam (AC-020)
-- [ ] Documentação atualizada, com o ADR-014 (AC-021)
+- [x] Testes de DAO em memória passam para as quatro tabelas (AC-001 a AC-004)
+- [x] Chaves, chave estrangeira e cascata funcionam (AC-005 a AC-007)
+- [x] Migração inicial versionada: schema `1.json` commitado e versão 1 criada e validada a partir dele (AC-008, AC-009)
+- [x] Preferências disponíveis com os padrões aprovados (AC-010, AC-011)
+- [x] Hilt fornece banco, DAOs e DataStore; `TapGuardApplication` no manifesto (AC-012, AC-013)
+- [x] Só KSP, sem kapt; versões só no catálogo (AC-014)
+- [x] Backup desligado, inclusive a transferência entre aparelhos (AC-015, AC-016), e os três atributos conferidos pelo CI no manifesto (AC-023)
+- [x] Componentes exportados e permissões conferidos pelo `MergedManifestTest` (AC-017, AC-018)
+- [x] Nenhum dado de cartão no banco nem nas preferências (AC-019)
+- [x] ktlint, detekt, lint e testes passam (AC-020)
+- [x] Documentação atualizada, com o ADR-014 (AC-021)
 - [ ] CI da PR verde (AC-022)

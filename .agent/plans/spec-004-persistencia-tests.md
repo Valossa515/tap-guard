@@ -1,7 +1,7 @@
 # Test Plan: SPEC-004 Base de persistência e injeção
 
 > Fonte: `test-strategy` de `.agent/specs/contracts/spec-004-persistencia.contract.toon` e critérios de `.agent/specs/acceptance/spec-004-persistencia.acceptance.toon` · 2026-11-17
-> Sem desvio da estratégia aprovada: 8 alvos, 25 cenários.
+> Sem desvio da estratégia aprovada: 8 alvos, 22 cenários (3 + 3 + 4 + 1 + 2 + 1 + 2 + 6).
 
 ## Scope
 DAOs das quatro tabelas em memória, chaves e cascata, migração inicial contra o schema commitado, preferências com os padrões, grafo do Hilt no `core-data` e o `MergedManifestTest` estendido. Tudo em `src/test`, sem aparelho, no `./gradlew build`.
@@ -60,7 +60,7 @@ Emenda 1.1 do contrato: os cenários 2 e 3 começam com `Assume.assumeFalse(<Win
 ### Grafo do Hilt — `di/DataModuleTest.kt` (`@HiltAndroidTest`, `HiltTestApplication`)
 | # | Scenario | Expected result | AC |
 |---|----------|-----------------|----|
-| 1 | injects-database-daos-and-datastore | banco, quatro DAOs e `DataStore<Preferences>` injetados | AC-012 |
+| 1 | injects-database-daos-datastore-and-settings-data-source | banco, quatro DAOs, `DataStore<Preferences>` e `SettingsDataSource` (emenda 1.3: exercita o `@Inject constructor`) injetados | AC-012 |
 | 2 | database-and-datastore-are-singletons | duas chamadas a `Provider.get()` devolvem a mesma instância do banco e do DataStore | AC-012 |
 
 ### Manifesto mesclado — `app/src/test/.../MergedManifestTest.kt` (estendido)
@@ -83,4 +83,5 @@ Emenda 1.1 do contrato: os cenários 2 e 3 começam com `Assume.assumeFalse(<Win
 - Robolectric 4.18, `androidx.test:core`, `room-testing`, `kotlinx-coroutines-test` e `hilt-android-testing`, já no `core-data/build.gradle.kts` (tarefas 2 e 4). Nenhuma dependência nova.
 
 ## Execução
-- [x] `./gradlew build` verde, sem aviso novo, em 2026-11-17 (Windows): `core-data` 19 testes (17 aprovados, 2 ignorados por Assume: as escritas do `SettingsDataSourceTest`); `app` com os 6 cenários do `MergedManifestTest` aprovados. As duas escritas rodam no CI (Linux).
+- [x] `./gradlew build` verde, sem aviso novo, em 2026-11-17 (Windows): `core-data` com **17 testes** (16 desta spec + o de fumaça): **15 aprovados e 2 ignorados** por Assume (as escritas do `SettingsDataSourceTest`); `app` com os **6** cenários do `MergedManifestTest` aprovados. As duas escritas rodam no CI (Linux).
+- [ ] CI da PR: artefato `test-reports` com o `SettingsDataSourceTest` executando os 3 testes no Linux, sem ignorados.

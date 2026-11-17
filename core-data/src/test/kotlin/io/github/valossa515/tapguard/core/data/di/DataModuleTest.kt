@@ -10,6 +10,7 @@ import io.github.valossa515.tapguard.core.data.database.dao.AlertEventDao
 import io.github.valossa515.tapguard.core.data.database.dao.AppSnapshotDao
 import io.github.valossa515.tapguard.core.data.database.dao.ScanRunDao
 import io.github.valossa515.tapguard.core.data.database.dao.UserDecisionDao
+import io.github.valossa515.tapguard.core.data.settings.SettingsDataSource
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Before
@@ -46,17 +47,21 @@ class DataModuleTest {
     @Inject
     lateinit var dataStore: Provider<DataStore<Preferences>>
 
+    @Inject
+    lateinit var settings: SettingsDataSource
+
     @Before
     fun setUp() = hilt.inject()
 
     @Test
-    fun `injects database daos and datastore`() {
+    fun `injects database daos datastore and settings data source`() {
         assertNotNull(database.get())
         assertNotNull(scanRunDao)
         assertNotNull(appSnapshotDao)
         assertNotNull(userDecisionDao)
         assertNotNull(alertEventDao)
         assertNotNull(dataStore.get())
+        assertNotNull(settings)
     }
 
     @Test
