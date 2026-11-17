@@ -2,13 +2,14 @@
 # .agent/specs/contracts/spec-003-tema-navegacao.contract.toon
 # SPEC-003 (issue #4) – camadas = pacotes do modulo app (skill Android) mais build e recursos e docs
 # Pacote base: io.github.valossa515.tapguard  ·  K = app/src/main/kotlin/io/github/valossa515/tapguard
+# Emenda 1.4 (2026-11-17, review): MainActivity chama enableEdgeToEdge antes do setContent
 # Emenda 1.3 (2026-11-17, review): kotlinx-serialization-json retirada (sem uso); plugin de serializacao mantido
 # Emenda 1.2 (2026-11-17, review): .agent/context.md entra na camada docs (linha de SDK)
 # Emenda 1.1 (2026-11-17, review): TapGuardTheme fornece LocalTapGuardDarkTheme; RiskLevelIndicator volta a (level e modifier) e le o modo dali; novo cenario de tema forcado
 
 contract:
   feature-ref: FT-003
-  version: 1.3
+  version: 1.4
 
 layers:
   build:
@@ -30,7 +31,7 @@ layers:
       app/src/main/res/drawable/ic_level_red.xml,create,icone de erro do nivel vermelho (Material Symbols Apache 2.0)
   entry:
     files[1]{path,action,description}:
-      app/src/main/kotlin/io/github/valossa515/tapguard/MainActivity.kt,create,ComponentActivity que chama setContent com TapGuardTheme envolvendo TapGuardNavHost; sem logica
+      app/src/main/kotlin/io/github/valossa515/tapguard/MainActivity.kt,create,ComponentActivity que chama enableEdgeToEdge e depois setContent com TapGuardTheme envolvendo TapGuardNavHost (com safeDrawingPadding); sem logica
   navigation:
     files[2]{path,action,description}:
       app/src/main/kotlin/io/github/valossa515/tapguard/navigation/Routes.kt,create,rotas @Serializable OnboardingRoute HomeRoute ScanResultRoute AppDetailRoute(packageName: String) CardTestIntroRoute CardTestReadingRoute EmergencyRoute SettingsRoute AlertHistoryRoute
