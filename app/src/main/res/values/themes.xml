@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tema da janela no modo claro. As cores da interface vêm do TapGuardTheme (Compose). -->
+    <style name="Theme.TapGuard" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

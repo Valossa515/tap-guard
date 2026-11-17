@@ -1,0 +1,4 @@
+<resources>
+    <!-- Nome exibido provisório (o nome em português é decisão em aberto, especificação seção 13). -->
+    <string name="app_name">Tap Guard</string>
+</resources>
