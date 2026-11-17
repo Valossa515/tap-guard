@@ -81,10 +81,13 @@ jobs:
       - name: Build e testes
         run: ./gradlew build --no-daemon
 
-      # O build regera core-data/schemas a partir das entidades. Diferenca aqui = entidade mudou sem o schema commitado.
+      # O build regera core-data/schemas a partir das entidades. Arquivo alterado ou novo (ex.: 2.json) aqui =
+      # entidade ou versao mudou sem o schema commitado.
       - name: Schema do Room commitado
         run: |
-          if ! git diff --exit-code -- core-data/schemas; then
+          CHANGED=$(git status --porcelain -- core-data/schemas)
+          if [ -n "$CHANGED" ]; then
+            echo "$CHANGED"
             echo "O build regerou o schema do Room em core-data/schemas e ele difere do commitado."
             echo "Rode ./gradlew build localmente e commite o schema regerado junto com a mudanca na entidade."
             exit 1
