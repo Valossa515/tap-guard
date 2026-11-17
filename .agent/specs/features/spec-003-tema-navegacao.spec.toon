@@ -1,0 +1,64 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-003-tema-navegacao.spec.toon
+# SPEC-003 (issue #4) – interface ui: outputs.*.status e o estado ou destino de tela mostrado
+
+feature:
+  id: FT-003
+  name: SPEC-003 Tema e navegacao
+  version: 1.0
+  status: draft
+  interface: ui
+
+requirement:
+  summary: O app abre numa Activity com Compose e tema Material 3 de paleta fixa que segue o modo claro ou escuro do sistema. As nove telas da secao 10 (T1 a T9) existem vazias e a navegacao entre elas segue o fluxo provisorio. Os componentes de nivel (verde e amarelo e vermelho) mostram sempre cor e icone e a frase exata da especificacao. Nome Tap Guard e icone de escudo sao provisorios.
+  actor: Usuario do Tap Guard
+  trigger: Usuario abre o app pelo icone e toca nos botoes de cada tela
+
+inputs[3]{name,type,required,constraints}:
+  toque,acao do usuario,true,botao de saida de cada tela conforme o fluxo da secao 10
+  modo-do-sistema,configuracao do aparelho,true,claro ou escuro
+  nivel,RiskLevelUi,true,GREEN ou YELLOW ou RED (tipo do app ate o RiskLevel da SPEC-010)
+
+outputs:
+  success:
+    description: A tela de destino da aresta e exibida com o titulo da secao 10; o componente de nivel mostra cor e icone e frase do nivel
+    status: Shown
+    body[4]{name,type,value}:
+      inicio,tela,T1 Onboarding ao abrir o app
+      telas,lista,T1 T2 T3 T4 T5 T6 T7 T8 T9
+      niveis,lista,verde (visto) amarelo (alerta) vermelho (erro)
+      tema,modo,claro ou escuro conforme o sistema sem cores dinamicas
+  errors[3]{code,status,when}:
+    ONBOARDING_LEFT,Closed,usuario aciona voltar na T2 depois de sair da T1: a T1 nao esta mais na pilha e o app fecha
+    CARD_TEST_DONE,Closed,usuario aciona voltar na T2 a que chegou pela T6: a T6 voltou para a T2 existente sem empilhar outra e o app fecha
+    PERMISSION_NOT_ALLOWED,Failed,o manifesto mesclado do app pede uma permissao fora da lista explicita (o teste de permissoes falha)
+
+business-rules[13]{id,rule}:
+  BR-001,O app sempre comeca na T1 e nao persiste se o onboarding foi visto (provisorio)
+  BR-002,Fluxo: T1 para T2; T2 para T3 e T5 e T7 e T8; T3 para T4; T5 para T6; T6 para T2; T8 para T9; T9 para T4
+  BR-003,Ao avancar da T1 para a T2 a T1 sai da pilha
+  BR-004,A T6 volta para a T2 que ja existe na pilha sem criar outra
+  BR-005,A rota da T4 recebe packageName String; T3 e T9 passam um valor fixo provisorio
+  BR-006,O nivel nunca e comunicado so por cor: cada nivel tem cor e icone e frase (RNF-06)
+  BR-007,Frases exatas: verde Nada suspeito encontrado.; amarelo Encontramos apps que merecem atencao.; vermelho Encontramos um app com perfil de golpe. Veja o que fazer.
+  BR-008,Icones: verde visto; amarelo alerta; vermelho erro
+  BR-009,Tema Material 3 com paleta fixa clara e escura que segue o sistema; sem cores dinamicas; texto e fundo dos niveis com contraste AA
+  BR-010,Todo texto visivel fica em arquivo de recursos em portugues do Brasil (RNF-07)
+  BR-011,compileSdk 37 e targetSdk 36 e minSdk 26; versoes so no catalogo
+  BR-012,Nenhuma permissao nova; nunca INTERNET; a unica Activity exportada do projeto e a de entrada; a permissao DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION e os componentes ProfileInstallReceiver e InitializationProvider vem do AndroidX e ficam registrados no SKILLS.md com o motivo
+  BR-013,Um teste Robolectric le as permissoes do manifesto mesclado e falha se houver qualquer uma fora da lista: QUERY_ALL_PACKAGES e NFC e POST_NOTIFICATIONS e applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+
+assumptions[13]:
+  Versoes conferidas pelo usuario: Compose BOM 2026.09.00 e activity-compose 1.13.0 e navigation-compose 2.10.2 e kotlinx-serialization-json 1.13.0 e Robolectric 4.18 e androidx.test core 1.7.0; plugins compose e serialization 2.4.21
+  Compose 1.12 e navigation-compose 2.10.2 e lifecycle-compose 2.11.0 exigem compileSdk 37 (verificado no projeto descartavel); targetSdk segue a Play Store (36)
+  platforms android-37.0 e estavel (canal stable sem codinome no repositorio oficial)
+  Composables aceitos por .editorconfig (ktlint_function_naming_ignore_when_annotated_with = Composable) e por app/detekt.yml (FunctionNaming ignoreAnnotated Composable) com buildUponDefaultConfig
+  Testes sem aparelho: Robolectric com createAndroidComposeRule da Activity real para navegacao e Robolectric.buildActivity com createEmptyComposeRule para componentes isolados (sem ui-test-manifest)
+  Tipo de nivel RiskLevelUi (GREEN e YELLOW e RED) definido no app ate a SPEC-010; sem logica de score
+  Icones como vetores em res/drawable (Material Symbols Apache 2.0) sem a dependencia material-icons; origem registrada no app/README.md (decisao do usuario)
+  packageName provisorio da T4 = io.github.valossa515.tapguard.decoy (decisao do usuario)
+  Nome Tap Guard e icone de escudo sao provisorios (nome em portugues e decisao em aberto da secao 13)
+  Telas vazias nao tem os estados carregando e vazio e conteudo e erro; eles chegam com o conteudo de cada tela
+  Permissao DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION e ProfileInstallReceiver e InitializationProvider vem do AndroidX e foram aceitos pelo usuario
+  O PackageManager do Robolectric devolve as permissoes do manifesto mesclado (verificado no projeto descartavel)
+  outputs.*.status e o estado ou destino de tela mostrado (feature.interface ui)

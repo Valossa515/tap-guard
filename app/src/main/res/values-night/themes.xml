@@ -1,0 +1,4 @@
+<resources>
+    <!-- Tema da janela no modo escuro: evita a janela branca antes de o Compose desenhar. -->
+    <style name="Theme.TapGuard" parent="android:Theme.Material.NoActionBar" />
+</resources>

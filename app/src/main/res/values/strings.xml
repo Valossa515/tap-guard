@@ -1,0 +1,38 @@
+<resources>
+    <!-- Nome exibido provisório (o nome em português é decisão em aberto, especificação seção 13). -->
+    <string name="app_name">Tap Guard</string>
+
+    <!-- Níveis de risco: frases exatas da especificação (seção 10). -->
+    <string name="risk_level_green_text">Nada suspeito encontrado.</string>
+    <string name="risk_level_yellow_text">Encontramos apps que merecem atenção.</string>
+    <string name="risk_level_red_text">Encontramos um app com perfil de golpe. Veja o que fazer.</string>
+    <string name="risk_level_green_icon_description">Nível verde</string>
+    <string name="risk_level_yellow_icon_description">Nível amarelo</string>
+    <string name="risk_level_red_icon_description">Nível vermelho</string>
+
+    <!-- Títulos das telas: nomes da especificação (seção 10); a T1 em português, sem termo técnico (RNF-07). -->
+    <string name="onboarding_title">Boas-vindas</string>
+    <string name="home_title">Início</string>
+    <string name="scan_result_title">Resultado</string>
+    <string name="app_detail_title">Detalhe do app</string>
+    <string name="card_test_intro_title">Teste do cartão: explicação</string>
+    <string name="card_test_reading_title">Teste do cartão: leitura e resultado</string>
+    <string name="emergency_title">Emergência</string>
+    <string name="settings_title">Configurações</string>
+    <string name="alert_history_title">Histórico de alertas</string>
+
+    <!-- Botões da T2: textos da especificação (seção 10). -->
+    <string name="home_scan_now">Verificar agora</string>
+    <string name="home_test_card">Testar meu cartão</string>
+    <string name="home_emergency">Acho que caí em um golpe</string>
+
+    <!-- Provisórios: rótulos e itens que existem só para a navegação desta etapa. -->
+    <string name="home_settings">Configurações</string>
+    <string name="onboarding_continue">Começar</string>
+    <string name="scan_result_provisional_app">App de teste</string>
+    <string name="app_detail_package_name">Pacote: %1$s</string>
+    <string name="card_test_intro_continue">Continuar</string>
+    <string name="card_test_reading_done">Voltar ao início</string>
+    <string name="settings_alert_history">Histórico de alertas</string>
+    <string name="alert_history_provisional_alert">Alerta de teste</string>
+</resources>

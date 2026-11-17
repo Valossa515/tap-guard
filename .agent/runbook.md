@@ -1,21 +1,23 @@
 # Runbook
 
-> Build Gradle criado na SPEC-001: seis módulos, sem funcionalidade ainda. Comandos de instalação e de testes instrumentados chegam nas specs seguintes.
+> Build Gradle criado na SPEC-001. Desde a SPEC-003 o `app` abre: tema, componente de nível e as nove telas vazias ligadas pela navegação provisória. Testes instrumentados chegam nas specs seguintes.
 
 ## Prerequisites
 - **JDK 21 instalado (obrigatório).** `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) faz o daemon do Gradle rodar num JDK 21 instalado mesmo com outro `JAVA_HOME`. Sem JDK 21, o Gradle para.
-- Android SDK com a plataforma 36 e o Build Tools correspondente (minSdk 26, targetSdk 36, compileSdk 36).
+- Android SDK com a plataforma 37 (`platforms;android-37.0`) e o Build Tools correspondente (minSdk 26, targetSdk 36, compileSdk 37; ADR-013).
 - `local.properties` na raiz com `sdk.dir=<caminho do Android SDK>` (o Android Studio cria ao sincronizar; nunca vai para o Git). `ANDROID_HOME` também serve.
-- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2.
+- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; no `app`, Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, Robolectric 4.18 e `androidx.test:core` 1.7.0.
 - `adb`, para instalar o `decoy-app` (simula origem fora da loja).
 - Emulador Android (CI e testes ponta a ponta).
 - Aparelho físico com NFC e um cartão Visa ou Mastercard por aproximação, para o teste manual do F2.
 
 ## How to Run
 ```bash
-# APK de debug do app (ainda sem Activity: instala, mas não abre nada)
+# APK de debug do app
 ./gradlew :app:assembleDebug
-# instalar no aparelho/emulador conectado: TODO (a partir da spec que criar a primeira tela)
+# instalar no aparelho/emulador conectado e abrir (ou tocar no ícone "Tap Guard")
+./gradlew :app:installDebug
+adb shell am start -n io.github.valossa515.tapguard/.MainActivity
 
 # instalar o app isca (uma das variantes: nfcOnly, hce, full, lookalike)
 TODO: no code yet  # a especificação só define que a instalação é por `adb install`
@@ -29,7 +31,10 @@ TODO: no code yet  # a especificação só define que a instalação é por `adb
 # só o domínio
 ./gradlew :core-domain:test
 
-# Robolectric (módulos Android, JUnit 4): entra com os coletores
+# Robolectric no app (JUnit 4, sem aparelho): navegação, níveis, tema, cores e manifesto mesclado
+./gradlew :app:testDebugUnitTest
+
+# Robolectric nos coletores: entra com a SPEC-011 em diante
 TODO: no code yet
 
 # instrumentados / Compose UI / ponta a ponta
@@ -67,6 +72,8 @@ Problemas previstos na especificação (seção 13):
 - **Vigia atrasa ou não roda** -> fabricantes matam tarefas em segundo plano; a varredura também roda ao abrir o app; orientar o usuário sobre economia de bateria nas configurações.
 - **S7 / RF-303 falham em versão nova do Android** -> API de pagamento padrão mudou (Android 15+: papel de carteira); coletor isolado deve degradar sem erro; testar em Android 8, 12, 14 e na versão mais recente.
 - **Receptor de instalação não dispara** -> receptor no manifesto não é confiável desde o Android 8; a detecção confiável é a varredura periódica.
+- **`compileSdk` 37 não encontrado** (`Failed to find target with hash string 'android-37.0'` ou `checkDebugAarMetadata` exigindo 37) -> instale a `Android SDK Platform 37.0` pelo SDK Manager, ou aceite as licenças do SDK para o AGP baixar sozinho. O targetSdk continua 36.
+- **`MergedManifestTest` falha com "Permissões fora da lista"** -> uma dependência nova trouxe permissão, ou alguém declarou uma. Ela só entra com decisão registrada no `SKILLS.md` › Permissions e na lista do teste, na mesma spec.
 - **`IllegalArgumentException: 25` no detekt** (ou outra versão nova em `JavaVersion.current()`) -> o Gradle está rodando num JDK mais novo que o 21. Confira se `gradle/gradle-daemon-jvm.properties` existe e se há um JDK 21 instalado; rode `./gradlew --stop` e tente de novo.
 - **Gradle não acha um JVM compatível** -> não há JDK 21 instalado. Instale um (por exemplo, Temurin 21).
 - **`SDK location not found`** -> falta o `local.properties` com `sdk.dir` (ou a variável `ANDROID_HOME`).

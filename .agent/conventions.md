@@ -3,6 +3,7 @@
 > Fonte: `docs/especificacao.md` (seções 6, 7, 8, 11 e 12). Sem código ainda: padrões que só o código mostra estão como `TODO: no code yet`. Para padrões de código não fixados aqui, vale o skill base [skills/android/SKILL.md](skills/android/SKILL.md).
 
 ## Naming
+- **Composables:** nome em PascalCase (`HomeScreen`, `RiskLevelIndicator`). O `.editorconfig` da raiz (ktlint) e o `app/detekt.yml` (detekt, `FunctionNaming`) ignoram a regra de nome de função só para funções `@Composable`; funções comuns continuam em camelCase.
 - **Classes, interfaces e funções:** seguem a tabela "Naming Conventions" de skills/android/SKILL.md. Nomes já definidos na especificação: `AppInventory`, `SignalCollector`, `RiskScorer`, `ScanDevice`, `CardReader`, `InstalledApp`, `Signal`, `ScoringContext`, `RiskResult`, `ScanTrigger`, `ScanReport`, `NfcTagHandle`, `CardReadResult`.
 - **Casos de uso:** `ScanDevice` usa `suspend operator fun invoke(...)` (único exemplo na especificação).
 - **Tabelas Room:** snake_case (`scan_run`, `app_snapshot`, `user_decision`, `alert_event`); colunas em camelCase (`startedAt`, `packageName`).
@@ -48,6 +49,8 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Framework:** JUnit 5 no `core-domain`; JUnit 4 nos módulos Android (Robolectric e instrumentados).
 - **Mock library:** MockK. **Flow:** Turbine. **UI:** testes do Compose.
 - **Integration tests:** Robolectric com `PackageManager` simulado e Room em memória.
+- **Testes de Compose (sem aparelho, em `src/test`):** tela inteira pela Activity real com `createAndroidComposeRule<MainActivity>()`; composable isolado com `Robolectric.buildActivity(ComponentActivity::class.java)` + `createEmptyComposeRule()`, sem `ui-test-manifest` (para não pôr uma Activity de teste no APK de debug). Regras do pacote `androidx.compose.ui.test.junit4.v2`.
+- **Manifesto mesclado:** `MergedManifestTest` (Robolectric) falha com permissão fora da lista explícita ou Activity exportada além da `MainActivity`.
 - **Ponta a ponta:** instalar o `decoy-app` (por `adb install`), rodar a varredura, conferir nível e notificação — emulador no CI e aparelho físico.
 - **Manual:** leitura de cartão real em aparelho físico com NFC.
 - **Coverage:** mínimo de 80% de cobertura de linhas no `core-domain`, medido pelo Kover 0.9.11 e verificado no `./gradlew build` (`:core-domain:koverVerify`). Os outros módulos não têm meta. Sem código de produção a regra passa; interfaces não contam, `data class` conta (ADR-012).

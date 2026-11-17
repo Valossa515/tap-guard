@@ -1,0 +1,38 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-003-tema-navegacao.acceptance.toon
+# SPEC-003 (issue #4) – todos os testes rodam sem aparelho (Robolectric em src/test)
+
+acceptance:
+  feature-ref: FT-003
+  version: 1.0
+
+criteria[29]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,App abre na T1,App instalado sem estado anterior,Teste Robolectric abre a Activity de entrada (createAndroidComposeRule),O titulo da T1 Onboarding e exibido (Shown),must-have,BR-001
+  AC-002,T1 para T2,App na T1,Toque no botao de avancar da T1,A T2 Inicio e exibida,must-have,BR-002
+  AC-003,T2 para T3,App na T2,Toque em Verificar agora,A T3 Resultado e exibida,must-have,BR-002
+  AC-004,T2 para T5,App na T2,Toque em Testar meu cartao,A T5 Teste do cartao explicacao e exibida,must-have,BR-002
+  AC-005,T2 para T7,App na T2,Toque em Acho que cai em um golpe,A T7 Emergencia e exibida,must-have,BR-002
+  AC-006,T2 para T8,App na T2,Toque no botao de configuracoes,A T8 Configuracoes e exibida,must-have,BR-002
+  AC-007,T3 para T4,App na T3,Toque no app provisorio da lista,A T4 Detalhe do app e exibida,must-have,BR-002
+  AC-008,T5 para T6,App na T5,Toque no botao de continuar da T5,A T6 Teste do cartao leitura e resultado e exibida,must-have,BR-002
+  AC-009,T8 para T9 e T9 para T4,App na T8,Toque no botao de historico e depois no alerta provisorio,A T9 Historico de alertas e depois a T4 sao exibidas,must-have,BR-002
+  AC-010,T1 sai da pilha,App na T2 depois de vir da T1,Acionar voltar,A Activity fecha (ONBOARDING_LEFT Closed) e a T1 nao reaparece,must-have,BR-003
+  AC-011,T6 volta para a T2 existente,App na T2 depois de T2 para T5 para T6 para T2,Acionar voltar,A Activity fecha (CARD_TEST_DONE Closed): nao ha outra T2 nem T5 ou T6 na pilha,must-have,BR-004
+  AC-012,T4 recebe packageName,Navegacao para a T4 a partir da T3 e da T9,Inspecionar a T4,A T4 mostra o packageName provisorio recebido pela rota tipada,must-have,BR-005
+  AC-013,Componente verde,Componente de nivel isolado (Robolectric.buildActivity e createEmptyComposeRule) e funcao riskLevelColors,Renderizar o nivel verde em claro e em escuro; rodar o teste puro de riskLevelColors; revisar o RiskLevelIndicator,Na tela: frase Nada suspeito encontrado. e icone de visto exibidos. Cor: verificada pelo teste puro de riskLevelColors (cor propria do verde) e pela revisao de que o RiskLevelIndicator usa essa funcao,must-have,BR-006
+  AC-014,Componente amarelo,Componente de nivel isolado e funcao riskLevelColors,Renderizar o nivel amarelo em claro e em escuro; rodar o teste puro de riskLevelColors; revisar o RiskLevelIndicator,Na tela: frase Encontramos apps que merecem atencao. e icone de alerta exibidos. Cor: verificada pelo teste puro de riskLevelColors (cor propria do amarelo) e pela revisao de que o RiskLevelIndicator usa essa funcao,must-have,BR-007
+  AC-015,Componente vermelho,Componente de nivel isolado e funcao riskLevelColors,Renderizar o nivel vermelho em claro e em escuro; rodar o teste puro de riskLevelColors; revisar o RiskLevelIndicator,Na tela: frase Encontramos um app com perfil de golpe. Veja o que fazer. e icone de erro exibidos. Cor: verificada pelo teste puro de riskLevelColors (cor propria do vermelho) e pela revisao de que o RiskLevelIndicator usa essa funcao,must-have,BR-008
+  AC-016,Tema segue o sistema sem cores dinamicas,Activity de entrada,Teste em modo claro e em modo escuro (qualifier night) e inspecao do tema,Esquema claro no modo claro e escuro no modo escuro; nenhuma chamada a dynamicColorScheme,must-have,BR-009
+  AC-017,Contraste AA nos niveis,Funcao de cores do tema (teste JUnit 4 sem Android),Calcular a razao de contraste de texto e fundo de cada nivel em claro e escuro,Todas as razoes sao de pelo menos 4.5:1,should-have,BR-009
+  AC-018,Nome e icone provisorios,Manifesto mesclado de debug e recursos,Inspecionar android:label e android:icon,Rotulo Tap Guard em strings.xml e icone de escudo vetorial; os dois registrados como provisorios no plano e no SKILLS.md,must-have,
+  AC-019,SDKs,Catalogo e manifesto mesclado de debug do app,Inspecionar compileSdk e targetSdk e minSdk,compileSdk 37 e targetSdk 36 e minSdk 26,must-have,BR-011
+  AC-020,Versoes so no catalogo,Arquivos build.gradle.kts e settings.gradle.kts,Buscar versoes literais fora de gradle/libs.versions.toml,Nenhuma encontrada,must-have,BR-011
+  AC-021,Composables aceitos,Composables com nome em PascalCase no app,./gradlew ktlintCheck detekt,Termina com codigo 0,must-have,
+  AC-022,Funcoes comuns ainda verificadas,Uma funcao sem @Composable com nome em maiuscula adicionada temporariamente,./gradlew ktlintCheck e ./gradlew detekt,Os dois falham e a alteracao e desfeita sem commit,must-have,
+  AC-023,Manifesto sem permissao nao aprovada,Manifesto mesclado de debug e job Regras do projeto e SKILLS.md,Buscar uses-permission e componentes exportados,Nenhum INTERNET; so a permissao e os componentes do AndroidX registrados no SKILLS.md com o motivo; a unica Activity exportada e a de entrada,must-have,BR-012
+  AC-024,Textos em recursos,Codigo do app,Buscar textos visiveis literais nos composables,Todos os textos vem de strings.xml,must-have,BR-010
+  AC-025,ktlint e detekt e testes passam sem aparelho,Codigo da spec,./gradlew build,Termina com codigo 0 e os testes Robolectric de navegacao e de nivel rodam em src/test,must-have,
+  AC-026,Documentacao atualizada,PR da SPEC-003,Revisar app/README.md e CONTRIBUTING.md e runbook.md e project-reference.md e conventions.md e SKILLS.md e decisions.md,Rotas e componentes e comandos documentados; override de SDK atualizado; ADR-013 registra a separacao entre compileSdk e targetSdk sem reescrever o ADR-011,must-have,
+  AC-027,CI da PR verde com a plataforma 37,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam e o build compila com compileSdk 37; a plataforma android-37.0 vem pre-instalada na imagem do runner (verificado no PR #46: ubuntu-26.04 20261111.196 traz android-37.0 rev 2 e o log nao mostra download) ou e baixada pelo AGP se faltar,should-have,BR-011
+  AC-028,Teste de permissoes passa,Manifesto mesclado do app desta spec,Teste Robolectric le requestedPermissions do PackageManager,Todas as permissoes estao na lista explicita (QUERY_ALL_PACKAGES e NFC e POST_NOTIFICATIONS e applicationId.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION) e o teste passa,must-have,BR-013
+  AC-029,Permissao fora da lista falha,Uma permissao fora da lista (android.permission.CAMERA) adicionada temporariamente ao manifesto do app,./gradlew build,O teste de permissoes falha (PERMISSION_NOT_ALLOWED Failed) e a alteracao e desfeita sem commit,must-have,BR-013

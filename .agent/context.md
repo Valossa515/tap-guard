@@ -7,7 +7,7 @@
 - **Type:** App Android, só local, sem backend.
 - **Stack:** Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)**.
 - **Build tool:** Gradle 9.7.0 com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos (criado na SPEC-001).
-- **Runtime version:** Android 8.0 (API 26) ou superior; targetSdk e compileSdk 36. Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
+- **Runtime version:** Android 8.0 (API 26) ou superior; compileSdk 37 e targetSdk 36 (separados desde a SPEC-003, ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
 
 ## Problem
 - Golpistas entram em contato por SMS, WhatsApp ou ligação, se passando por banco ou operadora de cartão.
