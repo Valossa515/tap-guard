@@ -11,12 +11,12 @@
 | **Name** | `tap-guard` (repositório). Nome de exibição em português: em aberto (especificação, seção 13) |
 | **Application id** | `app`: `io.github.valossa515.tapguard`; `decoy-app`: `io.github.valossa515.tapguard.decoy` (ADR-011) |
 | **Description** | App Android que avisa o usuário comum quando há no aparelho um app com o perfil dos usados em golpes de retransmissão de cartão por NFC, e ensina por que nenhum banco pede para encostar o cartão no celular |
-| **Type** | App Android (sem backend). Projeto Gradle desde a SPEC-001; desde a SPEC-003 o app abre, com tema, componente de nível e nove telas vazias; desde a SPEC-004 tem Hilt, banco Room e DataStore (infraestrutura, sem regra) |
+| **Type** | App Android (sem backend). Projeto Gradle desde a SPEC-001; desde a SPEC-003 o app abre, com tema, componente de nível e nove telas vazias; desde a SPEC-004 tem Hilt, banco Room e DataStore (infraestrutura, sem regra); desde a SPEC-010, os modelos e contratos do domínio no `core-domain` (sem implementação) |
 | **Stack** | Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)** |
 | **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
 | **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 37 (ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
-| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`) e `core-data` (pacote `io.github.valossa515.tapguard.core.data`). Ainda vazios: `core-domain`, `core-detection`, `core-nfc`, `decoy-app` |
-| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt |
+| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`), `core-data` (pacote `io.github.valossa515.tapguard.core.data`) e `core-domain` (pacote `io.github.valossa515.tapguard.core.domain`). Ainda vazios: `core-detection`, `core-nfc`, `decoy-app` |
+| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt; no `core-domain`, modelos e máscara de sinais (JUnit 5, sem teste de fumaça) |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -35,7 +35,7 @@
 ## 2. Architecture (planned)
 
 - **Style:** monorepo Gradle multimódulo; lógica de detecção isolada em módulos sem interface gráfica (para virar SDK depois sem reescrita). Dentro do `app`: camadas Interface → Domínio (casos de uso dos `core-*`) → Dados (repositórios do `core-data`).
-- **Packaging:** por módulo de capacidade (`core-domain`, `core-detection`, `core-nfc`, `core-data`). Organização de pacotes dentro de cada módulo: TODO: no code yet.
+- **Packaging:** por módulo de capacidade (`core-domain`, `core-detection`, `core-nfc`, `core-data`). Pacotes por assunto dentro de cada módulo: `core-domain` em `inventory`, `signal`, `risk`, `scan` e `card` (SPEC-010); `core-data` em `database`, `database.entity`, `database.dao`, `settings` e `di` (SPEC-004); `app` em `navigation`, `ui.components`, `ui.theme` e uma pasta por tela.
 - **Base package / application id:** `io.github.valossa515.tapguard` (decidido na SPEC-001, ADR-011). Namespaces: `…tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`; `app` = `io.github.valossa515.tapguard`; `decoy-app` = `io.github.valossa515.tapguard.decoy`.
 
 ### Layer Map
@@ -66,21 +66,36 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 
 ## 3. Module & Class Map
 
-> TODO: no code yet. Abaixo, apenas os nomes que a especificação define **(planned)**.
+### Contratos do domínio (SPEC-010, especificação seção 7)
 
-### Contratos do domínio (planned, especificação seção 7)
+Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs indicadas **(planned)**.
 
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
-| `AppInventory` | `core-domain` (interface) / `core-detection` (impl.) | `suspend fun installedApps(): List<InstalledApp>` — inventário de apps |
-| `SignalCollector` | `core-domain` (interface) / `core-detection` (impl.) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
-| `RiskScorer` | `core-domain` | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
-| `ScanDevice` | caso de uso (`core-detection`) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
-| `CardReader` | `core-domain` (interface) / `core-nfc` (impl.) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
+| `AppInventory` | `core-domain` (`inventory`) / `core-detection` (impl., SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (impl., SPEC-012 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
+| `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
+| `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
 
-### Tipos citados (planned)
+### Modelos do domínio (SPEC-010)
 
-`InstalledApp`, `Signal`, `ScoringContext`, `RiskResult`, `ScanTrigger`, `ScanReport`, `NfcTagHandle`, `CardReadResult`. Campos e forma: TODO: no code yet.
+Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`, `RiskResult`, `ScoringContext`, `ScanReport`) têm construtor e `copy()` privados e uma fábrica com o mesmo nome que copia as coleções para coleções não modificáveis (nem por cast). Detalhes no ADR-015.
+
+| Tipo | Pacote | Forma |
+|------|--------|-------|
+| `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe). Sem campo de app do sistema |
+| `Signal` | `signal` | Enum com `bit`: `UNTRUSTED_INSTALL_SOURCE` (S1, bit 0), `NFC_PERMISSION` (S2), `CARD_EMULATION_SERVICE` (S3), `ACCESSIBILITY_SERVICE_ENABLED` (S4), `OVERLAY_PERMISSION` (S5), `RECENTLY_INSTALLED_OR_UPDATED` (S6), `UNKNOWN_DEFAULT_PAYMENT_APP` (S7), `SMS_PERMISSION` (S8), `BANK_LOOKALIKE` (S9, bit 8). Sem peso |
+| `toBitMask()` / `signalsFromBitMask()` | `signal` (`SignalBitMask.kt`) | Conjunto ↔ máscara de `app_snapshot.signals`; máscara negativa ou com bit acima do 8 lança `IllegalArgumentException` |
+| `RiskLevel` | `risk` | `GREEN`, `YELLOW`, `RED`, em ordem crescente de gravidade; sem conversão de score (SPEC-017) |
+| `RiskResult` | `risk` | `score` (0 a 100, senão `IllegalArgumentException`), `level`, `signals: Set<Signal>`; nível não conferido contra o score (regra 2) |
+| `ScoringContext` | `risk` | `trustedPackages: Set<String>` (apps marcados como confiáveis) |
+| `ScanTrigger` | `scan` | `MANUAL`, `APP_OPEN`, `PERIODIC` |
+| `ScannedApp` | `scan` | `app: InstalledApp`, `risk: RiskResult` |
+| `ScanReport` | `scan` | `trigger`, `startedAt`, `finishedAt` (não anterior a `startedAt`), `apps: List<ScannedApp>`; sem id e sem contagens |
+| `NfcTagHandle` | `card` | Interface sem membros: o `core-nfc` embrulha a `Tag` do Android (SPEC-041) |
+| `LastFourDigits` | `card` | Value class: exatamente quatro dígitos ASCII; `toString()` mascarado |
+| `CardReadResult` | `card` | `Success(applicationLabel, lastFourDigits: LastFourDigits, expiry: YearMonth)` com `toString()` mascarado, `UnsupportedCard`, `ReadInterrupted`. Sem campo para o número completo |
 
 ### App (SPEC-003)
 
@@ -90,7 +105,7 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 | `OnboardingRoute` … `AlertHistoryRoute`, `AppDetailRoute(packageName)` | `navigation` | Rotas `@Serializable`, uma por tela |
 | `TapGuardNavHost` | `navigation` | Grafo provisório da seção 10; único lugar que conhece o `NavController` |
 | `TapGuardTheme` | `ui/theme` | Material 3 com paleta fixa clara/escura, sem cores dinâmicas |
-| `RiskLevelUi` | `ui/components` | `GREEN`, `YELLOW`, `RED`; tipo da interface até o `RiskLevel` do domínio (SPEC-010) |
+| `RiskLevelUi` | `ui/components` | `GREEN`, `YELLOW`, `RED`; tipo da interface, convive com o `RiskLevel` do domínio até a ligação na SPEC-030 |
 | `riskLevelColors` | `ui/components` | Função pura: fundo e conteúdo de cada nível, em claro e escuro |
 | `RiskLevelIndicator` | `ui/components` | Nível com cor, ícone e frase exata (RNF-06) |
 | `{Feature}Screen` (9) | `ui/<tela>` | Telas vazias: título e botões de saída |
@@ -166,7 +181,7 @@ Nenhum dado de cartão entra no banco nem nas preferências.
 | Decisão do usuário | `TRUSTED` | `user_decision.decision` |
 | Tipo de alerta | `RISKY_APP`, `DEFAULT_PAYMENT_CHANGED` | `alert_event.type` |
 | Nível de risco | `GREEN`, `YELLOW`, `RED` | `app_snapshot.level`, `alert_event.level` |
-| Sinais | S1–S9 | `app_snapshot.signals` (máscara de bits; S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada.) |
+| Sinais | S1–S9 | `app_snapshot.signals` (máscara de bits; S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada. Conversão no `core-domain`, `SignalBitMask.kt`) |
 
 Versão do schema: 1 (`core-data/schemas/io.github.valossa515.tapguard.core.data.database.TapGuardDatabase/1.json`, commitado). Arquivos: banco `tapguard.db`, preferências `settings`.
 Migrações: até a primeira versão pública, a versão 1 pode mudar com o schema regerado e commitado junto; depois, cada mudança sobe a versão e traz uma `Migration` e um teste de migração (ADR-014). O CI falha se o build regerar o schema com diferença do commitado. `fallbackToDestructiveMigration()` é proibido em release.

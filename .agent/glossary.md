@@ -1,17 +1,20 @@
 # Domain Glossary
 
-> Fonte: `docs/especificacao.md`. Sem código ainda: a coluna "Source" aponta para a seção da especificação; classes reais TODO: no code yet.
+> Fonte: `docs/especificacao.md`. A coluna "Source" aponta para a seção da especificação e, quando já existe, para a spec que criou o tipo. Os modelos do domínio existem desde a SPEC-010 (`core-domain`).
 
 ## Entities
 | Term | Definition | Source |
 |------|-----------|--------|
-| **InstalledApp** | App instalado no aparelho, vindo do inventário (`AppInventory`) | §7 (planned) |
-| **Signal** | Característica estática de um app que indica perfil de golpe (S1–S9) | §5, §7 (planned) |
-| **RiskResult** | Resultado do `RiskScorer`: score e nível de um app | §7 (planned) |
-| **ScoringContext** | Contexto passado ao `RiskScorer` (forma: TODO: no code yet) | §7 (planned) |
-| **ScanReport** | Resultado de uma varredura (`ScanDevice`) | §7 (planned) |
-| **CardReadResult** | Resultado da leitura do cartão (`CardReader`) | §7 (planned) |
-| **NfcTagHandle** | Referência à tag NFC entregue ao `CardReader` | §7 (planned) |
+| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas e serviços declarados | §7, SPEC-010 |
+| **Signal** | Característica estática de um app que indica perfil de golpe (S1–S9); enum com o bit de cada sinal na máscara | §5, §7, SPEC-010 |
+| **RiskLevel** | Nível de risco: `GREEN`, `YELLOW`, `RED`, em ordem de gravidade | §5, SPEC-010 |
+| **RiskResult** | Resultado do `RiskScorer`: score (0 a 100), nível e sinais de um app | §7, SPEC-010 |
+| **ScoringContext** | Contexto passado ao `RiskScorer`: os pacotes marcados como confiáveis pelo usuário (`trustedPackages`) | §7, SPEC-010 |
+| **ScannedApp** | Um app avaliado numa varredura: o `InstalledApp` e o seu `RiskResult` | SPEC-010 |
+| **ScanReport** | Resultado de uma varredura (`ScanDevice`): gatilho, início, fim e apps avaliados | §7, SPEC-010 |
+| **CardReadResult** | Resultado da leitura do cartão (`CardReader`): `Success`, `UnsupportedCard` ou `ReadInterrupted` | §7, SPEC-010 |
+| **LastFourDigits** | Os quatro últimos dígitos do cartão, único dado numérico do cartão que sai do `core-nfc` | RF-203, ADR-008, SPEC-010 |
+| **NfcTagHandle** | Marcador opaco do cartão aproximado entregue ao `CardReader`; o `core-nfc` embrulha a `Tag` do Android | §7, SPEC-010 |
 | **scan_run** | Uma varredura gravada | §9 (planned) |
 | **app_snapshot** | Estado de um app em uma varredura (chave `scanId` + `packageName`) | §9 (planned) |
 | **user_decision** | Decisão do usuário sobre um app (hoje só "confiável") | §9 (planned) |
@@ -27,17 +30,19 @@
 | Variante do app isca | `nfcOnly`, `hce`, `full`, `lookalike` | `decoy-app` |
 
 ## Signals
-| ID | Significado | Peso |
-|----|-------------|------|
-| S1 | Instalado fora de uma loja confiável | 30 |
-| S2 | Declara a permissão de NFC | 15 |
-| S3 | Declara serviço de emulação de cartão (HCE) | 20 |
-| S4 | Tem serviço de acessibilidade ativo | 25 |
-| S5 | Pede permissão de sobreposição de tela | 10 |
-| S6 | Instalado ou atualizado nos últimos 7 dias | 10 |
-| S7 | É o app de pagamento padrão e não está na lista de carteiras conhecidas | 30 |
-| S8 | Pede leitura ou recebimento de SMS | 10 |
-| S9 | Nome parecido com o de um banco conhecido, mas pacote diferente do oficial | 20 |
+| ID | Significado | Peso | `Signal` (bit) |
+|----|-------------|------|----------------|
+| S1 | Instalado fora de uma loja confiável | 30 | `UNTRUSTED_INSTALL_SOURCE` (0) |
+| S2 | Declara a permissão de NFC | 15 | `NFC_PERMISSION` (1) |
+| S3 | Declara serviço de emulação de cartão (HCE) | 20 | `CARD_EMULATION_SERVICE` (2) |
+| S4 | Tem serviço de acessibilidade ativo | 25 | `ACCESSIBILITY_SERVICE_ENABLED` (3) |
+| S5 | Pede permissão de sobreposição de tela | 10 | `OVERLAY_PERMISSION` (4) |
+| S6 | Instalado ou atualizado nos últimos 7 dias | 10 | `RECENTLY_INSTALLED_OR_UPDATED` (5) |
+| S7 | É o app de pagamento padrão e não está na lista de carteiras conhecidas | 30 | `UNKNOWN_DEFAULT_PAYMENT_APP` (6) |
+| S8 | Pede leitura ou recebimento de SMS | 10 | `SMS_PERMISSION` (7) |
+| S9 | Nome parecido com o de um banco conhecido, mas pacote diferente do oficial | 20 | `BANK_LOOKALIKE` (8) |
+
+Os pesos não ficam no enum: ficam no arquivo de configuração do motor de score (SPEC-017).
 
 "Sinal de NFC" = S2, S3 ou S7.
 

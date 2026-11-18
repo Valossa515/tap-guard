@@ -60,7 +60,7 @@ Os modelos são imutáveis, inclusive as coleções. O número completo do cart�
 4. [x] **Interfaces** (`feat:`): `AppInventory`, `SignalCollector`, `RiskScorer`, `ScanDevice`, `CardReader`.
 5. [x] **detekt** (`chore:`): `core-domain/detekt.yml` com `DataClassShouldBeImmutable` e o bloco `detekt` no `core-domain/build.gradle.kts`.
 6. [x] **Testes** (`test:`, papel tester): os cenários do contrato; remove o `CoreDomainSmokeTest`.
-7. [ ] **Documentação** (`docs:`): `core-domain/README.md`; `project-reference.md` (tipos do domínio); `glossary.md` (`ScoringContext`, `ScannedApp`, `LastFourDigits`, nomes dos sinais); `conventions.md` (imutabilidade; falhas esperadas como valores); `context.md`; `SKILLS.md` (regra de imutabilidade dos modelos e as decisões do domínio); **ADR-015** em `decisions.md` (handle opaco, número do cartão barrado pelo tipo, máscara no domínio, técnica de imutabilidade, regra 1 no inventário).
+7. [x] **Documentação** (`docs:`): `core-domain/README.md`; `project-reference.md` (tipos do domínio); `glossary.md` (`ScoringContext`, `ScannedApp`, `LastFourDigits`, nomes dos sinais); `conventions.md` (imutabilidade; falhas esperadas como valores); `context.md`; `SKILLS.md` (regra de imutabilidade dos modelos e as decisões do domínio); **ADR-015** em `decisions.md` (handle opaco, número do cartão barrado pelo tipo, máscara no domínio, técnica de imutabilidade, regra 1 no inventário).
 8. [x] **Conferência dos critérios**, localmente e desfeita sem commit:
    - um `var` temporário numa data class faz o detekt falhar;
    - um modelo temporário sem teste derruba o `koverVerify`;
