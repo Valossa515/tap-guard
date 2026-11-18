@@ -126,7 +126,28 @@ Leia .agent/SKILLS.md e siga as skills listadas. Depois aja como o planner defin
 
 ### Atualizar o SDD
 
-Quando sair uma versão nova do SDD, rode o instalador de novo com a stack `android`, com tudo já commitado, em um pull request só para isso. A reinstalação substitui as skills, os scripts e os agentes, e preserva o `SKILLS.md` e os documentos de contexto. Confira o `git diff` antes do commit: só devem mudar arquivos em `.agent/skills/`, `.agent/scripts/` e `.agent/agents/`.
+Quando sair uma versão nova do SDD, atualize num pull request só para isso, numa branch criada a partir da `main` atualizada e com tudo já commitado. Troque `vX.Y.Z` pela versão, que precisa existir como release em [valossa515/sdd](https://github.com/valossa515/sdd/releases).
+
+No Git Bash, Linux ou macOS, na raiz do repositório:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/valossa515/sdd/main/scripts/install.sh) android . agent --ref vX.Y.Z
+```
+
+No PowerShell, na raiz do repositório:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/valossa515/sdd/main/scripts/install.ps1))) -Stack android -Ref vX.Y.Z
+```
+
+A reinstalação substitui as skills, os scripts e os agentes, e preserva os Project Overrides do `SKILLS.md`, os documentos de contexto, os planos e as specs. Confira o `git status` antes do commit. Só podem mudar:
+
+- arquivos em `.agent/skills/`, `.agent/scripts/` e `.agent/agents/`;
+- a linha `sdd-version` do `.agent/SKILLS.md`.
+
+Se mudar qualquer outra coisa, pare e investigue antes de commitar. Depois rode `bash .agent/scripts/validate-spec.sh .agent/specs`. Como o PR não muda código, o CI pula o build.
+
+Se a versão nova trouxer para a skill padrões que estavam nos Project Overrides, a limpeza dos overrides fica num PR separado.
 
 ## Ambiente
 
