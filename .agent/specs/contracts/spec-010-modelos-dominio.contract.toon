@@ -2,6 +2,7 @@
 # .agent/specs/contracts/spec-010-modelos-dominio.contract.toon
 # SPEC-010 (issue #6) – camadas = build e pacotes do core-domain e docs
 # Pacotes: io.github.valossa515.tapguard.core.domain.{inventory;signal;risk;scan;card} e a raiz core.domain (utilitario internal)
+# Emenda 1.3 (2026-11-18, review): CONTRIBUTING.md na camada docs; secao Cobertura diz que o core-domain ja tem codigo de producao e que a regra de 80% vale para ele
 # Emenda 1.2 (2026-11-18): fabrica do InstalledApp com @Suppress("LongParameterList") e KDoc curto (8 parametros; espelha o construtor da data class que o detekt ja isenta por ignoreDataClasses); excecao de alcance fechado registrada no ADR-015 e no SKILLS.md
 # Emenda 1.1 (2026-11-18): ScanReport recusa finishedAt anterior a startedAt (require no init e teste; AC-026)
 # Remocao (o schema so aceita create e modify): core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/CoreDomainSmokeTest.kt
@@ -9,7 +10,7 @@
 
 contract:
   feature-ref: FT-010
-  version: 1.2
+  version: 1.3
 
 layers:
   build:
@@ -47,7 +48,8 @@ layers:
       core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/CardReadResult.kt,create,sealed interface CardReadResult com data class Success(applicationLabel: String; lastFourDigits: LastFourDigits; expiry: YearMonth) e toString() = Success(****); data object UnsupportedCard; data object ReadInterrupted; KDoc: nenhum campo para o numero completo (RNF-02 e ADR-008)
       core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/CardReader.kt,create,interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
   docs:
-    files[8]{path,action,description}:
+    files[9]{path,action,description}:
+      CONTRIBUTING.md,modify,secao Cobertura: o core-domain ja tem codigo de producao (SPEC-010) e a regra de 80% vale para ele
       core-domain/README.md,modify,estado (SPEC-010); pacotes e tipos; regra de imutabilidade; mascara de sinais; NfcTagHandle e CardReadResult; detekt.yml; comandos
       .agent/project-reference.md,modify,tipos do dominio com campos e pacotes (troca o TODO: no code yet); RiskLevelUi continua ate a SPEC-030
       .agent/glossary.md,modify,ScoringContext com a forma; ScannedApp; LastFourDigits; nomes dos sinais no enum; NfcTagHandle opaco
