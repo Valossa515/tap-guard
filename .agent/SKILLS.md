@@ -129,26 +129,27 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Collections in models:** private constructor, private `copy()` (`@ConsistentCopyVisibility`) and a `companion operator fun invoke` with the same name and parameters that copies each collection with `unmodifiableCopy()` (`Collections.unmodifiableSet/List` over a copy). The exposed collection rejects mutation even through a cast to `MutableSet`/`MutableList`, and the tests check it. Never `Set.copyOf`/`List.copyOf` (API 30 on Android) nor `toSet()`/`toList()` as a defensive copy.
 - **`@Suppress` — two closed exceptions:**
   - `@Suppress("LongParameterList")` **only** on a factory that mirrors exactly the constructor of a `data class` (detekt already exempts the constructor through `ignoreDataClasses`, but not the factory). Today: `InstalledApp` (ADR-015).
-  - `@Suppress("DEPRECATION")` **only** on the old branch of an `SDK_INT` check whose other branch uses the new API. In production code only in `core-detection`'s `PackageManagerVersionCompat.kt`; in tests only in the fixture that sets `versionCode` for API 26 (ADR-016).
+  - `@Suppress("DEPRECATION")` as in `skills/android/SKILL.md` › Reading installed packages, and only in `core-detection`'s `PackageManagerVersionCompat.kt` and in the test fixture that sets `versionCode` for API 26 (ADR-016).
   - Anywhere else, no `@Suppress`: fix the code, and test fixtures expose only the parameters the tests override.
-- **Rule 1 (system apps ignored)** is enforced by `AppInventory`, which never returns system apps (implemented and tested in SPEC-011: `FLAG_SYSTEM` or `FLAG_UPDATED_SYSTEM_APP`). `InstalledApp` has no system flag. The "100% of the adjustment rules" criterion of SPEC-017 covers rules 2 to 4.
+- **Rule 1 (system apps ignored)** is enforced by `AppInventory`, which never returns system apps (SPEC-011; definition in `skills/android/SKILL.md` › Reading installed packages). `InstalledApp` has no system flag. The "100% of the adjustment rules" criterion of SPEC-017 covers rules 2 to 4.
 - **Signal bitmask** conversion lives in `core-domain` (`toBitMask()`, `signalsFromBitMask()`); the bit is `Signal.bit`, never the `ordinal`. An invalid mask (negative or with a bit above 8) throws `IllegalArgumentException`. `core-data` only calls these functions.
 - **`NfcTagHandle`** is an opaque marker with no members: `core-domain` never sees the Android `Tag` nor card commands; `core-nfc` wraps and unwraps the `Tag` (SPEC-041).
 - **Full card number barred by type:** `CardReadResult.Success` holds `LastFourDigits` (exactly four ASCII digits), `applicationLabel` and `expiry` only. `toString()` of `Success` and `LastFourDigits` shows no value, and the validation message never repeats the input. `CardReadResult` is `Success`, `UnsupportedCard` or `ReadInterrupted`; missing or disabled NFC is not a result of `read`.
 - **`ScoringContext`** holds only `trustedPackages`; weights are configuration of the `RiskScorer` implementation (SPEC-017). This replaces the `rules` parameter shown in the skill example, and `RiskScorer` is an interface (spec §7), not the class of the skill example.
 
 ### Detection (SPEC-011)
-- **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory` is the only public class of `core-detection`. It keeps the `PackageManager` and its own package name, never the `Context`. No Hilt annotations: binding in SPEC-018.
-- **Two-step read** on the injected dispatcher: a light list (flags 0) where system apps (`FLAG_SYSTEM` or `FLAG_UPDATED_SYSTEM_APP`) and the app's own package are dropped; then, per user app, `GET_PERMISSIONS | GET_SERVICES | MATCH_DISABLED_COMPONENTS` and the installer (`getInstallSourceInfo().installingPackageName` on API 30+, `getInstallerPackageName` below). `ensureActive()` before each app. `NameNotFoundException` skips the app; any other `PackageManager` error propagates.
-- **Version branches** live only in `PackageManagerVersionCompat.kt` (`internal` functions, `Build.VERSION.SDK_INT >= Build.VERSION_CODES.*`). Tested with `@Config(sdk = [26, 28, 30, 33, 36])`.
-- **Lint suppressions** go on the element itself with a comment, never in `lint.xml`: `tools:ignore="QueryAllPackagesPermission"` on the `app` permission and `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat` (ADR-016).
-- **`api` vs `implementation` in library modules:** a dependency whose types appear in the module's public API is `api`; everything else is `implementation`. `core-detection` exposes `core-domain` and `kotlinx-coroutines-core` as `api`.
+> Reading, dispatcher and version-branch rules: `skills/android/SKILL.md` › Reading installed packages and Dispatchers in adapters. Only what is specific to this project is listed here.
+- **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory` is the only public class of `core-detection`. No Hilt annotations: binding in SPEC-018.
+- **Installer:** `getInstallSourceInfo().installingPackageName` on API 30+, `getInstallerPackageName` below.
+- **Version branches:** `PackageManagerVersionCompat.kt`, tested with `@Config(sdk = [26, 28, 30, 33, 36])` (`skills/android/testing.md` › Adapter Tests — Robolectric).
+- **Lint:** besides `tools:ignore="QueryAllPackagesPermission"` (skill › Permissions and Manifest), `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat`, with a comment (ADR-016).
+- **`api`:** `core-detection` exposes `core-domain` and `kotlinx-coroutines-core` as `api` (skill › `api` or `implementation` in library modules).
 - **Robolectric hooks:** cancellation and "uninstalled during the read" are tested with a label `CharSequence` that acts on its second read (Robolectric parcels the `PackageInfo` it returns). If Robolectric stops parceling, those tests fail instead of passing.
 - Open (ADR-016): `explicitApi()` in `core-detection` when the SDK is published.
 
 ### Permissions
 <!-- Anything not listed here must not be added. -->
-- `android.permission.QUERY_ALL_PACKAGES` — list installed apps (restricted on Play Store: security-app declaration). Declared **only in the `app` manifest** (since SPEC-011, with `tools:ignore="QueryAllPackagesPermission"`), never in `core-detection`, which will become an SDK: a library permission is inherited by every app that uses it (ADR-016)
+- `android.permission.QUERY_ALL_PACKAGES` — list installed apps (restricted on Play Store: security-app declaration). Declared **only in the `app` manifest** since SPEC-011, never in `core-detection`, which will become an SDK (ADR-016; rule in `skills/android/SKILL.md` › Permissions and Manifest)
 - `android.permission.NFC` — card test and default-payment lookup
 - `android.permission.POST_NOTIFICATIONS` — monitoring alerts (Android 13+)
 - `uses-feature android.hardware.nfc` with `required=false`
@@ -167,7 +168,7 @@ Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manife
 ### How data and platform layers are tested (planned)
 - `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)
 - Collectors: Robolectric (JUnit 4) with a simulated `PackageManager`
-- **Injected dispatcher (SPEC-011):** to prove that code runs on the `CoroutineDispatcher` it receives, wrap the `StandardTestDispatcher(testScheduler)` of `runTest` in a test dispatcher that counts dispatches and assert at least one. Do not create a second `TestCoroutineScheduler`: `runTest` rejects it ("Detected use of different schedulers"), and `advanceUntilIdle()` on a standalone scheduler needs `@OptIn(ExperimentalCoroutinesApi::class)`, a new compiler warning. Example: `CountingDispatcher` in `PackageManagerAppInventoryTest`
+- **Injected dispatcher (SPEC-011):** as in `skills/android/testing.md` › Code that must run on an injected dispatcher; the project's example is `CountingDispatcher` in `PackageManagerAppInventoryTest`
 - Room repositories: Robolectric with an **in-memory** database — no real on-device database in integration tests
 - Screens: Compose UI tests for each screen state and navigation; Turbine for Flows
 - End-to-end: install `decoy-app` via `adb install`, run the scan, check level and notification — emulator in CI and physical device
