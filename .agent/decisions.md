@@ -134,6 +134,34 @@
 - **Alternatives:** canal de comandos ao cartão (`transceive`) no domínio (rejeitado: anteciparia a SPEC-041 e passaria a resposta com o número completo por um contrato do domínio); `kotlinx-collections-immutable` (rejeitado: dependência anterior à 1.0 num módulo que vai virar SDK); só tipos de leitura por convenção (não impede alteração pela origem nem por cast); máscara num conversor do `core-data`; `ordinal` como bit (reordenar mudaria valores gravados); `isSystemApp` no `InstalledApp`; `NfcUnavailable`/`NfcDisabled` no `CardReadResult` (não acontecem em `read(tag)`); subir o `functionThreshold` da `LongParameterList` no módulo (afrouxaria a regra para todo o domínio); agrupar campos do `InstalledApp` em subtipos (inventaria tipos fora da especificação).
 - **Consequences:** a SPEC-011 testa a regra 1 e a SPEC-017 cobre as regras 2 a 4. A SPEC-018 converte `Instant` e a máscara para as colunas. A SPEC-041 decide o resultado para um `NfcTagHandle` de outra origem e para cartão sem validade ou sem nome. Renomear `RiskLevel` ou `ScanTrigger` muda valores gravados (ADR-014). Fixtures de teste não espelham construtores longos: expõem só os parâmetros usados.
 
+## ADR-016 — Inventário de apps: permissão fora da biblioteca, regra 1 e supressões
+- **Date:** 2026-11-18
+- **Status:** Aceita (implementada na SPEC-011)
+- **Context:** a SPEC-011 implementa o `AppInventory` no `core-detection`, que vai virar SDK para bancos. Para ver todos os pacotes a partir da API 30, o app precisa de `QUERY_ALL_PACKAGES`, que é restrita na Play Store. A regra 1 da seção 5 (apps do sistema ignorados) ficou com o inventário (ADR-015). As APIs do `PackageManager` mudam entre a API 26 e a 36: o código de versão longo vem na 28, a origem da instalação na 30 e o `PackageInfoFlags` na 33. O compileSdk 37 marca como depreciados o `versionCode` e o `getInstallerPackageName`, e o lint recusa `QUERY_ALL_PACKAGES` com erro.
+- **Decision:**
+  - **`QUERY_ALL_PACKAGES` só no manifesto do `app`**, com `tools:ignore="QueryAllPackagesPermission"` e comentário. A biblioteca não declara permissão nenhuma: uma permissão no manifesto dela seria herdada por todo app que usasse o SDK. Quem usa a biblioteca declara a permissão (README do módulo). O `MergedManifestTest` exige a permissão no `app`, e o `LibraryManifestTest` falha se o manifesto mesclado da biblioteca declarar qualquer permissão além de `REORDER_TASKS`, que vem do `androidx.test:core` e só existe em teste.
+  - **Regra 1:** fica fora o app com `FLAG_SYSTEM` **ou** `FLAG_UPDATED_SYSTEM_APP`. Um app pré-instalado atualizado mantém `FLAG_SYSTEM`, e a atualização precisa da mesma assinatura do original. Há um teste para cada caso.
+  - **Próprio app fora:** o pacote de quem consulta (`context.packageName`) não é devolvido, também no SDK (o app do banco não avalia a si mesmo). RF-101 atualizado em `docs/especificacao.md`.
+  - **Busca em duas etapas:** uma lista leve com flags 0, onde rodam os filtros. Depois, para cada app de usuário, `GET_PERMISSIONS | GET_SERVICES | MATCH_DISABLED_COMPONENTS` e o instalador. Cada chamada carrega um só app, e os dados dos apps do sistema nunca são pedidos. Serviços desligados entram em `services`, e app inteiro desligado aparece. `ensureActive()` a cada app. App desinstalado no meio (`NameNotFoundException`) é pulado; outros erros do sistema são propagados.
+  - **Instalador no inventário:** `getInstallSourceInfo().installingPackageName` a partir da API 30 e `getInstallerPackageName` abaixo. A SPEC-012 só compara com a lista de lojas (comentário na issue #8).
+  - **Exceção de alcance fechado ao `@Suppress`, ao lado da `LongParameterList` (ADR-015):** `@Suppress("DEPRECATION")` só no ramo antigo de um teste de `SDK_INT` cujo outro ramo usa a API nova. No código de produção, só no `PackageManagerVersionCompat.kt` (funções `internal`, único arquivo com ramos por versão); em teste, só na fixture que grava o `versionCode` para a API 26.
+  - **Supressões de lint no próprio elemento, com comentário, sem `lint.xml`:** `tools:ignore="QueryAllPackagesPermission"` no `app` e `@SuppressLint("QueryPermissionsNeeded")` em `installedPackagesCompat`.
+  - **`api` para tipos da API pública:** o `core-detection` expõe `api(project(":core-domain"))` e `api(kotlinx-coroutines-core)`, porque `AppInventory`, `InstalledApp` e `CoroutineDispatcher` aparecem na API pública dele. Regra geral para módulos de biblioteca: dependência cujo tipo aparece na API pública é `api`; o resto é `implementation`.
+  - **API pública mínima:** só o `PackageManagerAppInventory(context, ioDispatcher)`, que guarda o `PackageManager` e o nome do pacote, não o `Context`. Hilt na SPEC-018.
+- **Alternatives:**
+  - permissão no manifesto da biblioteca (rejeitada: herdada pelos bancos);
+  - uma chamada com permissões e serviços de todos os pacotes (rejeitada: dados do sistema descartados e resposta maior);
+  - só `FLAG_SYSTEM` (rejeitada: a intenção fica implícita);
+  - `androidx.core` (`PackageInfoCompat`) (rejeitada: mais uma dependência no SDK, que resolveria só o `versionCode`);
+  - aceitar os avisos de depreciação (rejeitada: regra de "sem aviso novo");
+  - `lint.xml` por módulo (rejeitada: supressão longe do motivo);
+  - ponto de troca `internal` só para teste (rejeitada: os ganchos do Robolectric falham em vez de passar se o mecanismo mudar).
+- **Consequences:**
+  - O CI baixa as imagens do Robolectric das APIs 26, 28, 30, 33 e 36.
+  - Os testes de cancelamento e de desinstalação no meio dependem de o Robolectric copiar o `PackageInfo` (Parcel); se isso mudar, eles falham.
+  - A visibilidade de pacotes, o limite de transferência e o desempenho em aparelho ficam para o teste ponta a ponta e para a SPEC-018.
+- **Open:** `explicitApi()` no `core-detection` quando o SDK for publicado, para que todo símbolo público seja declarado de propósito.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.

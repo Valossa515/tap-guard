@@ -6,7 +6,7 @@
 - **JDK 21 instalado (obrigatório).** `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) faz o daemon do Gradle rodar num JDK 21 instalado mesmo com outro `JAVA_HOME`. Sem JDK 21, o Gradle para.
 - Android SDK com a plataforma 37 (`platforms;android-37.0`) e o Build Tools correspondente (minSdk 26, targetSdk 36, compileSdk 37; ADR-013).
 - `local.properties` na raiz com `sdk.dir=<caminho do Android SDK>` (o Android Studio cria ao sincronizar; nunca vai para o Git). `ANDROID_HOME` também serve.
-- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; no `app`, Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, Robolectric 4.18 e `androidx.test:core` 1.7.0; no `core-data` (e Hilt no `app`), KSP 2.3.14, Hilt 2.60.1, Room 2.8.5, DataStore Preferences 1.3.0, `room-testing`, `hilt-android-testing` e `kotlinx-coroutines-test` 1.11.0.
+- Versões (todas em `gradle/libs.versions.toml`): Gradle 9.7.0 (wrapper), AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 com motor ktlint 1.8.0, detekt 1.23.8, Kover 0.9.11, JUnit 5.14.4 e JUnit 4.13.2; no `app`, Compose BOM 2026.09.00, `activity-compose` 1.13.0, `navigation-compose` 2.10.2, Robolectric 4.18 e `androidx.test:core` 1.7.0; no `core-data` (e Hilt no `app`), KSP 2.3.14, Hilt 2.60.1, Room 2.8.5, DataStore Preferences 1.3.0, `room-testing`, `hilt-android-testing` e `kotlinx-coroutines-test` 1.11.0; no `core-detection`, `kotlinx-coroutines-core` 1.11.0 (`api`), Robolectric, `androidx.test:core` e `kotlinx-coroutines-test`.
 - `adb`, para instalar o `decoy-app` (simula origem fora da loja).
 - Emulador Android (CI e testes ponta a ponta).
 - Aparelho físico com NFC e um cartão Visa ou Mastercard por aproximação, para o teste manual do F2.
@@ -38,8 +38,9 @@ TODO: no code yet  # a especificação só define que a instalação é por `adb
 # (no Windows, as duas escritas do SettingsDataSourceTest aparecem como ignoradas; rodam no CI)
 ./gradlew :core-data:testDebugUnitTest
 
-# Robolectric nos coletores: entra com a SPEC-011 em diante
-TODO: no code yet
+# Robolectric no core-detection: inventário de apps nas APIs 26, 28, 30, 33 e 36 e manifesto da biblioteca
+# (o primeiro build baixa as imagens do Robolectric de cada API)
+./gradlew :core-detection:testDebugUnitTest
 
 # instrumentados / Compose UI / ponta a ponta
 TODO: no code yet
@@ -81,6 +82,8 @@ Problemas previstos na especificação (seção 13):
 - **"Regras de backup no manifesto" falha no CI** -> falta `android:allowBackup="false"`, `android:dataExtractionRules` ou `android:fullBackupContent` no `app/src/main/AndroidManifest.xml`.
 - **`Unable to rename …settings.preferences_pb.tmp` num teste local no Windows** -> a JVM do Windows não renomeia o temporário do DataStore por cima do arquivo existente. Testes que gravam mais de uma vez usam `Assume.assumeFalse(<Windows>)` e rodam no CI.
 - **`MergedManifestTest` falha com "Permissões fora da lista"** -> uma dependência nova trouxe permissão, ou alguém declarou uma. Ela só entra com decisão registrada no `SKILLS.md` › Permissions e na lista do teste, na mesma spec.
+- **`MergedManifestTest` falha com "QUERY_ALL_PACKAGES não declarada"** -> a permissão saiu do manifesto do `app`; sem ela o inventário só vê os pacotes visíveis a partir da API 30.
+- **`LibraryManifestTest` falha** -> o manifesto do `core-detection` (ou uma dependência de execução dele) passou a declarar permissão; todo app que usar o SDK a herdaria. Declare no manifesto do `app` (ADR-016).
 - **`IllegalArgumentException: 25` no detekt** (ou outra versão nova em `JavaVersion.current()`) -> o Gradle está rodando num JDK mais novo que o 21. Confira se `gradle/gradle-daemon-jvm.properties` existe e se há um JDK 21 instalado; rode `./gradlew --stop` e tente de novo.
 - **Gradle não acha um JVM compatível** -> não há JDK 21 instalado. Instale um (por exemplo, Temurin 21).
 - **`SDK location not found`** -> falta o `local.properties` com `sdk.dir` (ou a variável `ANDROID_HOME`).

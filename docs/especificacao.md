@@ -66,7 +66,7 @@ Cada requisito tem um ID que as specs referenciam.
 
 ### F1 Varredura de apps
 
-- **RF-101:** listar todos os apps instalados que não são do sistema.
+- **RF-101:** listar todos os apps instalados que não são do sistema. O próprio app (o Tap Guard, ou o app que usa o SDK) também fica fora da lista.
 - **RF-102:** para cada app, coletar os sinais S1 a S9 da seção 5.
 - **RF-103:** calcular score e nível (verde, amarelo, vermelho) conforme a seção 5.
 - **RF-104:** mostrar um resumo do aparelho: o pior nível encontrado e a contagem por nível.
@@ -233,7 +233,7 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 
 | Sinal | API do Android |
 | --- | --- |
-| Inventário | `PackageManager.getInstalledPackages` com permissões e serviços; filtrar `FLAG_SYSTEM` |
+| Inventário | Duas etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
 | S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | `queryIntentServices` com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` |

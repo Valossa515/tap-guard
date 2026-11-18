@@ -1,4 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Listar os apps instalados é a função do app (RF-101): o inventário do core-detection lê
+        todos os pacotes. O lint pede <queries> no lugar dessa permissão, que é restrita na Play
+        Store e exige a declaração de app de segurança (ADR-010, ADR-016). Ela fica só aqui, nunca
+        no manifesto do core-detection, que vai virar SDK.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".TapGuardApplication"

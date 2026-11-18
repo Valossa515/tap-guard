@@ -14,7 +14,8 @@ import org.robolectric.annotation.Config
 import org.xmlpull.v1.XmlPullParser
 
 /**
- * Lê o manifesto mesclado do app (o mesmo que vai no APK). Qualquer permissão ou componente
+ * Lê o manifesto mesclado do app (o mesmo que vai no APK). `QUERY_ALL_PACKAGES` tem de estar
+ * declarada, porque o inventário depende dela. Qualquer permissão ou componente
  * exportado novo precisa de decisão registrada no `.agent/SKILLS.md` e de entrar na lista abaixo
  * na mesma spec. A ligação das regras de backup no manifesto é conferida pelo CI ("Regras do projeto").
  */
@@ -34,15 +35,18 @@ class MergedManifestTest {
                 "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
             )
 
-        val requested =
-            context.packageManager
-                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-                .requestedPermissions
-                ?.toSet()
-                .orEmpty()
+        val requested = requestedPermissions()
 
         val notAllowed = requested - allowed
         assertTrue("Permissões fora da lista: $notAllowed", notAllowed.isEmpty())
+    }
+
+    @Test
+    fun `query all packages is requested`() {
+        // Sem ela, a partir da API 30 o inventário só enxerga os pacotes visíveis (ADR-016).
+        val requested = requestedPermissions()
+
+        assertTrue("QUERY_ALL_PACKAGES não declarada", "android.permission.QUERY_ALL_PACKAGES" in requested)
     }
 
     @Test
@@ -91,6 +95,14 @@ class MergedManifestTest {
 
         assertEquals(ALL_DOMAINS, excluded["full-backup-content"])
     }
+
+    /** Permissões pedidas no manifesto mesclado do app. */
+    private fun requestedPermissions(): Set<String> =
+        context.packageManager
+            .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions
+            ?.toSet()
+            .orEmpty()
 
     /** Domínios de cada `<exclude>`, agrupados pela seção em que aparecem. */
     private fun excludedDomainsBySection(
