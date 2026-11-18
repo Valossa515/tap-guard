@@ -27,6 +27,11 @@ ktlint {
     version.set(libs.versions.ktlint)
 }
 
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("detekt.yml"))
+}
+
 // RNF-08: minimo de 80% de cobertura de linhas no dominio. O check depende do koverVerify.
 kover {
     reports {
