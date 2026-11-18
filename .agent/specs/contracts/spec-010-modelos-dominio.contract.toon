@@ -2,13 +2,14 @@
 # .agent/specs/contracts/spec-010-modelos-dominio.contract.toon
 # SPEC-010 (issue #6) – camadas = build e pacotes do core-domain e docs
 # Pacotes: io.github.valossa515.tapguard.core.domain.{inventory;signal;risk;scan;card} e a raiz core.domain (utilitario internal)
+# Emenda 1.2 (2026-11-18): fabrica do InstalledApp com @Suppress("LongParameterList") e KDoc curto (8 parametros; espelha o construtor da data class que o detekt ja isenta por ignoreDataClasses); excecao de alcance fechado registrada no ADR-015 e no SKILLS.md
 # Emenda 1.1 (2026-11-18): ScanReport recusa finishedAt anterior a startedAt (require no init e teste; AC-026)
 # Remocao (o schema so aceita create e modify): core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/CoreDomainSmokeTest.kt
 # Modelos com colecao (InstalledApp e RiskResult e ScoringContext e ScanReport): @ConsistentCopyVisibility data class com construtor privado e companion operator fun invoke com os mesmos parametros que copia as colecoes por unmodifiableCopy(); copy() privado
 
 contract:
   feature-ref: FT-010
-  version: 1.1
+  version: 1.2
 
 layers:
   build:
@@ -20,7 +21,7 @@ layers:
       core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/UnmodifiableCopies.kt,create,internal fun <T> Set<T>.unmodifiableCopy(): Set<T> = Collections.unmodifiableSet(LinkedHashSet(this)); internal fun <T> List<T>.unmodifiableCopy(): List<T> = Collections.unmodifiableList(ArrayList(this)); sem Set.copyOf nem List.copyOf (API 30 no Android)
   core-domain-inventory:
     files[2]{path,action,description}:
-      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,create,modelo com colecao: packageName String; label String; versionCode Long; installerPackageName String?; firstInstallTime Instant; lastUpdateTime Instant; requestedPermissions Set<String>; services Set<String> (nomes de classe dos servicos declarados); fabrica copia as duas colecoes; sem campo de app do sistema; KDoc diz que o AppInventory nao devolve apps do sistema (regra 1)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,create,modelo com colecao: packageName String; label String; versionCode Long; installerPackageName String?; firstInstallTime Instant; lastUpdateTime Instant; requestedPermissions Set<String>; services Set<String> (nomes de classe dos servicos declarados); fabrica copia as duas colecoes e leva @Suppress("LongParameterList") com KDoc curto (espelha o construtor da data class isento por ignoreDataClasses); sem campo de app do sistema; KDoc diz que o AppInventory nao devolve apps do sistema (regra 1)
       core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/AppInventory.kt,create,interface AppInventory { suspend fun installedApps(): List<InstalledApp> }; KDoc: so apps que nao sao do sistema (RF-101 e regra 1; testado na SPEC-011)
   core-domain-signal:
     files[3]{path,action,description}:
@@ -52,8 +53,8 @@ layers:
       .agent/glossary.md,modify,ScoringContext com a forma; ScannedApp; LastFourDigits; nomes dos sinais no enum; NfcTagHandle opaco
       .agent/conventions.md,modify,imutabilidade dos modelos (fabrica e copia nao modificavel e copy privado e DataClassShouldBeImmutable); falhas esperadas como valores (CardReadResult); conversao da mascara no dominio
       .agent/context.md,modify,modelos e contratos do dominio criados na SPEC-010
-      .agent/SKILLS.md,modify,Project Overrides: regra de imutabilidade dos modelos do core-domain; core-domain/detekt.yml; regra 1 no AppInventory; mascara no dominio; NfcTagHandle opaco; numero do cartao barrado pelo tipo
-      .agent/decisions.md,modify,ADR-015 handle opaco do cartao; LastFourDigits e toString mascarado; mascara no dominio com bit explicito; tecnica de imutabilidade; regra 1 no AppInventory e regras 2 a 4 na SPEC-017
+      .agent/SKILLS.md,modify,Project Overrides: regra de imutabilidade dos modelos do core-domain; excecao de alcance fechado: @Suppress("LongParameterList") so em fabrica que espelha exatamente o construtor de uma data class e fora disso nenhum @Suppress; core-domain/detekt.yml; regra 1 no AppInventory; mascara no dominio; NfcTagHandle opaco; numero do cartao barrado pelo tipo
+      .agent/decisions.md,modify,ADR-015 handle opaco do cartao; excecao de alcance fechado do @Suppress("LongParameterList") em fabrica que espelha o construtor de data class; LastFourDigits e toString mascarado; mascara no dominio com bit explicito; tecnica de imutabilidade; regra 1 no AppInventory e regras 2 a 4 na SPEC-017
       .agent/plans/spec-010-modelos-dominio.md,modify,marcar tarefas e registrar a conferencia
 
 migrations[0]:

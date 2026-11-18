@@ -44,6 +44,7 @@ Os modelos são imutáveis, inclusive as coleções. O número completo do cart�
 | `toString()` | mascarado no `Success` e no `LastFourDigits`, **incluindo a validade**; o do `Success` também esconde o nome da aplicação (aprovado em 2026-11-18) |
 | Imutabilidade | data classes só com `val`. Modelos com coleção: construtor privado, fábrica `operator fun invoke` com o mesmo nome que copia para coleção não modificável, e `copy()` privado. **A coleção exposta não pode ser modificada nem por cast para `MutableSet` ou `MutableList`; os testes conferem isso.** Nenhum array nos modelos |
 | detekt | `core-domain/detekt.yml` com `DataClassShouldBeImmutable` ativo, aplicado com `buildUponDefaultConfig = true` |
+| `@Suppress` na fábrica do `InstalledApp` (2026-11-18, emenda 1.2) | A fábrica tem 8 parâmetros e o detekt (`LongParameterList`, limite 6 em função) a aponta; o construtor da data class é isento (`ignoreDataClasses`). `@Suppress("LongParameterList")` só nessa fábrica, com KDoc curto. **Exceção de alcance fechado**, registrada no ADR-015 e no `SKILLS.md`: `@Suppress("LongParameterList")` é permitido apenas em fábricas que espelham exatamente o construtor de uma data class; fora disso, nenhum `@Suppress` |
 
 ## Approach
 - Seguir `skills/android/SKILL.md` (Domain Layer: modelos imutáveis, portas como interfaces, falhas esperadas como valores) e `skills/android/testing.md` (Unit Tests — Domain, Test Fixtures, nomes com crases).
