@@ -1,0 +1,105 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-011-inventario-apps.contract.toon
+# SPEC-011 (issue #7) – camadas = build e pacotes do core-detection e app e docs
+# Pacotes: io.github.valossa515.tapguard.core.detection (raiz; funcoes internal) e io.github.valossa515.tapguard.core.detection.inventory
+# Remocao (o schema so aceita create e modify): core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/CoreDetectionSmokeTest.kt
+# Supressoes permitidas (ADR-015 e ADR-016): @Suppress("DEPRECATION") so no ramo antigo de um teste de SDK_INT cujo outro ramo usa a API nova (producao so no PackageManagerVersionCompat.kt; teste so na fixture aPackageInfo); @SuppressLint("QueryPermissionsNeeded") so em installedPackagesCompat; tools:ignore="QueryAllPackagesPermission" so no uses-permission do app; cada uma com comentario
+
+contract:
+  feature-ref: FT-011
+  version: 1.0
+
+layers:
+  build:
+    files[2]{path,action,description}:
+      gradle/libs.versions.toml,modify,versao coroutinesTest renomeada para coroutines (kotlinx-coroutines-test passa a usar version.ref coroutines); nova biblioteca kotlinx-coroutines-core (org.jetbrains.kotlinx) com version.ref coroutines
+      core-detection/build.gradle.kts,modify,api(project(":core-domain")) no lugar de implementation; api(libs.kotlinx.coroutines.core); testImplementation de libs.robolectric e libs.androidx.test.core e libs.kotlinx.coroutines.test (junit4 continua); android { testOptions { unitTests.isIncludeAndroidResources = true } }
+  core-domain:
+    files[1]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/AppInventory.kt,modify,so o KDoc: devolve apps que nao sao do sistema (regra 1) e nao devolve o proprio app; o cancelamento e lancado; erros da fonte de pacotes sao propagados; app que some durante a leitura e pulado; nenhum tipo do Android citado; assinatura igual
+  core-detection-root:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/PackageManagerVersionCompat.kt,create,funcoes internal com cortes Build.VERSION.SDK_INT >= Build.VERSION_CODES.*: PackageManager.installedPackagesCompat(flags: Int): List<PackageInfo> (TIRAMISU+ PackageInfoFlags.of(flags.toLong()); abaixo getInstalledPackages(flags)) com @SuppressLint("QueryPermissionsNeeded") e comentario (a permissao fica no manifesto de quem usa a biblioteca); PackageManager.packageInfoCompat(packageName: String; flags: Int): PackageInfo (TIRAMISU+ PackageInfoFlags; lanca NameNotFoundException); PackageManager.installerPackageNameCompat(packageName: String): String? (R+ getInstallSourceInfo(packageName).installingPackageName; abaixo getInstallerPackageName com @Suppress("DEPRECATION"); lanca NameNotFoundException); val PackageInfo.longVersionCodeCompat: Long (P+ longVersionCode; abaixo versionCode.toLong() com @Suppress("DEPRECATION")); KDoc do arquivo: unico lugar de producao com ramos por versao e com @Suppress("DEPRECATION")
+  core-detection-inventory:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventory.kt,create,class PackageManagerAppInventory(context: Context; private val ioDispatcher: CoroutineDispatcher) : AppInventory; private val packageManager = context.packageManager e private val ownPackageName = context.packageName (nao guarda o Context); installedApps() = withContext(ioDispatcher) { packageManager.installedPackagesCompat(0).filter(isUserApp).mapNotNull { ensureActive(); readApp(it.packageName) } }; isUserApp: applicationInfo nao nulo e packageName diferente de ownPackageName e (flags and SYSTEM_FLAGS) == 0; readApp: try packageInfoCompat(name; DETAIL_FLAGS) e installerPackageNameCompat(name) catch (expected: NameNotFoundException) null; applicationInfo nulo no detalhe devolve null; conversao: label = applicationInfo.loadLabel(packageManager).toString(); versionCode = longVersionCodeCompat; firstInstallTime e lastUpdateTime = Instant.ofEpochMilli; requestedPermissions = requestedPermissions.orEmpty().toSet(); services = services.orEmpty().map { it.name }.toSet(); companion: private const val SYSTEM_FLAGS = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP e private const val DETAIL_FLAGS = PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES or PackageManager.MATCH_DISABLED_COMPONENTS; KDoc: duas etapas e filtros e NameNotFoundException pulado e RuntimeException do sistema propagado e cancelamento antes do proximo app e QUERY_ALL_PACKAGES no manifesto de quem usa; sem anotacoes do Hilt
+  app:
+    files[2]{path,action,description}:
+      app/src/main/AndroidManifest.xml,modify,xmlns:tools no manifest; <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" /> antes de <application> com comentario XML (listar os apps instalados e a funcao do app; declaracao de app de seguranca na Play Store; ADR-010 e ADR-016)
+      app/src/test/kotlin/io/github/valossa515/tapguard/MergedManifestTest.kt,modify,novo teste query all packages is requested: QUERY_ALL_PACKAGES em requestedPermissions; lista permitida igual; KDoc da classe cita a nova verificacao
+  docs:
+    files[9]{path,action,description}:
+      core-detection/README.md,modify,estado (SPEC-011); PackageManagerAppInventory e o que devolve; quem usa a biblioteca declara QUERY_ALL_PACKAGES (a biblioteca nao declara permissao); dependencias api e implementation; ramos por versao em PackageManagerVersionCompat.kt; testes nas cinco APIs; compileSdk 37 (corrige o 36 da SPEC-001)
+      docs/especificacao.md,modify,RF-101: o proprio app (o Tap Guard ou o app que usa o SDK) tambem fica fora da lista
+      .agent/project-reference.md,modify,classes do core-detection (PackageManagerAppInventory e PackageManagerVersionCompat.kt); dependencias (kotlinx-coroutines-core api)
+      .agent/conventions.md,modify,excecao do @Suppress("DEPRECATION") ao lado da LongParameterList; supressoes de lint no proprio elemento com comentario e sem lint.xml; ramos por versao num arquivo so; api x implementation em modulo de biblioteca
+      .agent/context.md,modify,inventario de apps criado na SPEC-011
+      .agent/SKILLS.md,modify,as duas excecoes do @Suppress juntas; supressoes de lint permitidas; QUERY_ALL_PACKAGES so no app e o que o MergedManifestTest e o LibraryManifestTest conferem; regra 1 implementada e proprio app excluido; regra api x implementation em modulo de biblioteca; versoes (kotlinx-coroutines-core 1.11.0)
+      .agent/decisions.md,modify,ADR-016 permissao fora da biblioteca; regra 1 com FLAG_SYSTEM ou FLAG_UPDATED_SYSTEM_APP; exclusao do proprio app; busca em duas etapas; instalador no inventario (SPEC-012 so compara); excecao do @Suppress("DEPRECATION"); supressoes de lint; api para tipos da API publica; ponto aberto explicitApi() quando o SDK for publicado
+      .agent/plans/spec-011-inventario-apps.md,modify,marcar tarefas e registrar a conferencia
+      .agent/plans/spec-011-inventario-apps-tests.md,create,plano de testes (papel tester)
+
+migrations[0]:
+
+dependencies:
+  uses[6]:
+    AppInventory e InstalledApp (core-domain; SPEC-010)
+    libs.robolectric 4.18 e libs.androidx.test.core 1.7.0 (catalogo; SPEC-003)
+    libs.kotlinx.coroutines.test 1.11.0 (catalogo; SPEC-004)
+    libs.junit4 (catalogo; SPEC-001)
+    app/src/test/kotlin/io/github/valossa515/tapguard/MergedManifestTest.kt (existente; forma do teste de manifesto)
+    Android SDK: PackageManager e PackageInfo e ApplicationInfo e ServiceInfo e InstallSourceInfo e Build.VERSION_CODES
+  introduces[1]:
+    org.jetbrains.kotlinx:kotlinx-coroutines-core 1.11.0 (api no core-detection)
+
+test-strategy:
+  unit-tests:
+    # nenhum na JVM pura: o codigo novo depende do PackageManager
+  integration-tests:
+    - target: PackageManagerAppInventory
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
+      type: robolectric
+      config: "@Config(sdk = [26, 28, 30, 33, 36])"
+      scenarios[15]:
+        returns-user-app-and-skips-app-with-flag-system
+        skips-updated-system-app-with-both-flags
+        skips-app-with-only-flag-updated-system-app
+        skips-own-package
+        fills-label-permissions-services-dates-and-installer
+        keeps-long-version-code-from-api-28-and-int-version-code-on-api-26
+        reads-installer-from-install-source-info-on-api-30-and-installer-package-name-below
+        returns-null-installer-when-none-is-registered
+        includes-disabled-services
+        returns-empty-sets-without-permissions-or-services
+        includes-disabled-app
+        skips-app-uninstalled-between-list-and-detail
+        cancellation-stops-before-next-app
+        read-runs-on-injected-dispatcher
+        returns-empty-list-without-user-apps
+    - target: manifesto mesclado do core-detection
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/LibraryManifestTest.kt
+      type: robolectric
+      config: "@Config(sdk = [36])"
+      scenarios[1]:
+        library-requests-no-permission-besides-reorder-tasks-from-androidx-test
+    - target: manifesto mesclado do app
+      file: app/src/test/kotlin/io/github/valossa515/tapguard/MergedManifestTest.kt
+      type: robolectric
+      scenarios[1]:
+        query-all-packages-is-requested
+  fixtures:
+    file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
+    content: aPackageInfo(...) local com so os parametros trocados pelos testes (packageName e flags e label e versionCode e permissoes e servicos e enabled); versionCode abaixo da API 28 num ramo de SDK_INT com @Suppress("DEPRECATION"); registro do instalador por API (setInstallerPackageName abaixo de 30; ShadowPackageManager.setInstallSourceInfo a partir de 30 para todo app de usuario); gancho de rotulo CharSequence que age na segunda leitura com KDoc do mecanismo e do modo de falha; dados sinteticos (com.example...)
+  verification[5]{criterion,how}:
+    AC-001 e AC-002 e AC-003,Local e desfeito sem commit: tirar FLAG_UPDATED_SYSTEM_APP de SYSTEM_FLAGS derruba os testes do sistema atualizado
+    AC-013,Local e desfeito sem commit: tirar ensureActive() derruba o teste de cancelamento
+    AC-016,Local e desfeito sem commit: tirar QUERY_ALL_PACKAGES do manifesto do app derruba o MergedManifestTest
+    AC-017,Local e desfeito sem commit: declarar QUERY_ALL_PACKAGES no manifesto do core-detection derruba o LibraryManifestTest
+    AC-020 e AC-022,./gradlew build com codigo 0 sem aviso novo do compilador nem do lint; CI da PR verde
+  excluded[6]{target,reason}:
+    PackageManagerVersionCompat.kt (teste proprio),Coberto pelo PackageManagerAppInventoryTest nas cinco APIs
+    Visibilidade de pacotes da API 30,O Robolectric nao a aplica; coberta pelo MergedManifestTest (permissao exigida) e pelo teste ponta a ponta
+    GET_PERMISSIONS no detalhe,O Robolectric devolve permissoes sem a flag; conferido no review (DETAIL_FLAGS)
+    Erro do PackageManager propagado,O Robolectric nao simula a morte do servico do sistema; conferido no review (so NameNotFoundException capturada) e no KDoc (AC-014)
+    Limite de transferencia e custo das chamadas,Sem binder no Robolectric; desempenho na SPEC-018 e em aparelho
+    Supressoes e escopo,Conferidos no review por busca (AC-018 e AC-019)

@@ -1,0 +1,69 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-011-inventario-apps.spec.toon
+# Emenda 1.1 (2026-11-18 revisao do architect): api para core-domain e kotlinx-coroutines-core; arquivo PackageManagerVersionCompat.kt; KDoc do dominio sem tipos do Android
+# SPEC-011 (issue #7) – interface library: outputs.*.status e o resultado devolvido ou a excecao lancada
+
+feature:
+  id: FT-011
+  name: SPEC-011 Inventario de apps
+  version: 1.1
+  status: draft
+  interface: library
+
+requirement:
+  summary: Implementacao do AppInventory no core-detection sobre o PackageManager. Devolve um InstalledApp por app de usuario com rotulo e codigo de versao longo e instalador e datas de instalacao e atualizacao e permissoes pedidas e servicos declarados (inclusive desligados). Ignora apps do sistema (regra 1 da secao 5) e o pacote do proprio app. QUERY_ALL_PACKAGES declarada so no manifesto do app; a biblioteca nao declara permissao (vai virar SDK para bancos).
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: AppInventory.installedApps()
+
+inputs[3]{name,type,required,constraints}:
+  context,Context,true,fornece o PackageManager e o packageName do proprio app
+  ioDispatcher,CoroutineDispatcher,true,a leitura do PackageManager roda nele; nos testes um StandardTestDispatcher
+  pacotes instalados,estado do PackageManager,true,a partir da API 30 so os visiveis ao app; QUERY_ALL_PACKAGES no manifesto de quem usa a biblioteca
+
+outputs:
+  success:
+    description: Lista com um InstalledApp por app de usuario instalado; sem apps do sistema e sem o proprio app; ordem nao garantida
+    status: Success
+    body[8]{name,type,value}:
+      packageName,String,nome do pacote
+      label,String,rotulo do app (loadLabel)
+      versionCode,Long,longVersionCode a partir da API 28; versionCode abaixo
+      installerPackageName,String?,installingPackageName a partir da API 30; getInstallerPackageName abaixo; null quando o sistema nao informa
+      firstInstallTime,Instant,firstInstallTime em milissegundos convertido
+      lastUpdateTime,Instant,lastUpdateTime em milissegundos convertido
+      requestedPermissions,Set<String>,permissoes pedidas no manifesto do app; vazio quando nao ha
+      services,Set<String>,nomes de classe dos servicos declarados inclusive desligados; vazio quando nao ha
+  errors[5]{code,status,when}:
+    APP_UNINSTALLED_DURING_READ,AppSkipped,o app some entre a lista e o detalhe ou a leitura do instalador (NameNotFoundException); o app e pulado e a leitura continua
+    SCAN_CANCELLED,CancellationException,a corrotina que chama installedApps e cancelada; a leitura para antes do proximo app
+    PACKAGE_MANAGER_FAILURE,RuntimeException,qualquer outro erro do PackageManager (por exemplo o servico do sistema morreu); propagado sem tratamento e documentado no KDoc do AppInventory
+    LIBRARY_DECLARES_PERMISSION,TestFailure,o manifesto mesclado do core-detection declara permissao alem de REORDER_TASKS (vinda do androidx.test so em teste)
+    QUERY_ALL_PACKAGES_MISSING,TestFailure,o manifesto mesclado do app nao declara QUERY_ALL_PACKAGES
+
+business-rules[16]{id,rule}:
+  BR-001,Regra 1: app com FLAG_SYSTEM ou FLAG_UPDATED_SYSTEM_APP nao e devolvido; um teste para cada caso (so FLAG_SYSTEM; as duas; so FLAG_UPDATED_SYSTEM_APP)
+  BR-002,O pacote do proprio app (context.packageName) nao e devolvido; vale tambem para o SDK (o app do banco nao avalia a si mesmo)
+  BR-003,Busca em duas etapas: lista leve com flags 0 onde rodam os filtros de sistema e de proprio pacote; depois para cada app de usuario getPackageInfo com GET_PERMISSIONS e GET_SERVICES e MATCH_DISABLED_COMPONENTS e a leitura do instalador
+  BR-004,Servicos desligados entram em services (MATCH_DISABLED_COMPONENTS); app inteiro desligado aparece na lista
+  BR-005,Codigo de versao: longVersionCode a partir da API 28 e versionCode abaixo; valor acima de Int.MAX_VALUE preservado
+  BR-006,Instalador: getInstallSourceInfo().installingPackageName a partir da API 30 e getInstallerPackageName abaixo; null quando o sistema nao informa; a comparacao com a lista de lojas fica na SPEC-012
+  BR-007,Flags: PackageInfoFlags a partir da API 33 e flags int abaixo
+  BR-008,Os ramos por versao do Android ficam num unico arquivo de funcoes internal do core-detection: PackageManagerVersionCompat.kt
+  BR-009,@Suppress(DEPRECATION) so no ramo antigo de um teste de SDK_INT cujo outro ramo usa a API nova; no codigo de producao so no PackageManagerVersionCompat.kt; segunda excecao fechada ao lado da LongParameterList (ADR-015 e ADR-016)
+  BR-010,ensureActive() a cada app no laco: cancelar interrompe a leitura antes do proximo app
+  BR-011,NameNotFoundException no detalhe ou no instalador pula o app; qualquer outra excecao do PackageManager e propagada; o KDoc do AppInventory (sem tipos do Android) e o do PackageManagerAppInventory documentam o que pode ser lancado
+  BR-012,A leitura do PackageManager roda em withContext no CoroutineDispatcher recebido pelo construtor
+  BR-013,QUERY_ALL_PACKAGES so no manifesto do app com tools:ignore QueryAllPackagesPermission e comentario; o manifesto da biblioteca nao declara permissao; o MergedManifestTest exige QUERY_ALL_PACKAGES; o README do core-detection diz que quem usa o SDK declara a permissao
+  BR-014,@SuppressLint(QueryPermissionsNeeded) so no metodo que lista os pacotes com comentario; sem lint.xml
+  BR-015,Dependencias: api(project(:core-domain)) e api kotlinx-coroutines-core 1.11.0 no core-detection porque seus tipos aparecem na API publica (versao coroutines no catalogo compartilhada com kotlinx-coroutines-test); robolectric e androidx-test-core e kotlinx-coroutines-test em testImplementation; sem androidx.core
+  BR-016,Fora: coletores e score (SPEC-012 a SPEC-017); ligacao no Hilt e qualificador do dispatcher (SPEC-018); fixtures do dominio compartilhadas (SPEC-012)
+
+assumptions[8]:
+  Decisoes do usuario em 2026-11-18 (tabela do plano)
+  Robolectric 4.18 reproduz os filtros e os campos nas APIs 26 e 28 e 30 e 33 e 36 (experimento do plano)
+  App inteiro desligado aparece na lista leve com flags 0 (verificado no Robolectric; em aparelho no teste ponta a ponta)
+  PackageInfo.applicationInfo nulo pula o app (nao da para saber se e do sistema)
+  A ordem da lista nao e garantida (a especificacao nao define)
+  Sem QUERY_ALL_PACKAGES a partir da API 30 o inventario ve so os pacotes visiveis; responsabilidade do manifesto de quem usa a biblioteca
+  O limite de transferencia entre processos e o custo das chamadas por app nao sao testaveis no Robolectric; desempenho medido na SPEC-018
+  outputs.*.status e o resultado devolvido ou a excecao lancada (feature.interface library)

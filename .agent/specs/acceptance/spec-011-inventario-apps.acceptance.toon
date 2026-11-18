@@ -1,0 +1,32 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-011-inventario-apps.acceptance.toon
+# Emenda 1.1 (2026-11-18 revisao do architect): AC-014 separa o KDoc do dominio (sem tipos do Android) do KDoc da implementacao
+# SPEC-011 (issue #7) – testes Robolectric (JUnit 4) em core-detection/src/test com @Config(sdk = [26 28 30 33 36]) e no MergedManifestTest do app
+
+acceptance:
+  feature-ref: FT-011
+  version: 1.1
+
+criteria[22]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Devolve so apps de usuario,Um app com flags 0 e um com FLAG_SYSTEM instalados no PackageManager do Robolectric,installedApps() em cada uma das cinco APIs,So o app com flags 0 e devolvido,must-have,BR-001
+  AC-002,Sistema atualizado ignorado,Um app com FLAG_SYSTEM e FLAG_UPDATED_SYSTEM_APP,installedApps() em cada API,O app nao e devolvido,must-have,BR-001
+  AC-003,So FLAG_UPDATED_SYSTEM_APP ignorado,Um app so com FLAG_UPDATED_SYSTEM_APP,installedApps() em cada API,O app nao e devolvido,must-have,BR-001
+  AC-004,Proprio app ignorado,O pacote do proprio app (context.packageName) instalado como app de usuario,installedApps() em cada API,O proprio pacote nao e devolvido,must-have,BR-002
+  AC-005,Campos preenchidos,App de usuario com rotulo e permissoes e servicos e datas e instalador sinteticos,installedApps() em cada API,packageName e label e requestedPermissions e services e firstInstallTime e lastUpdateTime (Instant dos milissegundos) e installerPackageName iguais aos informados,must-have,BR-003
+  AC-006,Codigo de versao longo,App com longVersionCode 5000000000 (API 28 ou maior) e com versionCode 7 (API 26),installedApps(),versionCode = 5000000000 nas APIs 28 e 30 e 33 e 36; versionCode = 7 na API 26,must-have,BR-005
+  AC-007,Instalador nos dois caminhos,Instalador registrado por setInstallerPackageName (APIs 26 e 28) e por setInstallSourceInfo (APIs 30 e 33 e 36),installedApps(),installerPackageName igual ao instalador registrado em cada API,must-have,BR-006
+  AC-008,Instalador ausente,App sem instalador informado,installedApps() em cada API,installerPackageName e null e o app e devolvido,must-have,BR-006
+  AC-009,Servicos desligados incluidos,App com um servico ligado e um desligado,installedApps() em cada API,services contem os dois nomes de classe,must-have,BR-004
+  AC-010,Sem permissoes nem servicos,App sem requestedPermissions e sem services,installedApps() em cada API,requestedPermissions e services sao conjuntos vazios,must-have,BR-003
+  AC-011,App desligado aparece,App de usuario com applicationInfo.enabled false,installedApps() em cada API,O app e devolvido,must-have,BR-004
+  AC-012,Desinstalado no meio e pulado,Tres apps de usuario e o segundo removido durante a leitura do detalhe do primeiro,installedApps() em cada API,Devolve o primeiro e o terceiro sem excecao (APP_UNINSTALLED_DURING_READ AppSkipped),must-have,BR-011
+  AC-013,Cancelamento interrompe a leitura,Tres apps de usuario e o job cancelado durante a leitura do detalhe do primeiro,installedApps() em cada API,Lanca CancellationException (SCAN_CANCELLED) e o detalhe do segundo e do terceiro nao e lido,must-have,BR-010
+  AC-014,Erro do PackageManager propagado e documentado,KDoc do AppInventory e do PackageManagerAppInventory e codigo do inventario,Inspecionar,O KDoc do AppInventory sem tipos do Android diz que erros da fonte de pacotes e o cancelamento sao lancados e que app que some durante a leitura e pulado; o KDoc do PackageManagerAppInventory cita NameNotFoundException (pulado) e RuntimeException do sistema (PACKAGE_MANAGER_FAILURE propagado) e a permissao no manifesto de quem usa; so NameNotFoundException e capturada,must-have,BR-011
+  AC-015,Leitura no dispatcher injetado,Inventario criado com StandardTestDispatcher(testScheduler),installedApps() dentro de runTest,O resultado so sai quando o scheduler de teste executa a tarefa; o codigo usa withContext no dispatcher do construtor,must-have,BR-012
+  AC-016,QUERY_ALL_PACKAGES exigida no app,Manifesto mesclado do app,MergedManifestTest; depois tirar a permissao do manifesto do app (localmente),Passa com a permissao; sem ela falha (QUERY_ALL_PACKAGES_MISSING TestFailure) e a alteracao e desfeita sem commit,must-have,BR-013
+  AC-017,Biblioteca sem permissoes,Manifesto mesclado do core-detection lido pelo Robolectric (isIncludeAndroidResources),Teste do manifesto da biblioteca; depois declarar QUERY_ALL_PACKAGES no manifesto do core-detection (localmente),Passa sem permissao alem de REORDER_TASKS; com a permissao falha (LIBRARY_DECLARES_PERMISSION TestFailure) e a alteracao e desfeita sem commit,must-have,BR-013
+  AC-018,Supressoes so onde permitido,Codigo e manifestos da spec,Buscar @Suppress e @SuppressLint e tools:ignore,@Suppress(DEPRECATION) so no ramo antigo de testes de SDK_INT (producao so no PackageManagerVersionCompat.kt); @SuppressLint(QueryPermissionsNeeded) so no metodo que lista os pacotes; tools:ignore QueryAllPackagesPermission so no uses-permission do app; cada uma com comentario; sem lint.xml; ramos por versao so no PackageManagerVersionCompat.kt,must-have,BR-009
+  AC-019,Escopo respeitado,Codigo da spec,Inspecionar o core-detection e o git diff,Sem anotacoes do Hilt; sem coletores nem score; sem androidx.core; dependencias novas so as de BR-015; core-domain so com mudanca de KDoc,must-have,BR-016
+  AC-020,ktlint e detekt e lint e testes passam,Codigo da spec,./gradlew build,Termina com codigo 0 sem aviso novo do compilador nem do lint,must-have,BR-009
+  AC-021,Documentacao atualizada,PR da SPEC-011,Revisar core-detection/README.md e docs/especificacao.md (RF-101) e project-reference.md e conventions.md e context.md e SKILLS.md e decisions.md,Inventario e permissao para quem usa o SDK e excecao do @Suppress(DEPRECATION) e exclusao do proprio app documentados; ADR-016 registrado; compileSdk 37 no README,must-have,BR-013
+  AC-022,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,
