@@ -174,7 +174,7 @@ Todas as versões (Kotlin, AGP, SDKs, JDK, ktlint, detekt, Kover, KSP, Hilt, Roo
 
 ### Cobertura
 
-O `core-domain` exige no mínimo 80% de cobertura de linhas (Kover). Abaixo disso, o `./gradlew build` falha no `:core-domain:koverVerify`. Enquanto o módulo não tem código de produção, a regra passa sem ter o que medir; ela começa a valer na primeira classe com código executável (interfaces não contam, `data class` conta). Os outros módulos não têm meta de cobertura.
+O `core-domain` exige no mínimo 80% de cobertura de linhas (Kover). Abaixo disso, o `./gradlew build` falha no `:core-domain:koverVerify`. Desde a SPEC-010 o módulo tem código de produção (os modelos do domínio), e a regra de 80% vale para ele: todo código executável novo precisa de teste (interfaces não contam, `data class` conta). Os outros módulos não têm meta de cobertura.
 
 ### CI
 

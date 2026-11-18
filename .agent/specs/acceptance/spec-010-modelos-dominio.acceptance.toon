@@ -1,0 +1,35 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-010-modelos-dominio.acceptance.toon
+# SPEC-010 (issue #6) – testes JUnit 5 na JVM em core-domain/src/test (sem mocks e sem Android)
+
+acceptance:
+  feature-ref: FT-010
+  version: 1.1
+
+criteria[26]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Compila em Kotlin puro,core-domain/build.gradle.kts e o codigo do modulo,./gradlew :core-domain:build e busca por import android ou androidx em core-domain/src,Build passa; so os plugins kotlin jvm e ktlint e detekt e kover; nenhum import android ou androidx; nenhuma dependencia nova,must-have,BR-001
+  AC-002,Interfaces com as assinaturas da secao 7,Codigo do core-domain,Inspecionar AppInventory e SignalCollector e RiskScorer e ScanDevice e CardReader,Assinaturas iguais as da secao 7 (suspend onde a secao 7 usa suspend; ScanDevice com suspend operator fun invoke),must-have,BR-002
+  AC-003,Data class com var barrada,core-domain/detekt.yml com DataClassShouldBeImmutable e buildUponDefaultConfig true,Trocar um val por var numa data class e rodar o detekt (localmente),O detekt falha (MUTABLE_DATA_CLASS BuildFailure) e a alteracao e desfeita sem commit,must-have,BR-003
+  AC-004,Copia defensiva das colecoes,InstalledApp e RiskResult e ScoringContext e ScanReport criados com colecoes mutaveis,Alterar a colecao de origem depois da construcao,O modelo continua com o conteudo original,must-have,BR-003
+  AC-005,Colecao exposta nao modificavel por cast,Os mesmos quatro modelos,Fazer cast da colecao exposta para MutableSet ou MutableList e chamar add e remove e clear,Cada chamada lanca UnsupportedOperationException (COLLECTION_MUTATION) e o modelo nao muda,must-have,BR-003
+  AC-006,copy() privado nos modelos com colecao,InstalledApp e RiskResult e ScoringContext e ScanReport,Inspecionar a declaracao,Construtor privado e fabrica operator invoke que copia e copy() privado (@ConsistentCopyVisibility); nenhum array nos modelos,must-have,BR-003
+  AC-007,Bit de cada sinal,Enum Signal,Ler o bit de cada entrada,Nove entradas; S1 UNTRUSTED_INSTALL_SOURCE 0 ate S9 BANK_LOOKALIKE 8 conforme BR-004; bits distintos,must-have,BR-004
+  AC-008,Ida e volta da mascara,As 512 combinacoes de sinais,Converter cada conjunto em mascara e a mascara de volta em conjunto,O conjunto volta igual; vazio vira 0; todos viram 511; cada sinal sozinho vira 1 deslocado pelo seu bit,must-have,BR-005
+  AC-009,Mascara invalida rejeitada,Mascaras -1 e 512 e Int.MIN_VALUE e Int.MAX_VALUE,Converter em conjunto,Lanca IllegalArgumentException (INVALID_SIGNAL_MASK),must-have,BR-005
+  AC-010,Conjunto da mascara nao modificavel,Conjunto devolvido pela conversao de uma mascara,Fazer cast para MutableSet e chamar add,Lanca UnsupportedOperationException (COLLECTION_MUTATION),must-have,BR-005
+  AC-011,Ordem e nomes do RiskLevel,Enum RiskLevel,Comparar as entradas e ler os nomes,GREEN < YELLOW < RED; nomes GREEN e YELLOW e RED,must-have,BR-006
+  AC-012,Limites do score,RiskResult,Construir com score 0 e 100 e depois com -1 e 101; construir com score 65 e GREEN,0 e 100 aceitos; -1 e 101 lancam IllegalArgumentException (SCORE_OUT_OF_RANGE); 65 com GREEN aceito (nivel nao conferido),must-have,BR-007
+  AC-013,Forma do InstalledApp,InstalledApp com todos os campos e installerPackageName null,Ler os campos,Os valores lidos sao os informados; installerPackageName aceita null; nenhum campo de app do sistema (inspecao),must-have,BR-008
+  AC-014,Forma do ScoringContext,ScoringContext,Construir com trustedPackages e ler,Unico campo trustedPackages com os pacotes informados,must-have,BR-010
+  AC-015,ScanTrigger e ScannedApp e ScanReport,Os tres tipos,Ler as entradas do ScanTrigger e construir ScannedApp e ScanReport,ScanTrigger = MANUAL e APP_OPEN e PERIODIC; ScannedApp devolve app e risk; ScanReport devolve trigger e startedAt e finishedAt e apps na ordem informada,must-have,BR-011
+  AC-016,NfcTagHandle opaco,Codigo do core-domain,Inspecionar NfcTagHandle,Interface sem membros e sem referencia a tipos do Android,must-have,BR-012
+  AC-017,Tres resultados de leitura,CardReadResult,when exaustivo sem else sobre os subtipos,Compila com exatamente Success e UnsupportedCard e ReadInterrupted (UNSUPPORTED_CARD UnsupportedCard e READ_INTERRUPTED ReadInterrupted),must-have,BR-013
+  AC-018,LastFourDigits so com quatro digitos,LastFourDigits,Construir com 1234 e depois com 123 e 12345 e o numero de teste 4111111111111111 e 12a4 e espaco seguido de 123 e quatro digitos arabico-indicos,1234 aceito; os demais lancam IllegalArgumentException (INVALID_LAST_FOUR_DIGITS),must-have,BR-014
+  AC-019,Success sem campo para o numero completo,CardReadResult.Success,Inspecionar os campos,Somente applicationLabel e lastFourDigits (LastFourDigits) e expiry (YearMonth); todos obrigatorios,must-have,BR-014
+  AC-020,toString mascarado,Success com rotulo sintetico e 1234 e validade 2030-12; LastFourDigits 1234,Chamar toString,Nenhum dos dois textos contem 1234 nem 2030 nem o rotulo,must-have,BR-015
+  AC-021,Sem implementacao antecipada,Codigo da spec,Buscar classes que implementam as interfaces em core-domain/src/main e pesos ou faixas; git diff do app,Nenhuma implementacao das cinco interfaces; nenhum peso nem faixa; app sem mudanca,must-have,BR-016
+  AC-022,Cobertura minima,Testes da spec,./gradlew :core-domain:koverVerify; depois um modelo temporario sem teste (localmente),Passa com pelo menos 80% de linhas; o modelo temporario sem teste faz falhar e a alteracao e desfeita sem commit,must-have,BR-017
+  AC-023,ktlint e detekt e testes passam,Codigo da spec,./gradlew build,Termina com codigo 0 sem aviso novo do compilador,must-have,
+  AC-024,Documentacao atualizada,PR da SPEC-010,Revisar core-domain/README.md e project-reference.md e glossary.md e conventions.md e context.md e SKILLS.md e decisions.md,Modelos e interfaces e regra de imutabilidade documentados; ADR-015 registrado,must-have,
+  AC-025,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,
+  AC-026,Fim da varredura antes do inicio recusado,ScanReport,Construir com finishedAt um milissegundo antes de startedAt e depois com finishedAt igual a startedAt,O primeiro lanca IllegalArgumentException (FINISHED_BEFORE_STARTED); o segundo e aceito,must-have,BR-011

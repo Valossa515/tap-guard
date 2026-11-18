@@ -6,6 +6,7 @@
 - **Composables:** nome em PascalCase (`HomeScreen`, `RiskLevelIndicator`). O `.editorconfig` da raiz (ktlint) e o `app/detekt.yml` (detekt, `FunctionNaming`) ignoram a regra de nome de função só para funções `@Composable`; funções comuns continuam em camelCase.
 - **Classes, interfaces e funções:** seguem a tabela "Naming Conventions" de skills/android/SKILL.md. Nomes já definidos na especificação: `AppInventory`, `SignalCollector`, `RiskScorer`, `ScanDevice`, `CardReader`, `InstalledApp`, `Signal`, `ScoringContext`, `RiskResult`, `ScanTrigger`, `ScanReport`, `NfcTagHandle`, `CardReadResult`.
 - **Casos de uso:** `ScanDevice` usa `suspend operator fun invoke(...)` (único exemplo na especificação).
+- **Sinais no código:** nomes descritivos no enum `Signal`, com o código S1–S9 no KDoc (de `UNTRUSTED_INSTALL_SOURCE` a `BANK_LOOKALIKE`; tabela em `glossary.md`).
 - **Tabelas Room:** snake_case (`scan_run`, `app_snapshot`, `user_decision`, `alert_event`); colunas em camelCase (`startedAt`, `packageName`).
 - **Valores de enum persistidos:** UPPER_SNAKE (`MANUAL`, `APP_OPEN`, `PERIODIC`, `TRUSTED`, `RISKY_APP`, `DEFAULT_PAYMENT_CHANGED`).
 - **Chaves de preferência:** camelCase (`onboardingDone`, `monitoringEnabled`, `scanIntervalHours`, `lastDefaultPaymentComponent`).
@@ -14,7 +15,7 @@
 - **Branches e PRs:** uma branch e um PR por spec, com o ID da spec no título. Formato do nome da branch: `spec-NNN-descricao-curta` (ex.: `spec-001-estrutura`).
 
 ## Folder / Package Structure
-Planejado (módulos); pacotes internos TODO: no code yet.
+Pacotes por assunto dentro de cada módulo. `core-domain` (SPEC-010): `inventory`, `signal`, `risk`, `scan`, `card`, mais utilitários `internal` na raiz `core.domain`. `core-data` (SPEC-004): `database`, `database.entity`, `database.dao`, `settings`, `di`.
 ```
 tap-guard/
 ├── core-domain/     # Kotlin puro: modelos, motor de score, interfaces (planned)
@@ -50,7 +51,7 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Backup:** desligado (`allowBackup="false"`), com `dataExtractionRules` e `fullBackupContent` excluindo todos os domínios.
 - **Soft delete:** não previsto; retenção por limpeza (10 varreduras, 90 dias de alertas).
 - **Audit fields:** timestamps específicos por tabela (`startedAt`, `finishedAt`, `decidedAt`, `createdAt`, `readAt`); sem padrão genérico.
-- **Sinais persistidos** como máscara de bits em `app_snapshot.signals`. S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada.
+- **Sinais persistidos** como máscara de bits em `app_snapshot.signals`. S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada. O bit é a propriedade `Signal.bit` (não o `ordinal`), e a conversão fica no `core-domain` (`toBitMask()` e `signalsFromBitMask()`, SPEC-010); o `core-data` só as chama.
 
 ## Testing
 - **Framework:** JUnit 5 no `core-domain`; JUnit 4 nos módulos Android (Robolectric e instrumentados).
@@ -64,6 +65,13 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Test naming:** frase entre crases nos testes de JVM e Robolectric; camelCase nos instrumentados. Ver skills/android/testing.md.
 - **Dados de teste:** nunca malware real; nunca dados reais de cartão (vetores TLV sintéticos com número de cartão de teste).
 
+## Domain Models (SPEC-010)
+- **Imutáveis:** data classes só com `val`, verificado pelo detekt (`DataClassShouldBeImmutable` em `core-domain/detekt.yml`). Nenhum array nos modelos.
+- **Coleções:** modelo com coleção tem construtor privado, `copy()` privado (`@ConsistentCopyVisibility`) e uma fábrica `companion operator fun invoke` com o mesmo nome e os mesmos parâmetros, que copia cada coleção por `unmodifiableCopy()` (`Collections.unmodifiableSet/List` sobre uma cópia). A coleção exposta recusa alteração, inclusive por cast para `MutableSet` ou `MutableList`. Não usar `Set.copyOf`/`List.copyOf` (API 30 no Android) nem `toSet()`/`toList()` como cópia defensiva.
+- **`@Suppress`:** proibido, com uma exceção de alcance fechado: `@Suppress("LongParameterList")` só numa fábrica que espelha exatamente o construtor de uma data class (o detekt isenta o construtor por `ignoreDataClasses`, mas não a fábrica). Hoje: `InstalledApp`. Fixtures de teste expõem só os parâmetros que os testes usam, em vez de espelhar o construtor.
+- **Dados de cartão:** só os quatro últimos dígitos, pelo tipo `LastFourDigits`; o `toString()` dos tipos com dado de cartão não mostra nenhum valor.
+- **Datas:** `java.time.Instant` e `YearMonth` nos modelos; a conversão para milissegundos fica no `core-data`.
+
 ## Dependency Injection
 - **Container:** Hilt, configurado no `app`.
 - **Style:** injeção por construtor. Módulos Hilt só ligam interface a implementação e fornecem tipos de terceiros. Classes do `core-domain` não têm anotações do Hilt.
@@ -71,7 +79,9 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 ## Error Handling
 - **Strategy:** estado de erro em toda tela com dados; no F2, mensagem própria para ausência de NFC, NFC desligado (com atalho para as configurações), cartão não suportado e leitura interrompida.
 - Falha da API de pagamento padrão em versões novas do Android degrada sem erro.
-- **Custom exceptions / tipos de resultado:** TODO: no code yet (`CardReadResult` e `RiskResult` são os únicos tipos de resultado nomeados).
+- **Falhas esperadas como valores:** sealed no `core-domain`, como `CardReadResult` (`Success`, `UnsupportedCard`, `ReadInterrupted`). NFC ausente ou desligado não é resultado de `CardReader.read`.
+- **Invariantes dos modelos:** `require` no `init`, que lança `IllegalArgumentException` (score de 0 a 100, máscara válida, quatro dígitos, fim da varredura não anterior ao início). Mensagem sobre dado do cartão nunca repete o valor recebido.
+- Sem exceções próprias por enquanto.
 - **Logging:** nunca logar dados de cartão nem enviá-los a análise de falhas. Biblioteca: TODO: no code yet.
 
 ## Quality Gates
