@@ -155,6 +155,7 @@ Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manife
 ### How data and platform layers are tested (planned)
 - `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)
 - Collectors: Robolectric (JUnit 4) with a simulated `PackageManager`
+- **Injected dispatcher (SPEC-011):** to prove that code runs on the `CoroutineDispatcher` it receives, wrap the `StandardTestDispatcher(testScheduler)` of `runTest` in a test dispatcher that counts dispatches and assert at least one. Do not create a second `TestCoroutineScheduler`: `runTest` rejects it ("Detected use of different schedulers"), and `advanceUntilIdle()` on a standalone scheduler needs `@OptIn(ExperimentalCoroutinesApi::class)`, a new compiler warning. Example: `CountingDispatcher` in `PackageManagerAppInventoryTest`
 - Room repositories: Robolectric with an **in-memory** database — no real on-device database in integration tests
 - Screens: Compose UI tests for each screen state and navigation; Turbine for Flows
 - End-to-end: install `decoy-app` via `adb install`, run the scan, check level and notification — emulator in CI and physical device

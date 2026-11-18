@@ -1,7 +1,7 @@
 # Architecture: SPEC-011 Inventário de apps
 
 > Entrada: `.agent/plans/spec-011-inventario-apps.md`, `.agent/specs/features/spec-011-inventario-apps.spec.toon` (FT-011 v1.1), `.agent/specs/acceptance/spec-011-inventario-apps.acceptance.toon` (v1.1)
-> Contrato: `.agent/specs/contracts/spec-011-inventario-apps.contract.toon` · 2026-11-18
+> Contrato: `.agent/specs/contracts/spec-011-inventario-apps.contract.toon` (v1.1) · 2026-11-18
 
 ## Summary
 O `AppInventory` do domínio ganha a primeira implementação, `PackageManagerAppInventory`, no pacote `io.github.valossa515.tapguard.core.detection.inventory`. Os ramos por versão do Android ficam em `PackageManagerVersionCompat.kt`, na raiz `core.detection`, como funções de extensão `internal`; é o único lugar do código de produção com `@Suppress("DEPRECATION")`.
@@ -49,7 +49,7 @@ Nenhuma.
 - **Uma classe, cinco APIs:** `PackageManagerAppInventoryTest` com `@Config(sdk = [26, 28, 30, 33, 36])`, para cada cenário passar por todos os ramos. A 26 cobre os ramos antigos; a 28, a 30 e a 33 são o primeiro nível de cada ramo novo; a 36 é o targetSdk.
 - **Fixture local** `aPackageInfo(...)` no próprio arquivo de teste, com só os parâmetros que os testes trocam. O `versionCode` abaixo da API 28 é gravado num ramo de `SDK_INT` com `@Suppress("DEPRECATION")`, a única supressão em teste (exceção do ADR-016). Instalador: `setInstallerPackageName` abaixo da API 30; `ShadowPackageManager.setInstallSourceInfo` a partir dela, registrado para todo app de usuário, porque o Robolectric lança `NameNotFoundException` para pacote sem origem.
 - **Ganchos:** um `CharSequence` de rótulo que conta leituras e executa uma ação na segunda. A primeira leitura acontece quando o Robolectric copia (Parcel) a lista leve; a segunda, quando copia o detalhe daquele app. O mesmo gancho cancela o job (cancelamento) ou remove o próximo pacote (desinstalação no meio). O KDoc explica isso e diz que, se o Robolectric parar de copiar, os testes falham em vez de passar (verificado sem `ensureActive()`: `[2, 2, 2]`).
-- **Dispatcher:** o inventário recebe um `StandardTestDispatcher` com scheduler próprio. O teste confere que o resultado só sai depois de esse scheduler rodar.
+- **Dispatcher (emenda 1.1):** o inventário recebe um `CountingDispatcher` local que envolve o `StandardTestDispatcher(testScheduler)` do próprio `runTest` e conta os despachos. O teste confere o resultado e que houve pelo menos um despacho. Trocar, na produção, o dispatcher injetado por `Dispatchers.Unconfined` faz o teste falhar.
 - **`LibraryManifestTest`** (Robolectric, API 36): `requestedPermissions` do próprio pacote, que com `isIncludeAndroidResources` reflete o manifesto mesclado da biblioteca, não pode ter nada além de `REORDER_TASKS` (do `androidx.test:core`, só em teste).
 - **Excluídos:** `PackageManagerVersionCompat.kt` sem teste direto (coberto pelo inventário nas cinco APIs); visibilidade de pacotes da API 30, `GET_PERMISSIONS`, limite de transferência e erro do `PackageManager` (o Robolectric não reproduz; conferidos no review e no teste ponta a ponta).
 - **Removido:** `core-detection/src/test/.../CoreDetectionSmokeTest.kt`, registrado no cabeçalho do contrato (o schema só aceita `create` e `modify`).
@@ -65,6 +65,6 @@ Nenhuma.
 
 ## Risks
 - **Ganchos dependem da cópia por Parcel do Robolectric 4.18:** mitigado pelo modo de falha (o teste quebra, não passa).
-- **Teste do dispatcher com scheduler próprio dentro do `runTest`:** não estava no experimento. Se o `runTest` reclamar do scheduler diferente, o tester para e pergunta.
+- **Teste do dispatcher (materializado e resolvido na emenda 1.1):** a forma planejada, com um `StandardTestDispatcher` sobre um segundo `TestCoroutineScheduler`, falhou nas cinco APIs: o `runTest` recusa um segundo scheduler (`IllegalStateException: Detected use of different schedulers`), e o `advanceUntilIdle()` num scheduler avulso exige `@OptIn(ExperimentalCoroutinesApi::class)`, que geraria aviso novo. O usuário aprovou o `CountingDispatcher` (2026-11-18).
 - **`@SuppressLint` em função de extensão de topo:** no experimento a anotação estava num método de classe. Se o lint não a respeitar na função de topo, o builder para e pergunta.
 - **`const val` com `or` de constantes do Android:** deve compilar como expressão constante; se não compilar, o builder usa `private val` no `companion` e avisa.

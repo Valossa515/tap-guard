@@ -2,12 +2,13 @@
 # .agent/specs/contracts/spec-011-inventario-apps.contract.toon
 # SPEC-011 (issue #7) – camadas = build e pacotes do core-detection e app e docs
 # Pacotes: io.github.valossa515.tapguard.core.detection (raiz; funcoes internal) e io.github.valossa515.tapguard.core.detection.inventory
+# Emenda 1.1 (2026-11-18 aprovada pelo usuario): read-runs-on-injected-dispatcher usa um CountingDispatcher local que envolve o StandardTestDispatcher(testScheduler) do runTest e conta despachos; motivo: o runTest recusa um segundo TestCoroutineScheduler (Detected use of different schedulers) e advanceUntilIdle num scheduler avulso exige @OptIn(ExperimentalCoroutinesApi)
 # Remocao (o schema so aceita create e modify): core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/CoreDetectionSmokeTest.kt
 # Supressoes permitidas (ADR-015 e ADR-016): @Suppress("DEPRECATION") so no ramo antigo de um teste de SDK_INT cujo outro ramo usa a API nova (producao so no PackageManagerVersionCompat.kt; teste so na fixture aPackageInfo); @SuppressLint("QueryPermissionsNeeded") so em installedPackagesCompat; tools:ignore="QueryAllPackagesPermission" so no uses-permission do app; cada uma com comentario
 
 contract:
   feature-ref: FT-011
-  version: 1.0
+  version: 1.1
 
 layers:
   build:
@@ -60,6 +61,7 @@ test-strategy:
       file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
       type: robolectric
       config: "@Config(sdk = [26, 28, 30, 33, 36])"
+      dispatcher-scenario: read-runs-on-injected-dispatcher envolve o StandardTestDispatcher(testScheduler) do runTest num CountingDispatcher local que conta despachos e confere resultado e despachos > 0; sem segundo TestCoroutineScheduler (emenda 1.1)
       scenarios[15]:
         returns-user-app-and-skips-app-with-flag-system
         skips-updated-system-app-with-both-flags
@@ -89,7 +91,7 @@ test-strategy:
         query-all-packages-is-requested
   fixtures:
     file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
-    content: aPackageInfo(...) local com so os parametros trocados pelos testes (packageName e flags e label e versionCode e permissoes e servicos e enabled); versionCode abaixo da API 28 num ramo de SDK_INT com @Suppress("DEPRECATION"); registro do instalador por API (setInstallerPackageName abaixo de 30; ShadowPackageManager.setInstallSourceInfo a partir de 30 para todo app de usuario); gancho de rotulo CharSequence que age na segunda leitura com KDoc do mecanismo e do modo de falha; dados sinteticos (com.example...)
+    content: aPackageInfo(...) local com so os parametros trocados pelos testes (packageName e flags e label e versionCode e permissoes e servicos e enabled); versionCode abaixo da API 28 num ramo de SDK_INT com @Suppress("DEPRECATION"); registro do instalador por API (setInstallerPackageName abaixo de 30; ShadowPackageManager.setInstallSourceInfo a partir de 30 para todo app de usuario); gancho de rotulo CharSequence que age na segunda leitura com KDoc do mecanismo e do modo de falha; CountingDispatcher local com KDoc (repassa ao dispatcher do runTest; o teste falha se a leitura nao passar pelo dispatcher injetado; verificado trocando por Dispatchers.Unconfined); dados sinteticos (com.example...)
   verification[5]{criterion,how}:
     AC-001 e AC-002 e AC-003,Local e desfeito sem commit: tirar FLAG_UPDATED_SYSTEM_APP de SYSTEM_FLAGS derruba os testes do sistema atualizado
     AC-013,Local e desfeito sem commit: tirar ensureActive() derruba o teste de cancelamento
