@@ -54,17 +54,24 @@ Os modelos são imutáveis, inclusive as coleções. O número completo do cart�
 - **Cobertura:** as linhas executáveis são as fábricas, os `init` com validação, os enums, a conversão da máscara e os `toString` mascarados. Cada uma ganha teste. Meta de 100% das linhas; mínimo de 80% verificado pelo `koverVerify`.
 
 ## Tasks
-1. [ ] **Sinais e enums** (`feat:`): `Signal` com os bits, a conversão da máscara, `RiskLevel`, `ScanTrigger`, e o utilitário interno de cópia defensiva.
-2. [ ] **Modelos da varredura** (`feat:`): `InstalledApp`, `RiskResult`, `ScoringContext`, `ScannedApp`, `ScanReport`.
-3. [ ] **Modelos do cartão** (`feat:`): `NfcTagHandle`, `LastFourDigits`, `CardReadResult`.
-4. [ ] **Interfaces** (`feat:`): `AppInventory`, `SignalCollector`, `RiskScorer`, `ScanDevice`, `CardReader`.
-5. [ ] **detekt** (`chore:`): `core-domain/detekt.yml` com `DataClassShouldBeImmutable` e o bloco `detekt` no `core-domain/build.gradle.kts`.
-6. [ ] **Testes** (`test:`, papel tester): os cenários do contrato; remove o `CoreDomainSmokeTest`.
+1. [x] **Sinais e enums** (`feat:`): `Signal` com os bits, a conversão da máscara, `RiskLevel`, `ScanTrigger`, e o utilitário interno de cópia defensiva.
+2. [x] **Modelos da varredura** (`feat:`): `InstalledApp`, `RiskResult`, `ScoringContext`, `ScannedApp`, `ScanReport`.
+3. [x] **Modelos do cartão** (`feat:`): `NfcTagHandle`, `LastFourDigits`, `CardReadResult`.
+4. [x] **Interfaces** (`feat:`): `AppInventory`, `SignalCollector`, `RiskScorer`, `ScanDevice`, `CardReader`.
+5. [x] **detekt** (`chore:`): `core-domain/detekt.yml` com `DataClassShouldBeImmutable` e o bloco `detekt` no `core-domain/build.gradle.kts`.
+6. [x] **Testes** (`test:`, papel tester): os cenários do contrato; remove o `CoreDomainSmokeTest`.
 7. [ ] **Documentação** (`docs:`): `core-domain/README.md`; `project-reference.md` (tipos do domínio); `glossary.md` (`ScoringContext`, `ScannedApp`, `LastFourDigits`, nomes dos sinais); `conventions.md` (imutabilidade; falhas esperadas como valores); `context.md`; `SKILLS.md` (regra de imutabilidade dos modelos e as decisões do domínio); **ADR-015** em `decisions.md` (handle opaco, número do cartão barrado pelo tipo, máscara no domínio, técnica de imutabilidade, regra 1 no inventário).
-8. [ ] **Conferência dos critérios**, localmente e desfeita sem commit:
+8. [x] **Conferência dos critérios**, localmente e desfeita sem commit:
    - um `var` temporário numa data class faz o detekt falhar;
    - um modelo temporário sem teste derruba o `koverVerify`;
    - `./gradlew build` verde.
+   - 2026-11-18, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma):
+     - `val risk` → `var risk` em `ScannedApp` → o detekt falha: `The data class ScannedApp contains a mutable property. The offending property is called risk [DataClassShouldBeImmutable]` (AC-003).
+     - Classe temporária `probe/Untested.kt` (data class com 30 funções, sem teste) → o `koverVerify` falha: `lines covered percentage is 71.929800, but expected minimum is 80`. Removida, o `koverVerify` passa (AC-022).
+     - `./gradlew build` verde; Kover do `core-domain` em 98,8% de linhas (82 de 83; a linha descoberta é a declaração da value class `LastFourDigits`). Nenhum aviso novo do Kotlin; o aviso de depreciação do Gradle (`ReportingExtension.file`) já existe na `main` (AC-023).
+     - Nenhum import `android.*` ou `androidx.*` em `core-domain/src`; plugins só `kotlin.jvm`, `ktlint`, `detekt`, `kover`; nenhuma dependência nova (AC-001).
+     - Nenhuma classe implementa as cinco interfaces nem o `NfcTagHandle`; nenhum peso ou faixa; `git diff main -- app` vazio (AC-021).
+     - Os quatro modelos com coleção têm `@ConsistentCopyVisibility` e construtor privado; uma chamada a `copy()` de outro pacote não compila (`it is private`), e a fábrica chama o construtor privado (bytecode); nenhum array (AC-006). Único `@Suppress`: `LongParameterList` na fábrica do `InstalledApp` (emenda 1.2).
 
 ## Database changes
 Nenhuma. A máscara de `app_snapshot.signals` segue a ordem de `conventions.md` (S1 no bit 0 até S9 no bit 8); as funções de conversão nascem aqui e são usadas pelo `core-data` na SPEC-018.
