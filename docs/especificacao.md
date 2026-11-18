@@ -233,7 +233,7 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 
 | Sinal | API do Android |
 | --- | --- |
-| Inventário | `PackageManager.getInstalledPackages` com permissões e serviços; filtrar `FLAG_SYSTEM` |
+| Inventário | Duas etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
 | S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | `queryIntentServices` com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` |

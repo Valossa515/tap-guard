@@ -59,6 +59,7 @@
 - **Opção de build:** `isIncludeAndroidResources = true` no `core-detection`, para o Robolectric ler o manifesto mesclado da biblioteca. Com ela, o pacote do teste vira `io.github.valossa515.tapguard.core.detection.test`, e o filtro do próprio pacote o exclui.
 
 ## Não testado aqui (contrato › excluded)
+- **Ramo `applicationInfo` nulo (emenda 1.3):** o Robolectric preenche o `applicationInfo` sozinho ao instalar um pacote sem ele (APIs 26 e 36). Conferido no review.
 - **Visibilidade de pacotes (API 30), `GET_PERMISSIONS` e erro do `PackageManager`:** o Robolectric não reproduz nenhum dos três. Ficam para o review, o KDoc e o teste ponta a ponta.
 - **Limite de transferência e custo das chamadas:** sem binder no Robolectric; desempenho na SPEC-018.
 
