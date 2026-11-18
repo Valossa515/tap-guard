@@ -271,6 +271,10 @@ class PackageManagerAppInventoryTest {
      * na cópia do detalhe deste app. Assim a ação roda durante a leitura deste app, antes do
      * próximo. Se uma versão do Robolectric parar de copiar, a ação roda em outro momento ou
      * nunca, e os testes que usam este gancho falham, em vez de passar por engano.
+     *
+     * Os testes também dependem da ordem da lista: os nomes dos pacotes (`com.example.a…`,
+     * `com.example.b…`, `com.example.c…`) foram escolhidos para a ordem alfabética coincidir com a
+     * de instalação.
      */
     private class SecondReadHook(
         private val text: String,

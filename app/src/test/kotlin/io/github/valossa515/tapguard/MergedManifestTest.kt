@@ -35,12 +35,7 @@ class MergedManifestTest {
                 "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
             )
 
-        val requested =
-            context.packageManager
-                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-                .requestedPermissions
-                ?.toSet()
-                .orEmpty()
+        val requested = requestedPermissions()
 
         val notAllowed = requested - allowed
         assertTrue("Permissões fora da lista: $notAllowed", notAllowed.isEmpty())
@@ -49,12 +44,7 @@ class MergedManifestTest {
     @Test
     fun `query all packages is requested`() {
         // Sem ela, a partir da API 30 o inventário só enxerga os pacotes visíveis (ADR-016).
-        val requested =
-            context.packageManager
-                .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
-                .requestedPermissions
-                ?.toSet()
-                .orEmpty()
+        val requested = requestedPermissions()
 
         assertTrue("QUERY_ALL_PACKAGES não declarada", "android.permission.QUERY_ALL_PACKAGES" in requested)
     }
@@ -105,6 +95,14 @@ class MergedManifestTest {
 
         assertEquals(ALL_DOMAINS, excluded["full-backup-content"])
     }
+
+    /** Permissões pedidas no manifesto mesclado do app. */
+    private fun requestedPermissions(): Set<String> =
+        context.packageManager
+            .getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions
+            ?.toSet()
+            .orEmpty()
 
     /** Domínios de cada `<exclude>`, agrupados pela seção em que aparecem. */
     private fun excludedDomainsBySection(
