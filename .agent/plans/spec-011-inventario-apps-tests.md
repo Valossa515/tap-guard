@@ -63,7 +63,7 @@
 - **Limite de transferência e custo das chamadas:** sem binder no Robolectric; desempenho na SPEC-018.
 
 ## Verificação local (desfeita sem commit)
-- Tirar `FLAG_UPDATED_SYSTEM_APP` de `SYSTEM_FLAGS` → falham os cenários 2 e 3.
+- Tirar `FLAG_UPDATED_SYSTEM_APP` de `SYSTEM_FLAGS` → falha o cenário 3 (o cenário 2 também tem `FLAG_SYSTEM` e continua filtrado).
 - Tirar `ensureActive()` → falha o cenário 13.
 - Tirar `QUERY_ALL_PACKAGES` do manifesto do `app` → falha o `MergedManifestTest`.
 - Declarar `QUERY_ALL_PACKAGES` no manifesto do `core-detection` → falha o `LibraryManifestTest`.

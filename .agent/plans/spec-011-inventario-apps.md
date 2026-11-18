@@ -95,18 +95,18 @@ Cópia do repositório com uma implementação provisória e testes Robolectric 
 - **Visibilidade:** a partir da API 30, sem `QUERY_ALL_PACKAGES`, o Android devolve só os pacotes visíveis. Isso é responsabilidade do manifesto de quem usa a biblioteca, documentado no README.
 
 ## Tasks
-1. [ ] **Dependências** (`chore:`):
+1. [x] **Dependências** (`chore:`):
    - `kotlinx-coroutines-core` no catálogo, com a versão renomeada para `coroutines`;
    - no `core-detection`, `api(project(":core-domain"))` (era `implementation`), `api(libs.kotlinx.coroutines.core)` e as `testImplementation`, mais `testOptions.unitTests.isIncludeAndroidResources = true`;
    - `./gradlew build` verde.
-2. [ ] **Inventário** (`feat:`): `PackageManagerVersionCompat.kt` com os ramos por versão e as supressões, e o `PackageManagerAppInventory`: duas etapas, filtros de sistema e de próprio pacote, `ensureActive()` a cada app, desinstalado no meio pulado, dispatcher injetado. Mais o KDoc do `AppInventory` (sem tipos do Android) com o que pode ser lançado.
-3. [ ] **Permissão no `app`** (`feat:`): `QUERY_ALL_PACKAGES` no manifesto, com `tools:ignore="QueryAllPackagesPermission"` e comentário.
-4. [ ] **Testes** (`test:`, papel tester):
+2. [x] **Inventário** (`feat:`): `PackageManagerVersionCompat.kt` com os ramos por versão e as supressões, e o `PackageManagerAppInventory`: duas etapas, filtros de sistema e de próprio pacote, `ensureActive()` a cada app, desinstalado no meio pulado, dispatcher injetado. Mais o KDoc do `AppInventory` (sem tipos do Android) com o que pode ser lançado.
+3. [x] **Permissão no `app`** (`feat:`): `QUERY_ALL_PACKAGES` no manifesto, com `tools:ignore="QueryAllPackagesPermission"` e comentário.
+4. [x] **Testes** (`test:`, papel tester):
    - o inventário nas cinco APIs: regra 1 com três casos, próprio pacote, campos, código de versão longo, instalador nos dois caminhos e ausente, serviços desligados, app desligado, conjuntos vazios, desinstalado no meio, cancelamento;
    - manifesto da biblioteca sem permissões;
    - `MergedManifestTest` exigindo `QUERY_ALL_PACKAGES`;
    - remoção do `CoreDetectionSmokeTest`.
-5. [ ] **Documentação** (`docs:`):
+5. [x] **Documentação** (`docs:`):
    - `core-detection/README.md`: estado, permissão a declarar por quem usa o SDK, dependências, e o compileSdk 37 no lugar do 36 que ficou da SPEC-001;
    - `docs/especificacao.md`: RF-101 passa a dizer que o próprio app fica fora;
    - `project-reference.md`: classe do inventário e dependências;
@@ -114,12 +114,19 @@ Cópia do repositório com uma implementação provisória e testes Robolectric 
    - `context.md`;
    - `SKILLS.md`: as duas exceções juntas, `QUERY_ALL_PACKAGES` só no `app`, o que o `MergedManifestTest` e o `LibraryManifestTest` conferem, regra 1 implementada, regra `api` × `implementation` em módulo de biblioteca;
    - **ADR-016** em `decisions.md`: permissão fora da biblioteca, regra 1 com as duas flags, exclusão do próprio app, busca em duas etapas, instalador no inventário, supressões, `api` para tipos da API pública; ponto aberto: `explicitApi()` quando o SDK for publicado.
-6. [ ] **Conferência dos critérios**, localmente e desfeita sem commit:
+6. [x] **Conferência dos critérios**, localmente e desfeita sem commit:
    - tirar o filtro de `FLAG_UPDATED_SYSTEM_APP` derruba o teste correspondente;
    - tirar `ensureActive()` derruba o teste de cancelamento;
    - declarar `QUERY_ALL_PACKAGES` no manifesto do `core-detection` derruba o teste da biblioteca;
    - tirar a permissão do `app` derruba o `MergedManifestTest`;
    - `./gradlew build` verde sem aviso novo do compilador nem do lint.
+   - 2026-11-18, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma):
+     - `SYSTEM_FLAGS` só com `FLAG_SYSTEM` → falha `skips app with only flag updated system app` nas 5 APIs (76 testes, 5 falhas). O cenário com as duas flags continua passando, porque o app também tem `FLAG_SYSTEM` (AC-003).
+     - Sem `ensureActive()` → falha `cancellation stops before next app` nas 5 APIs (AC-013).
+     - Sem `QUERY_ALL_PACKAGES` no manifesto do `app` → falha `query all packages is requested` (7 testes, 1 falha) (AC-016).
+     - `QUERY_ALL_PACKAGES` declarada no manifesto do `core-detection` → falha `library requests no permission besides the one androidx test brings` (AC-017).
+     - Dispatcher injetado trocado por `Dispatchers.Unconfined` na produção → falha `read runs on the injected dispatcher` (AC-015, emenda 1.1).
+     - `./gradlew clean build` verde em 4 min 39 s, sem nenhum aviso `w:` do Kotlin (AC-020). Testes: `app` 32, `core-data` 17 (2 ignorados no Windows, como já previsto), `core-detection` 76 (75 do inventário nas 5 APIs + 1 da biblioteca), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia na `main`. O aviso de depreciação do Gradle também já existia.
 
 ## Database changes
 Nenhuma. `installerPackageName` e o código de versão chegam à `app_snapshot` pela SPEC-018.

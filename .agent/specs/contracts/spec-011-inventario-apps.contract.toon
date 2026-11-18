@@ -2,13 +2,14 @@
 # .agent/specs/contracts/spec-011-inventario-apps.contract.toon
 # SPEC-011 (issue #7) – camadas = build e pacotes do core-detection e app e docs
 # Pacotes: io.github.valossa515.tapguard.core.detection (raiz; funcoes internal) e io.github.valossa515.tapguard.core.detection.inventory
+# Emenda 1.2 (2026-11-18 documentacao): runbook.md e CONTRIBUTING.md na camada docs (citavam a SPEC-011 como futura e o Robolectric so no app e no core-data)
 # Emenda 1.1 (2026-11-18 aprovada pelo usuario): read-runs-on-injected-dispatcher usa um CountingDispatcher local que envolve o StandardTestDispatcher(testScheduler) do runTest e conta despachos; motivo: o runTest recusa um segundo TestCoroutineScheduler (Detected use of different schedulers) e advanceUntilIdle num scheduler avulso exige @OptIn(ExperimentalCoroutinesApi)
 # Remocao (o schema so aceita create e modify): core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/CoreDetectionSmokeTest.kt
 # Supressoes permitidas (ADR-015 e ADR-016): @Suppress("DEPRECATION") so no ramo antigo de um teste de SDK_INT cujo outro ramo usa a API nova (producao so no PackageManagerVersionCompat.kt; teste so na fixture aPackageInfo); @SuppressLint("QueryPermissionsNeeded") so em installedPackagesCompat; tools:ignore="QueryAllPackagesPermission" so no uses-permission do app; cada uma com comentario
 
 contract:
   feature-ref: FT-011
-  version: 1.1
+  version: 1.2
 
 layers:
   build:
@@ -29,7 +30,9 @@ layers:
       app/src/main/AndroidManifest.xml,modify,xmlns:tools no manifest; <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" /> antes de <application> com comentario XML (listar os apps instalados e a funcao do app; declaracao de app de seguranca na Play Store; ADR-010 e ADR-016)
       app/src/test/kotlin/io/github/valossa515/tapguard/MergedManifestTest.kt,modify,novo teste query all packages is requested: QUERY_ALL_PACKAGES em requestedPermissions; lista permitida igual; KDoc da classe cita a nova verificacao
   docs:
-    files[9]{path,action,description}:
+    files[11]{path,action,description}:
+      .agent/runbook.md,modify,versoes do core-detection; comando do Robolectric no core-detection no lugar do TODO; falhas do MergedManifestTest sem QUERY_ALL_PACKAGES e do LibraryManifestTest
+      CONTRIBUTING.md,modify,comando de testes cita o Robolectric tambem no core-detection
       core-detection/README.md,modify,estado (SPEC-011); PackageManagerAppInventory e o que devolve; quem usa a biblioteca declara QUERY_ALL_PACKAGES (a biblioteca nao declara permissao); dependencias api e implementation; ramos por versao em PackageManagerVersionCompat.kt; testes nas cinco APIs; compileSdk 37 (corrige o 36 da SPEC-001)
       docs/especificacao.md,modify,RF-101: o proprio app (o Tap Guard ou o app que usa o SDK) tambem fica fora da lista
       .agent/project-reference.md,modify,classes do core-detection (PackageManagerAppInventory e PackageManagerVersionCompat.kt); dependencias (kotlinx-coroutines-core api)

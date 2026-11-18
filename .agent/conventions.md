@@ -58,7 +58,9 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Mock library:** MockK. **Flow:** Turbine. **UI:** testes do Compose.
 - **Integration tests:** Robolectric com `PackageManager` simulado e Room em memória.
 - **Testes de Compose (sem aparelho, em `src/test`):** tela inteira pela Activity real com `createAndroidComposeRule<MainActivity>()`; composable isolado com `Robolectric.buildActivity(ComponentActivity::class.java)` + `createEmptyComposeRule()`, sem `ui-test-manifest` (para não pôr uma Activity de teste no APK de debug). Regras do pacote `androidx.compose.ui.test.junit4.v2`.
-- **Manifesto mesclado:** `MergedManifestTest` (Robolectric) falha com permissão fora da lista explícita ou Activity exportada além da `MainActivity`.
+- **Manifesto mesclado:** `MergedManifestTest` (Robolectric) falha com permissão fora da lista explícita, sem `QUERY_ALL_PACKAGES` declarada, ou com componente exportado além da `MainActivity` e do `ProfileInstallReceiver`. `LibraryManifestTest` (`core-detection`) falha se o manifesto mesclado da biblioteca declarar permissão além de `REORDER_TASKS` (do `androidx.test:core`, só em teste).
+- **Ramos por versão do Android:** testados com `@Config(sdk = [...])` no primeiro nível de cada ramo novo, mais o minSdk e o targetSdk (inventário: 26, 28, 30, 33 e 36).
+- **Dispatcher injetado:** para provar que o código roda no `CoroutineDispatcher` que recebe, envolver o `StandardTestDispatcher(testScheduler)` do `runTest` num dispatcher de teste que conta despachos. Não criar um segundo `TestCoroutineScheduler`.
 - **Ponta a ponta:** instalar o `decoy-app` (por `adb install`), rodar a varredura, conferir nível e notificação — emulador no CI e aparelho físico.
 - **Manual:** leitura de cartão real em aparelho físico com NFC.
 - **Coverage:** mínimo de 80% de cobertura de linhas no `core-domain`, medido pelo Kover 0.9.11 e verificado no `./gradlew build` (`:core-domain:koverVerify`). Os outros módulos não têm meta. Sem código de produção a regra passa; interfaces não contam, `data class` conta (ADR-012).
@@ -68,7 +70,12 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 ## Domain Models (SPEC-010)
 - **Imutáveis:** data classes só com `val`, verificado pelo detekt (`DataClassShouldBeImmutable` em `core-domain/detekt.yml`). Nenhum array nos modelos.
 - **Coleções:** modelo com coleção tem construtor privado, `copy()` privado (`@ConsistentCopyVisibility`) e uma fábrica `companion operator fun invoke` com o mesmo nome e os mesmos parâmetros, que copia cada coleção por `unmodifiableCopy()` (`Collections.unmodifiableSet/List` sobre uma cópia). A coleção exposta recusa alteração, inclusive por cast para `MutableSet` ou `MutableList`. Não usar `Set.copyOf`/`List.copyOf` (API 30 no Android) nem `toSet()`/`toList()` como cópia defensiva.
-- **`@Suppress`:** proibido, com uma exceção de alcance fechado: `@Suppress("LongParameterList")` só numa fábrica que espelha exatamente o construtor de uma data class (o detekt isenta o construtor por `ignoreDataClasses`, mas não a fábrica). Hoje: `InstalledApp`. Fixtures de teste expõem só os parâmetros que os testes usam, em vez de espelhar o construtor.
+- **`@Suppress`:** proibido, com duas exceções de alcance fechado:
+  - `@Suppress("LongParameterList")` só numa fábrica que espelha exatamente o construtor de uma data class (o detekt isenta o construtor por `ignoreDataClasses`, mas não a fábrica). Hoje: `InstalledApp` (ADR-015). Fixtures de teste expõem só os parâmetros que os testes usam, em vez de espelhar o construtor.
+  - `@Suppress("DEPRECATION")` só no ramo antigo de um teste de `SDK_INT` cujo outro ramo usa a API nova. No código de produção, só no `PackageManagerVersionCompat.kt` do `core-detection`; nos testes, só na fixture que monta o `PackageInfo` para a API 26 (ADR-016).
+- **Supressões de lint:** só no próprio elemento, com comentário do motivo ao lado; sem `lint.xml`. Hoje: `tools:ignore="QueryAllPackagesPermission"` no `<uses-permission>` do `app` e `@SuppressLint("QueryPermissionsNeeded")` em `installedPackagesCompat` (ADR-016).
+- **Ramos por versão do Android:** num arquivo só por módulo (`PackageManagerVersionCompat.kt` no `core-detection`), com cortes `Build.VERSION.SDK_INT >= Build.VERSION_CODES.*`.
+- **`api` × `implementation` em módulo de biblioteca:** dependência cujo tipo aparece na API pública é `api`; o resto é `implementation`. No `core-detection`: `api` para o `core-domain` e para `kotlinx-coroutines-core`.
 - **Dados de cartão:** só os quatro últimos dígitos, pelo tipo `LastFourDigits`; o `toString()` dos tipos com dado de cartão não mostra nenhum valor.
 - **Datas:** `java.time.Instant` e `YearMonth` nos modelos; a conversão para milissegundos fica no `core-data`.
 

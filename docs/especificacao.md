@@ -66,7 +66,7 @@ Cada requisito tem um ID que as specs referenciam.
 
 ### F1 Varredura de apps
 
-- **RF-101:** listar todos os apps instalados que não são do sistema.
+- **RF-101:** listar todos os apps instalados que não são do sistema. O próprio app (o Tap Guard, ou o app que usa o SDK) também fica fora da lista.
 - **RF-102:** para cada app, coletar os sinais S1 a S9 da seção 5.
 - **RF-103:** calcular score e nível (verde, amarelo, vermelho) conforme a seção 5.
 - **RF-104:** mostrar um resumo do aparelho: o pior nível encontrado e a contagem por nível.

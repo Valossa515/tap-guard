@@ -15,8 +15,8 @@
 | **Stack** | Kotlin, Jetpack Compose, Material 3, Navigation Compose, corrotinas e Flow, Hilt, Room, DataStore, WorkManager **(planned)** |
 | **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
 | **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 37 (ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
-| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`), `core-data` (pacote `io.github.valossa515.tapguard.core.data`) e `core-domain` (pacote `io.github.valossa515.tapguard.core.domain`). Ainda vazios: `core-detection`, `core-nfc`, `decoy-app` |
-| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt; no `core-domain`, modelos e máscara de sinais (JUnit 5, sem teste de fumaça) |
+| **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`), `core-data` (pacote `io.github.valossa515.tapguard.core.data`), `core-domain` (pacote `io.github.valossa515.tapguard.core.domain`) e `core-detection` (pacote `io.github.valossa515.tapguard.core.detection`, desde a SPEC-011). Ainda vazios: `core-nfc`, `decoy-app` |
+| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt; no `core-domain`, modelos e máscara de sinais (JUnit 5, sem teste de fumaça); no `core-detection`, inventário de apps nas APIs 26, 28, 30, 33 e 36 e manifesto da biblioteca (Robolectric, sem teste de fumaça) |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -72,7 +72,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
-| `AppInventory` | `core-domain` (`inventory`) / `core-detection` (impl., SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) |
+| `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
 | `SignalCollector` | `core-domain` (`signal`) / `core-detection` (impl., SPEC-012 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
@@ -96,6 +96,13 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `NfcTagHandle` | `card` | Interface sem membros: o `core-nfc` embrulha a `Tag` do Android (SPEC-041) |
 | `LastFourDigits` | `card` | Value class: exatamente quatro dígitos ASCII; `toString()` mascarado |
 | `CardReadResult` | `card` | `Success(applicationLabel, lastFourDigits: LastFourDigits, expiry: YearMonth)` com `toString()` mascarado, `UnsupportedCard`, `ReadInterrupted`. Sem campo para o número completo |
+
+### Detecção (SPEC-011)
+
+| Classe / arquivo | Pacote | Responsibility |
+|------------------|--------|----------------|
+| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em duas etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Única classe pública do módulo; guarda só o `PackageManager` e o nome do próprio pacote |
+| `PackageManagerVersionCompat.kt` | `core.detection` | Funções `internal` com os ramos por versão: lista e detalhe com `PackageInfoFlags` (API 33+), instalador por `getInstallSourceInfo().installingPackageName` (API 30+), código de versão longo (API 28+). Único arquivo de produção com `@Suppress("DEPRECATION")` (ADR-016) |
 
 ### App (SPEC-003)
 
@@ -230,14 +237,15 @@ Todas as versões ficam em `gradle/libs.versions.toml`. Já no catálogo (SPEC-0
 | Compose BOM (Material 3, `ui-test-junit4`) | 2026.09.00 | `app` |
 | `androidx.activity:activity-compose` | 1.13.0 | `app` |
 | `androidx.navigation:navigation-compose` | 2.10.2 | `app` (rotas tipadas) |
-| Robolectric | 4.18 | Testes do `app` |
-| `androidx.test:core` | 1.7.0 | Testes do `app` e do `core-data` |
+| Robolectric | 4.18 | Testes do `app`, do `core-data` e do `core-detection` |
+| `androidx.test:core` | 1.7.0 | Testes do `app`, do `core-data` e do `core-detection` |
 | KSP (`com.google.devtools.ksp`) | 2.3.14 | Room e Hilt (sem kapt) |
 | Hilt (`com.google.dagger.hilt.android`, `hilt-android`, `hilt-compiler`) | 2.60.1 | `app` e `core-data` |
 | Room (`androidx.room`, `room-runtime`, `room-compiler`) | 2.8.5 | `core-data` |
 | DataStore Preferences | 1.3.0 | `core-data` |
 | `hilt-android-testing`, `room-testing` | 2.60.1 / 2.8.5 | Testes do `core-data` |
-| `kotlinx-coroutines-test` | 1.11.0 | Testes do `core-data` |
+| `kotlinx-coroutines-core` | 1.11.0 | `core-detection` como `api` (`CoroutineDispatcher` no construtor público) — SPEC-011 |
+| `kotlinx-coroutines-test` | 1.11.0 | Testes do `core-data` e do `core-detection` |
 | ktlint-gradle (`org.jlleitschuh.gradle.ktlint`) | 14.2.0, motor ktlint 1.8.0 | Estilo, todos os módulos |
 | detekt (`io.gitlab.arturbosch.detekt`) | 1.23.8 | Análise estática, todos os módulos |
 | Kover (`org.jetbrains.kotlinx.kover`) | 0.9.11 | Cobertura, só no `core-domain` (mínimo de 80% de linhas) — SPEC-002 |
@@ -250,7 +258,7 @@ Ainda planejadas (versões definidas na spec que as introduzir):
 |------------|---------|
 | Jetpack Compose + Material 3 | Interface |
 | Navigation Compose | Navegação entre T1–T9 |
-| Kotlin Coroutines + Flow | Concorrência e estado |
+| Flow | Estado (as corrotinas entraram na SPEC-011) |
 | Hilt | Injeção de dependências |
 | Room | Histórico de varreduras, decisões e alertas |
 | DataStore | Preferências |
@@ -282,6 +290,7 @@ Actions do CI (fora do catálogo, em `.github/workflows/ci.yml`): `actions/check
 ./gradlew test
 ./gradlew :core-domain:test
 ./gradlew :app:testDebugUnitTest   # Robolectric: navegação, níveis, tema, cores e manifesto
+./gradlew :core-detection:testDebugUnitTest   # Robolectric: inventário nas cinco APIs e manifesto da biblioteca
 
 # Lint (ktlint + detekt)
 ./gradlew ktlintCheck detekt

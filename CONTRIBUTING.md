@@ -151,7 +151,7 @@ Na raiz do repositório (no Windows, `gradlew.bat` ou `.\gradlew`):
 
 ```bash
 ./gradlew build          # compila os seis módulos e roda lint, ktlint, detekt, testes e a cobertura do core-domain (é o que o CI roda)
-./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android (Robolectric no app e no core-data)
+./gradlew test           # só os testes: JUnit 5 no core-domain, JUnit 4 nos módulos Android (Robolectric no app, no core-data e no core-detection)
 ./gradlew ktlintCheck    # estilo (ktlint 1.8.0)
 ./gradlew ktlintFormat   # corrige o que o ktlint consegue corrigir sozinho
 ./gradlew detekt         # análise estática (detekt 1.23.8)
