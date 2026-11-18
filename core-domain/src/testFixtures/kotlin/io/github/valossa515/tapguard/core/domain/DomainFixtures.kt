@@ -8,6 +8,7 @@ import java.time.Instant
 
 fun anInstalledApp(
     packageName: String = "com.example.app",
+    installerPackageName: String? = "com.android.vending",
     requestedPermissions: Set<String> = emptySet(),
     services: Set<String> = emptySet(),
 ): InstalledApp =
@@ -15,7 +16,7 @@ fun anInstalledApp(
         packageName = packageName,
         label = "Example",
         versionCode = 1L,
-        installerPackageName = "com.android.vending",
+        installerPackageName = installerPackageName,
         firstInstallTime = Instant.parse("2026-01-01T00:00:00Z"),
         lastUpdateTime = Instant.parse("2026-01-02T00:00:00Z"),
         requestedPermissions = requestedPermissions,
