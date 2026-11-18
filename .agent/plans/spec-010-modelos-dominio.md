@@ -86,15 +86,15 @@ Nenhuma. A máscara de `app_snapshot.signals` segue a ordem de `conventions.md` 
 - **Tamanho da PR:** estimativa de 450 a 600 linhas entre código e testes. Fica numa PR pela regra "um pull request por spec".
 
 ## Acceptance criteria
-- [ ] Compila em Kotlin puro, sem dependência nova (AC-001)
-- [ ] Interfaces com as assinaturas da §7 (AC-002)
-- [ ] Modelos imutáveis: detekt barra `var`; cópia defensiva; coleção exposta recusa alteração por cast; `copy()` privado (AC-003 a AC-006)
-- [ ] Sinais nos bits 0 a 8; ida e volta nas 512 combinações; máscara inválida rejeitada; conjunto devolvido não modificável (AC-007 a AC-010)
-- [ ] `RiskLevel` em ordem de gravidade; `RiskResult` com score de 0 a 100 (AC-011, AC-012)
-- [ ] Formas de `InstalledApp`, `ScoringContext`, `ScanTrigger`, `ScannedApp` e `ScanReport` (AC-013 a AC-015); `ScanReport` recusa fim antes do início (AC-026)
-- [ ] `NfcTagHandle` sem membros; `CardReadResult` com três subtipos; `LastFourDigits` só com quatro dígitos; `toString` mascarado (AC-016 a AC-020)
-- [ ] Nenhuma implementação antecipada; `app` sem mudança (AC-021)
-- [ ] Cobertura de pelo menos 80% (AC-022)
-- [ ] ktlint, detekt e testes passam (AC-023)
-- [ ] Documentação atualizada, com o ADR-015 (AC-024)
-- [ ] CI da PR verde (AC-025)
+- [x] Compila em Kotlin puro, sem dependência nova (AC-001)
+- [x] Interfaces com as assinaturas da §7 (AC-002)
+- [x] Modelos imutáveis: detekt barra `var`; cópia defensiva; coleção exposta recusa alteração por cast; `copy()` privado (AC-003 a AC-006)
+- [x] Sinais nos bits 0 a 8; ida e volta nas 512 combinações; máscara inválida rejeitada; conjunto devolvido não modificável (AC-007 a AC-010)
+- [x] `RiskLevel` em ordem de gravidade; `RiskResult` com score de 0 a 100 (AC-011, AC-012)
+- [x] Formas de `InstalledApp`, `ScoringContext`, `ScanTrigger`, `ScannedApp` e `ScanReport` (AC-013 a AC-015); `ScanReport` recusa fim antes do início (AC-026)
+- [x] `NfcTagHandle` sem membros; `CardReadResult` com três subtipos; `LastFourDigits` só com quatro dígitos; `toString` mascarado (AC-016 a AC-020)
+- [x] Nenhuma implementação antecipada; `app` sem mudança (AC-021)
+- [x] Cobertura de pelo menos 80% (AC-022)
+- [x] ktlint, detekt e testes passam (AC-023)
+- [x] Documentação atualizada, com o ADR-015 (AC-024)
+- [x] CI da PR verde (AC-025). PR #51, run 44321990735 (commit `e9c698a`): "Regras do projeto" e "Build e testes" passaram. No artefato `test-reports` (Linux), o `core-domain` executou os 32 testes das 10 classes, com 0 falhas e 0 ignorados
