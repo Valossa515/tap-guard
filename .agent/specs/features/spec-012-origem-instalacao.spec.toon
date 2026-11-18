@@ -1,0 +1,55 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-012-origem-instalacao.spec.toon
+# SPEC-012 (issue #8) – interface library: outputs.*.status e o resultado devolvido
+# Emenda 1.1 (2026-11-18 revisao do architect): trustedInstallers obrigatorio e sem valor padrao; a lista padrao publica e TrustedStores.packageNames
+# Criterio da issue "Os dois caminhos de API cobertos por teste" cumprido pela SPEC-011 (AC-007 e AC-008; comentario na issue #8 em 2026-11-18)
+
+feature:
+  id: FT-012
+  name: SPEC-012 Origem da instalacao (S1)
+  version: 1.1
+  status: draft
+  interface: library
+
+requirement:
+  summary: Coletor do sinal S1 no core-detection. Compara InstalledApp.installerPackageName com o conjunto de instaladores confiaveis recebido na construcao e devolve UNTRUSTED_INSTALL_SOURCE quando o instalador e nulo ou fora do conjunto. A lista padrao de lojas fica num arquivo proprio e publico; o SDK de um banco passa a lista padrao mais as lojas dele ou uma lista menor. Nao chama o PackageManager (o AppInventory da SPEC-011 ja le o instalador). As fixtures do dominio passam para testFixtures do core-domain.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: SignalCollector.collect(app)
+
+inputs[2]{name,type,required,constraints}:
+  app,InstalledApp,true,so installerPackageName e lido; nulo quando o sistema nao informa o instalador
+  trustedInstallers,Set<String>,true,conjunto inteiro recebido na construcao e copiado; obrigatorio e sem valor padrao; a lista padrao publica e TrustedStores.packageNames (11 pacotes); pode ser maior ou menor
+
+outputs:
+  success:
+    description: Conjunto vazio quando installerPackageName esta em trustedInstallers; conjunto so com UNTRUSTED_INSTALL_SOURCE quando e nulo ou fora
+    status: Success
+    body[1]{name,type,value}:
+      sinais,Set<Signal>,vazio ou {UNTRUSTED_INSTALL_SOURCE}; nunca outro sinal
+  errors[2]{code,status,when}:
+    DETEKT_SKIPS_TEST_FIXTURES,BuildFailure,uma violacao do detekt em core-domain/src/testFixtures nao derruba o ./gradlew build
+    FIXTURES_IN_COVERAGE,BuildFailure,as classes de core-domain/src/testFixtures aparecem no relatorio do Kover
+
+business-rules[12]{id,rule}:
+  BR-001,Instalador nulo gera S1 (adb install e instalador desinstalado; documentacao de InstallSourceInfo)
+  BR-002,Instalador fora do conjunto gera S1; comparacao exata com maiusculas e minusculas e sem trim
+  BR-003,Instalador no conjunto nao gera S1; o coletor so devolve UNTRUSTED_INSTALL_SOURCE ou nada
+  BR-004,Lista padrao com 11 pacotes: com.android.vending; com.sec.android.app.samsungapps; com.xiaomi.mipicks; com.xiaomi.market; com.heytap.market; com.oppo.market; com.vivo.appstore; com.hihonor.appmarket; com.transsnet.store; com.huawei.appmarket; com.amazon.venezia; cada um com nome da loja e fonte em comentario
+  BR-005,Fora da lista padrao: instaladores de pacote do sistema (com.google.android.packageinstaller e com.android.packageinstaller e equivalentes de fabricante) e com.android.shell e F-Droid e Aurora Store e apps de clonagem e com.motorola.installer
+  BR-006,O coletor recebe o conjunto inteiro na construcao e guarda uma copia que nao pode ser alterada; a lista padrao e publica e nao pode ser alterada nem por cast
+  BR-007,A lista de lojas fica num arquivo proprio no core-detection; a SPEC-015 segue o mesmo formato e a mesma pasta para carteiras e bancos (comentario na issue #11)
+  BR-008,Sem API do Android e sem PackageManager no coletor e na lista; sem dispatcher; sem anotacoes do Hilt
+  BR-009,Fixtures do dominio (anInstalledApp e aRiskResult) em core-domain/src/testFixtures com o plugin java-test-fixtures; core-detection usa testImplementation(testFixtures(project(:core-domain))); anInstalledApp ganha so o parametro installerPackageName
+  BR-010,O detekt do check analisa core-domain/src/testFixtures; o Kover exclui o source set testFixtures; cobertura do core-domain igual a de antes
+  BR-011,Limitacoes registradas no ADR-017: instalador falsificado com shell ou root; nome de pacote emprestado; apps de clonagem; Amazon Appstore fechada fora dos aparelhos Fire; risco de app ruim em loja confiavel vem do limite da regra 3
+  BR-012,Fora: initiatingPackageName e instalador como app do sistema (issue pos-MVP); listas de carteiras e bancos e S9 (SPEC-015); Hilt e ScanDevice (SPEC-018); regra 3 (SPEC-017)
+
+assumptions[8]:
+  Decisoes do usuario em 2026-11-18 (tabela do plano)
+  Os dois caminhos de API do instalador estao cobertos pela SPEC-011 (AC-007 e AC-008)
+  Pacotes de lojas com fonte de terceiros (Talsec e APKMirror e bayton e Stack Overflow); sem documento oficial dos fabricantes
+  Instalacao a mao a partir da API 30: o instalador registrado e o do sistema ou o app que abriu o APK; nos dois casos fica fora da lista
+  Lista vazia passada pelo SDK faz todo app receber S1; documentado no KDoc sem validacao (a especificacao nao define)
+  java-test-fixtures com Kotlin 2.4.21 e AGP 9.3.3 e Gradle 9.7.0 funciona com ktlint e detekt e Kover (experimento do plano com as duas correcoes)
+  O nome de pacote emprestado e deducao sem fonte; nao foi achado relato de golpe de NFC que falsifique o instalador
+  outputs.*.status e o resultado devolvido ou a falha do build (feature.interface library)

@@ -1,0 +1,91 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-012-origem-instalacao.contract.toon
+# SPEC-012 (issue #8) – camadas = build e fixtures do core-domain e pacote signal do core-detection e docs
+# Pacote novo: io.github.valossa515.tapguard.core.detection.signal (InstallSourceCollector e TrustedStores, publicos)
+# Movimento (o schema so aceita create e modify): core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt vai para core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt (git mv)
+# Sem @Suppress novo; sem import android.* nos arquivos novos de producao
+
+contract:
+  feature-ref: FT-012
+  version: 1.0
+
+layers:
+  build:
+    files[2]{path,action,description}:
+      core-domain/build.gradle.kts,modify,plugin `java-test-fixtures` (nucleo do Gradle; sem versao); detekt { source.from(files("src/testFixtures/kotlin")) } com comentario (a tarefa detekt nao analisa testFixtures por padrao); kover { currentProject { sources { excludedSourceSets.add("testFixtures") } } } com comentario (fixtures nao contam na cobertura do RNF-08)
+      core-detection/build.gradle.kts,modify,testImplementation(testFixtures(project(":core-domain"))) antes de libs.junit4
+  core-domain-test-fixtures:
+    files[1]{path,action,description}:
+      core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt,create,movido de src/test com git mv; anInstalledApp ganha installerPackageName: String? = "com.android.vending" depois de packageName e o repassa ao InstalledApp; aRiskResult igual; mesmo pacote
+  core-detection-signal:
+    files[2]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/TrustedStores.kt,create,object TrustedStores { val packageNames: Set<String> = Collections.unmodifiableSet(linkedSetOf(...)) } com os 11 pacotes da BR-004 nesta ordem: com.android.vending; com.sec.android.app.samsungapps; com.xiaomi.mipicks; com.xiaomi.market; com.heytap.market; com.oppo.market; com.vivo.appstore; com.hihonor.appmarket; com.transsnet.store; com.huawei.appmarket; com.amazon.venezia; comentario por linha com o nome da loja e a fonte; KDoc: o que entra e o que fica fora e por que (instaladores do sistema e com.android.shell e F-Droid e Aurora Store e apps de clonagem; ADR-017) e como o SDK amplia (packageNames + pacote) ou reduz (packageNames - pacote)
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollector.kt,create,class InstallSourceCollector(trustedInstallers: Set<String>) : SignalCollector; parametro obrigatorio sem valor padrao; private val trustedInstallers = Collections.unmodifiableSet(LinkedHashSet(trustedInstallers)); override suspend fun collect(app: InstalledApp): Set<Signal> = if (app.installerPackageName in trustedInstallers) emptySet() else UNTRUSTED; companion: private val UNTRUSTED = setOf(Signal.UNTRUSTED_INSTALL_SOURCE); KDoc: S1 quando o instalador e nulo ou fora do conjunto; comparacao exata; lista vazia faz todo app receber S1; nao chama o PackageManager (o AppInventory ja le o instalador); limitacoes do ADR-017 (falsificacao com shell ou root; nome de pacote emprestado); sem anotacoes do Hilt
+  docs:
+    files[13]{path,action,description}:
+      core-detection/README.md,modify,estado (SPEC-012); secao do coletor de S1 e da lista (o que gera S1; os 11 pacotes; o que fica fora; como o SDK amplia ou reduz); limitacoes; API publica com as tres classes (deixa de dizer unica classe publica); testes JUnit 4 sem Robolectric
+      core-domain/README.md,modify,fixtures em src/testFixtures (java-test-fixtures) usadas tambem pelo core-detection; detekt analisa testFixtures; Kover exclui testFixtures
+      docs/especificacao.md,modify,secao 5 Listas de apoio: lojas confiaveis com as 11 entradas (nome e pacote) e o que fica fora
+      .agent/glossary.md,modify,Loja confiavel com a lista nova
+      .agent/backlog_rules.md,modify,listas embutidas: lojas confiaveis com a lista nova
+      .agent/SKILLS.md,modify,Detection: InstallSourceCollector e TrustedStores publicos (corrige a frase da unica classe publica); fixtures do dominio em core-domain/src/testFixtures consumidas por testImplementation(testFixtures(project(":core-domain"))); detekt source.from testFixtures e Kover excludedSourceSets testFixtures; coletores sem API do Android testados com JUnit 4 sem Robolectric
+      .agent/project-reference.md,modify,SignalCollector implementado (InstallSourceCollector) e TrustedStores na tabela de classes do core-detection; lista de lojas
+      .agent/conventions.md,modify,Testing: fixtures do dominio em testFixtures; parametrizacao com lista literal no teste (nao com a lista de producao)
+      .agent/context.md,modify,coletor de S1 criado na SPEC-012
+      .agent/decisions.md,modify,ADR-017 coletor de S1 no core-detection; lista com fontes e motivos (variantes Xiaomi e OPPO; Palm Store na verificacao do Google; Amazon Appstore fechada fora dos Fire mas mantida; F-Droid e Aurora e apps de clonagem fora; instaladores do sistema fora); risco de app ruim em loja confiavel vem da regra 3; extensao pelo SDK; limitacoes (falsificacao com shell ou root; nome de pacote emprestado com a analise do S1 no app que instala e do instalador nulo depois; apps de clonagem e app de banco vermelho resolvido na SPEC-015); fixtures em testFixtures com detekt e Kover; link para a issue pos-MVP #57
+      .agent/plans/spec-012-origem-instalacao.md,modify,marcar tarefas e registrar a conferencia
+      .agent/plans/spec-012-origem-instalacao-tests.md,create,plano de testes (papel tester)
+      .agent/specs/features/spec-012-origem-instalacao.spec.toon,modify,emenda 1.1 (trustedInstallers obrigatorio sem valor padrao) ja feita nesta revisao
+
+migrations[0]:
+
+dependencies:
+  uses[5]:
+    SignalCollector e Signal e InstalledApp (core-domain; SPEC-010)
+    libs.junit4 e libs.kotlinx.coroutines.test (testImplementation do core-detection; SPEC-011)
+    PackageManagerAppInventoryTest (SPEC-011; AC-007 e AC-008 cobrem os dois caminhos de API do instalador)
+    java.util.Collections (JDK; disponivel no Android desde a API 26)
+    Plugin java-test-fixtures (nucleo do Gradle 9.7.0)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: InstallSourceCollector (lojas confiaveis)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorTrustedStoreTest.kt
+      type: junit4-parameterized
+      parameters: EXPECTED_TRUSTED_STORES (11 pacotes; @Parameters(name = "{0}"))
+      scenarios[1]:
+        store-installer-yields-no-signal
+    - target: InstallSourceCollector (instaladores fora da lista)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorUntrustedInstallerTest.kt
+      type: junit4-parameterized
+      parameters: com.example.store; org.fdroid.fdroid; com.aurora.store; com.sec.android.easyMover; com.google.android.packageinstaller; com.android.packageinstaller; com.miui.packageinstaller; com.android.shell (@Parameters(name = "{0}"))
+      scenarios[1]:
+        untrusted-installer-yields-s1
+    - target: InstallSourceCollector e TrustedStores
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorTest.kt
+      type: junit4
+      scenarios[8]:
+        null-installer-yields-s1
+        uppercase-store-package-yields-s1
+        yields-only-s1-for-app-with-other-risk-traits
+        extended-list-trusts-extra-store-and-keeps-default
+        smaller-list-flags-removed-store
+        later-change-to-given-set-does-not-affect-collector
+        default-list-has-exactly-the-expected-stores
+        default-list-rejects-mutation-through-cast
+  integration-tests:
+    # nenhum: o coletor nao toca em API do Android; os dois caminhos de API do instalador sao da SPEC-011
+  fixtures:
+    file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/ExpectedTrustedStores.kt
+    content: internal val EXPECTED_TRUSTED_STORES com os 11 pacotes escritos a mao (nao le TrustedStores); anInstalledApp do testFixtures do core-domain; dados sinteticos (com.example...)
+  verification[5]{criterion,how}:
+    AC-001 e AC-011,Local e desfeito sem commit: tirar com.amazon.venezia de TrustedStores derruba default-list-has-exactly-the-expected-stores e o caso com.amazon.venezia do parametrizado
+    AC-002,Local e desfeito sem commit: tratar instalador nulo como confiavel derruba null-installer-yields-s1
+    AC-013,Local e desfeito sem commit: violacao do detekt em core-domain/src/testFixtures derruba ./gradlew :core-domain:detekt
+    AC-014,koverXmlReport sem DomainFixturesKt e cobertura de linhas igual a de antes (98.8%)
+    AC-010 e AC-016 e AC-018,./gradlew build com codigo 0 sem aviso novo (inclui os testes do instalador da SPEC-011); CI da PR verde
+  excluded[3]{target,reason}:
+    Dois caminhos de API do instalador,Cobertos pela SPEC-011 (AC-007 e AC-008); esta spec nao chama o PackageManager
+    Fontes nos comentarios de TrustedStores,Texto; conferido no review (AC-011)
+    Configuracao do Gradle (detekt e Kover no testFixtures),Sem teste automatizado de build no projeto; verificacao local desfeita sem commit (AC-013 e AC-014)
