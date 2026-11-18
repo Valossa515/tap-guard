@@ -64,6 +64,9 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Ponta a ponta:** instalar o `decoy-app` (por `adb install`), rodar a varredura, conferir nível e notificação — emulador no CI e aparelho físico.
 - **Manual:** leitura de cartão real em aparelho físico com NFC.
 - **Coverage:** mínimo de 80% de cobertura de linhas no `core-domain`, medido pelo Kover 0.9.11 e verificado no `./gradlew build` (`:core-domain:koverVerify`). Os outros módulos não têm meta. Sem código de produção a regra passa; interfaces não contam, `data class` conta (ADR-012).
+- **Fixtures do domínio:** em `core-domain/src/testFixtures` (`java-test-fixtures`), usadas pelos outros módulos com `testImplementation(testFixtures(project(":core-domain")))`. O detekt analisa o `testFixtures`; o Kover o exclui (SPEC-012).
+- **Teste parametrizado de lista embutida:** parametrizar sobre uma lista escrita à mão no teste, nunca sobre a lista de produção, e conferir à parte que a lista de produção é igual à esperada. Assim, tirar ou acrescentar uma entrada derruba um teste (SPEC-012).
+- **Coletor sem API do Android:** JUnit 4 na JVM, sem Robolectric e sem `@Config(sdk)`.
 - **Test naming:** frase entre crases nos testes de JVM e Robolectric; camelCase nos instrumentados. Ver skills/android/testing.md.
 - **Dados de teste:** nunca malware real; nunca dados reais de cartão (vetores TLV sintéticos com número de cartão de teste).
 

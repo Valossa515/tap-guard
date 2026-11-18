@@ -53,7 +53,7 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **EMV:** padrão dos cartões de pagamento lidos no F2.
 - **PPSE:** ambiente de pagamento por aproximação selecionado no início da leitura EMV.
 - **TLV:** formato dos dados devolvidos pelo cartão; o parser TLV extrai nome da aplicação, número e validade.
-- **Loja confiável:** Google Play, Galaxy Store, Xiaomi GetApps, Huawei AppGallery, Amazon Appstore.
+- **Loja confiável:** instalador cujo pacote está na lista `TrustedStores` (SPEC-012): Google Play, Galaxy Store, Xiaomi GetApps (dois pacotes), OPPO App Market (dois pacotes), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Instalador nulo ou fora da lista gera S1. Pacotes e motivos no ADR-017.
 - **Carteira conhecida:** Google Wallet, Samsung Wallet e apps oficiais dos grandes bancos e carteiras digitais do Brasil (pacotes a levantar na SPEC-015).
 - **Banco conhecido (S9):** par nome de exibição + pacote oficial, embutido no app.
 - **App de pagamento padrão:** app que o sistema usa para pagamento por aproximação (categoria de pagamento; no Android 15+, papel de carteira).

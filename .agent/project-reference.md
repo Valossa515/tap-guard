@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (impl., SPEC-012 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; demais, SPEC-013 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -97,12 +97,16 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `LastFourDigits` | `card` | Value class: exatamente quatro dígitos ASCII; `toString()` mascarado |
 | `CardReadResult` | `card` | `Success(applicationLabel, lastFourDigits: LastFourDigits, expiry: YearMonth)` com `toString()` mascarado, `UnsupportedCard`, `ReadInterrupted`. Sem campo para o número completo |
 
-### Detecção (SPEC-011)
+### Detecção (SPEC-011 e SPEC-012)
 
 | Classe / arquivo | Pacote | Responsibility |
 |------------------|--------|----------------|
-| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em duas etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Única classe pública do módulo; guarda só o `PackageManager` e o nome do próprio pacote |
+| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em duas etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Guarda só o `PackageManager` e o nome do próprio pacote |
 | `PackageManagerVersionCompat.kt` | `core.detection` | Funções `internal` com os ramos por versão: lista e detalhe com `PackageInfoFlags` (API 33+), instalador por `getInstallSourceInfo().installingPackageName` (API 30+), código de versão longo (API 28+). Único arquivo de produção com `@Suppress("DEPRECATION")` (ADR-016) |
+| `InstallSourceCollector(trustedInstallers)` | `core.detection.signal` | Sinal S1: `UNTRUSTED_INSTALL_SOURCE` quando o instalador é nulo ou está fora do conjunto (comparação exata). Parâmetro obrigatório, copiado na construção. Sem API do Android: o instalador vem do inventário (ADR-017) |
+| `TrustedStores.packageNames` | `core.detection.signal` | Lista padrão de lojas confiáveis, 11 pacotes, que não pode ser alterada: Google Play, Galaxy Store, Xiaomi GetApps (`com.xiaomi.mipicks`, `com.xiaomi.market`), OPPO App Market (`com.heytap.market`, `com.oppo.market`), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Quem usa o SDK amplia ou reduz com `+` e `-` |
+
+API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector` e `TrustedStores`.
 
 ### App (SPEC-003)
 

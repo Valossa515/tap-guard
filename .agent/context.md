@@ -10,6 +10,7 @@
 - **Persistência e injeção (SPEC-004):** Hilt por KSP; banco Room `tapguard.db` versão 1 com as quatro tabelas da seção 9; DataStore `settings` com as quatro preferências; backup do app desligado. Repositórios e retenção na SPEC-018.
 - **Domínio (SPEC-010):** modelos imutáveis e as cinco interfaces da seção 7 no `core-domain` (`InstalledApp`, `Signal`, `RiskLevel`, `RiskResult`, `ScoringContext`, `ScannedApp`, `ScanReport`, `ScanTrigger`, `NfcTagHandle`, `LastFourDigits`, `CardReadResult`), sem implementação. Motor de score na SPEC-017; coletores da SPEC-012 à SPEC-016; leitor EMV na SPEC-041.
 - **Inventário (SPEC-011):** `PackageManagerAppInventory` no `core-detection` devolve os apps de usuário (sem apps do sistema, regra 1, e sem o próprio app) com rótulo, código de versão longo, instalador, datas, permissões e serviços. `QUERY_ALL_PACKAGES` declarada só no manifesto do `app`; a biblioteca não declara permissões (ADR-016). Ligação no Hilt na SPEC-018.
+- **Sinal S1 (SPEC-012):** `InstallSourceCollector` no `core-detection` compara o instalador com a lista de lojas confiáveis (`TrustedStores`, 11 pacotes) e gera S1 quando ele é nulo ou está fora. Sem API do Android; quem usa o SDK passa a própria lista. Fixtures do domínio em `testFixtures` do `core-domain` (ADR-017).
 - **Runtime version:** Android 8.0 (API 26) ou superior; compileSdk 37 e targetSdk 36 (separados desde a SPEC-003, ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
 
 ## Problem

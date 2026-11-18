@@ -89,14 +89,14 @@ Fixtures movidas para `core-domain/src/testFixtures`, com `java-test-fixtures`. 
 - O teste parametrizado usa uma lista literal no próprio teste, não a lista de produção: tirar uma loja da produção derruba o caso dela. Um teste à parte confere que a lista padrão tem exatamente as 11 entradas, para que acrescentar uma seja sempre de propósito.
 
 ## Tasks
-1. [ ] **Fixtures** (`chore:`):
+1. [x] **Fixtures** (`chore:`):
    - `java-test-fixtures` no `core-domain`;
    - `DomainFixtures.kt` para `src/testFixtures`, com `installerPackageName` na `anInstalledApp`;
    - `testFixtures` no detekt e fora do Kover;
    - dependência `testFixtures` no `core-detection`;
    - `./gradlew build` verde.
-2. [ ] **Lista e coletor** (`feat:`): arquivo da lista de lojas com nome, pacote e fonte por item; o coletor de S1 com o conjunto na construção e a lista padrão pública; KDoc com o que gera S1 e as limitações (ADR-017).
-3. [ ] **Testes** (`test:`, papel tester):
+2. [x] **Lista e coletor** (`feat:`): arquivo da lista de lojas com nome, pacote e fonte por item; o coletor de S1 com o conjunto na construção e a lista padrão pública; KDoc com o que gera S1 e as limitações (ADR-017).
+3. [x] **Testes** (`test:`, papel tester):
    - um caso por loja (parametrizado);
    - lista padrão com exatamente as 11 entradas;
    - nulo;
@@ -106,18 +106,27 @@ Fixtures movidas para `core-domain/src/testFixtures`, com `java-test-fixtures`. 
    - só S1 (nunca outro sinal);
    - lista ampliada e lista menor;
    - cópia do conjunto recebido.
-4. [ ] **Documentação** (`docs:`):
+4. [x] **Documentação** (`docs:`):
    - `core-detection/README.md`: coletor, lista, como o SDK amplia, limitações;
    - `core-domain/README.md`: fixtures em `testFixtures`;
    - §5 de `docs/especificacao.md`, `glossary.md` e `backlog_rules.md`: lista de lojas;
    - `SKILLS.md`: classes públicas do `core-detection`, fixtures em `testFixtures`, detekt e Kover no `testFixtures`, lista de lojas;
    - `project-reference.md`, `conventions.md`, `context.md`;
    - **ADR-017** em `decisions.md`.
-5. [ ] **Conferência dos critérios**, localmente e desfeita sem commit:
+5. [x] **Conferência dos critérios**, localmente e desfeita sem commit:
    - tirar uma loja da lista derruba o caso dela e o teste das 11 entradas;
    - tratar nulo como confiável derruba o teste do nulo;
    - uma violação do detekt no `testFixtures` derruba o `./gradlew build`;
    - `./gradlew build` verde sem aviso novo.
+   - 2026-11-18, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma):
+     - `com.amazon.venezia` retirado de `TrustedStores` → 103 testes, 2 falhas: `default list has exactly the expected stores` e `store installer yields no signal[com.amazon.venezia]` (AC-001, AC-011).
+     - Instalador nulo tratado como confiável no coletor → 103 testes, 1 falha: `null installer yields s1` (AC-002).
+     - Função vazia acrescentada a `core-domain/src/testFixtures/.../DomainFixtures.kt` → `:core-domain:detekt` falha com `EmptyFunctionBlock` (AC-013).
+     - `:core-domain:koverXmlReport` sem `DomainFixtures` no relatório; cobertura de linhas 82/83 (98,8%), igual à de antes (AC-014).
+     - `./gradlew clean build` verde em 5 min 41 s, sem aviso `w:` do Kotlin (AC-016).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows, como já previsto), `core-detection` 103 (76 da SPEC-011 + 27 do S1: 11 + 8 + 8), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Os testes do instalador da SPEC-011 passam (AC-010).
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+       - A depreciação do Gradle (`ReportingExtension.file`) também aparece na `main` (conferido num worktree): não é desta spec.
 
 ### Feito no planejamento (2026-11-18)
 - [Comentário na #11](https://github.com/Valossa515/tap-guard/issues/11#issuecomment-6989480523): o arquivo de lojas já existe e a SPEC-015 segue o mesmo formato; o risco dos apps de clonagem.
