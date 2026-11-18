@@ -1,0 +1,77 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-010-modelos-dominio.spec.toon
+# SPEC-010 (issue #6) – interface library: outputs.*.status e o resultado devolvido ou a excecao lancada
+# Emenda 1.1 (2026-11-18): ScanReport recusa finishedAt anterior a startedAt (BR-011 e FINISHED_BEFORE_STARTED)
+
+feature:
+  id: FT-010
+  name: SPEC-010 Modelos e contratos do dominio
+  version: 1.1
+  status: draft
+  interface: library
+
+requirement:
+  summary: Modelos e contratos do dominio no core-domain em Kotlin puro e sem implementacao. Modelos InstalledApp e Signal (S1 a S9) e RiskLevel e RiskResult e ScanReport e os tipos citados pelos contratos (ScoringContext e ScanTrigger e NfcTagHandle e CardReadResult). Interfaces AppInventory e SignalCollector e RiskScorer e ScanDevice e CardReader com as assinaturas da secao 7. Modelos imutaveis inclusive as colecoes. O tipo de sucesso da leitura do cartao so guarda os quatro ultimos digitos. Conversao entre conjunto de sinais e mascara de bits no dominio.
+  actor: Codigo das specs seguintes (coletores e motor de score e caso de uso de varredura e leitor EMV e repositorios)
+  trigger: Tipos construidos e interfaces implementadas pelo codigo das specs SPEC-011 a SPEC-018 e SPEC-040 e SPEC-041
+
+inputs[7]{name,type,required,constraints}:
+  InstalledApp,packageName e label e versionCode Long e installerPackageName String? e firstInstallTime Instant e lastUpdateTime Instant e requestedPermissions Set<String> e services Set<String>,true,colecoes copiadas para colecoes nao modificaveis
+  RiskResult,score Int e level RiskLevel e signals Set<Signal>,true,score de 0 a 100; signals copiado
+  ScoringContext,trustedPackages Set<String>,true,copiado
+  ScanReport,trigger ScanTrigger e startedAt Instant e finishedAt Instant e apps List<ScannedApp>,true,apps copiada; finishedAt igual ou posterior a startedAt
+  mascara de sinais,Int,false,de 0 a 511 (bits 0 a 8)
+  LastFourDigits,String,true,exatamente quatro digitos ASCII de 0 a 9
+  CardReadResult.Success,applicationLabel String e lastFourDigits LastFourDigits e expiry YearMonth,true,todos obrigatorios
+
+outputs:
+  success:
+    description: Os tipos e as interfaces publicos existem no core-domain; os modelos sao construidos com as colecoes copiadas e nao modificaveis; a mascara converte nos dois sentidos
+    status: Success
+    body[5]{name,type,value}:
+      modelos,data class e enum e value class,InstalledApp e Signal e RiskLevel e RiskResult e ScoringContext e ScanTrigger e ScannedApp e ScanReport e LastFourDigits e CardReadResult
+      interfaces,interface,AppInventory e SignalCollector e RiskScorer e ScanDevice e CardReader e NfcTagHandle (sem membros)
+      mascara,Int,S1 no bit 0 ate S9 no bit 8; conjunto vazio = 0; todos = 511
+      CardReadResult,sealed,Success e UnsupportedCard e ReadInterrupted
+      toString,String,Success e LastFourDigits nao mostram os digitos nem a validade
+  errors[8]{code,status,when}:
+    SCORE_OUT_OF_RANGE,IllegalArgumentException,RiskResult com score menor que 0 ou maior que 100
+    FINISHED_BEFORE_STARTED,IllegalArgumentException,ScanReport com finishedAt anterior a startedAt
+    INVALID_SIGNAL_MASK,IllegalArgumentException,mascara negativa ou com bit acima do 8
+    INVALID_LAST_FOUR_DIGITS,IllegalArgumentException,valor que nao tem exatamente quatro digitos ASCII de 0 a 9
+    COLLECTION_MUTATION,UnsupportedOperationException,tentativa de alterar a colecao exposta por um modelo inclusive por cast para MutableSet ou MutableList
+    MUTABLE_DATA_CLASS,BuildFailure,data class com propriedade var no core-domain (detekt DataClassShouldBeImmutable)
+    UNSUPPORTED_CARD,UnsupportedCard,contrato do CardReader: cartao nao suportado; devolvido pela implementacao da SPEC-041
+    READ_INTERRUPTED,ReadInterrupted,contrato do CardReader: leitura interrompida; devolvido pela implementacao da SPEC-041
+
+business-rules[17]{id,rule}:
+  BR-001,Tudo no core-domain em Kotlin puro: so o plugin kotlin jvm (mais ktlint e detekt e kover); nenhum import android ou androidx; nenhuma dependencia nova
+  BR-002,Interfaces com as assinaturas exatas da secao 7: AppInventory.installedApps; SignalCollector.collect; RiskScorer.score(app e signals e ctx); ScanDevice.invoke(trigger) suspend operator; CardReader.read(tag)
+  BR-003,Modelos imutaveis: data classes so com val (detekt DataClassShouldBeImmutable com buildUponDefaultConfig true); modelos com colecao tem construtor privado e fabrica operator invoke que copia para colecao nao modificavel e copy() privado; a colecao exposta recusa alteracao inclusive por cast para MutableSet ou MutableList; nenhum array nos modelos
+  BR-004,Signal tem nove entradas com nomes descritivos e o codigo S1 a S9 no KDoc e bit explicito: S1 UNTRUSTED_INSTALL_SOURCE bit 0; S2 NFC_PERMISSION bit 1; S3 CARD_EMULATION_SERVICE bit 2; S4 ACCESSIBILITY_SERVICE_ENABLED bit 3; S5 OVERLAY_PERMISSION bit 4; S6 RECENTLY_INSTALLED_OR_UPDATED bit 5; S7 UNKNOWN_DEFAULT_PAYMENT_APP bit 6; S8 SMS_PERMISSION bit 7; S9 BANK_LOOKALIKE bit 8; sem peso no enum
+  BR-005,Conversao entre conjunto de sinais e mascara de bits no core-domain em funcoes puras; o core-data so as chama (SPEC-018); mascara negativa ou com bit fora de 0 a 8 gera erro; o conjunto devolvido nao e modificavel
+  BR-006,RiskLevel GREEN e YELLOW e RED em ordem crescente de gravidade; nomes iguais aos valores gravados em app_snapshot.level e alert_event.level; sem conversao de score para nivel (SPEC-017)
+  BR-007,RiskResult tem score e level e signals; score fora de 0 a 100 gera erro; o nivel nao e conferido contra o score (pela regra 2 um app confiavel fica verde com qualquer score)
+  BR-008,InstalledApp tem packageName e label e versionCode Long e installerPackageName String? e firstInstallTime Instant e lastUpdateTime Instant e requestedPermissions Set<String> e services Set<String> com os nomes de classe dos servicos declarados; sem campo de app do sistema
+  BR-009,A regra 1 (apps do sistema ignorados) e cumprida pelo AppInventory que nao devolve apps do sistema (RF-101); o teste da regra 1 fica na SPEC-011; o criterio 100% das regras de ajuste da SPEC-017 cobre as regras 2 a 4
+  BR-010,ScoringContext tem so trustedPackages Set<String> (apps marcados como confiaveis pelo usuario); pesos sao configuracao da implementacao do RiskScorer; a regra 3 sai da ausencia de S1
+  BR-011,ScanTrigger tem MANUAL e APP_OPEN e PERIODIC (valores de scan_run.trigger); ScannedApp tem app e risk; ScanReport tem trigger e startedAt e finishedAt e apps; finishedAt anterior a startedAt gera erro (igual e aceito); sem id da varredura e sem contagens derivadas
+  BR-012,NfcTagHandle e interface sem membros; o core-domain nao conhece a Tag do Android nem comandos ao cartao; embrulhar e desembrulhar a Tag fica no core-nfc (SPEC-041)
+  BR-013,CardReadResult e sealed com so Success e UnsupportedCard e ReadInterrupted; NFC ausente ou desligado nao e resultado de read (so chamado com cartao aproximado)
+  BR-014,Success tem applicationLabel String e lastFourDigits LastFourDigits e expiry YearMonth todos obrigatorios e nenhum campo para o numero completo (RNF-02 e ADR-008); LastFourDigits so aceita exatamente quatro digitos ASCII de 0 a 9
+  BR-015,toString de Success e de LastFourDigits mascarado: nao mostra os digitos nem a validade
+  BR-016,Sem implementacao: RiskScorer concreto e pesos e faixas (SPEC-017); AppInventory e coletores (SPEC-011 a SPEC-016); ScanDevice concreto (SPEC-018); leitor EMV e parser TLV (SPEC-040 e SPEC-041); app sem mudanca (RiskLevelUi segue ate a SPEC-030)
+  BR-017,Cobertura de linhas do core-domain de pelo menos 80% (Kover) com os testes desta spec
+
+assumptions[11]:
+  Decisoes do usuario em 2026-11-18 (tabela do plano)
+  Instant e YearMonth de java.time: JVM puro e disponiveis no Android desde a API 26 (minSdk)
+  Datas do InstalledApp e do ScanReport em Instant; a conversao para os milissegundos das colunas fica no core-data (SPEC-018)
+  applicationLabel cobre bandeira ou nome da aplicacao (RF-203) num campo so
+  O toString do Success nao mostra nenhum valor dos campos (nem o nome da aplicacao)
+  Cartao sem validade ou sem nome da aplicacao vira UnsupportedCard; decidido na SPEC-041
+  O resultado do CardReader para um NfcTagHandle de outra origem e decidido na SPEC-041
+  Nomes de RiskLevel e ScanTrigger sao valores persistidos: renomear exige mudar o banco (ADR-014)
+  Fixtures do dominio em src/test; testFixtures entre modulos quando a SPEC-011 precisar
+  CoreDomainSmokeTest removido: os testes reais o substituem
+  outputs.*.status e o resultado devolvido ou a excecao lancada (feature.interface library)

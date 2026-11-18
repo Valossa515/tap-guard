@@ -1,0 +1,161 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-010-modelos-dominio.contract.toon
+# SPEC-010 (issue #6) – camadas = build e pacotes do core-domain e docs
+# Pacotes: io.github.valossa515.tapguard.core.domain.{inventory;signal;risk;scan;card} e a raiz core.domain (utilitario internal)
+# Emenda 1.1 (2026-11-18): ScanReport recusa finishedAt anterior a startedAt (require no init e teste; AC-026)
+# Remocao (o schema so aceita create e modify): core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/CoreDomainSmokeTest.kt
+# Modelos com colecao (InstalledApp e RiskResult e ScoringContext e ScanReport): @ConsistentCopyVisibility data class com construtor privado e companion operator fun invoke com os mesmos parametros que copia as colecoes por unmodifiableCopy(); copy() privado
+
+contract:
+  feature-ref: FT-010
+  version: 1.1
+
+layers:
+  build:
+    files[2]{path,action,description}:
+      core-domain/build.gradle.kts,modify,bloco detekt com buildUponDefaultConfig = true e config.setFrom(files("detekt.yml")) como no app; nada mais muda (plugins e dependencias e regra do Kover iguais)
+      core-domain/detekt.yml,create,style > DataClassShouldBeImmutable > active: true; so essa regra
+  core-domain-root:
+    files[1]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/UnmodifiableCopies.kt,create,internal fun <T> Set<T>.unmodifiableCopy(): Set<T> = Collections.unmodifiableSet(LinkedHashSet(this)); internal fun <T> List<T>.unmodifiableCopy(): List<T> = Collections.unmodifiableList(ArrayList(this)); sem Set.copyOf nem List.copyOf (API 30 no Android)
+  core-domain-inventory:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,create,modelo com colecao: packageName String; label String; versionCode Long; installerPackageName String?; firstInstallTime Instant; lastUpdateTime Instant; requestedPermissions Set<String>; services Set<String> (nomes de classe dos servicos declarados); fabrica copia as duas colecoes; sem campo de app do sistema; KDoc diz que o AppInventory nao devolve apps do sistema (regra 1)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/AppInventory.kt,create,interface AppInventory { suspend fun installedApps(): List<InstalledApp> }; KDoc: so apps que nao sao do sistema (RF-101 e regra 1; testado na SPEC-011)
+  core-domain-signal:
+    files[3]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/signal/Signal.kt,create,enum class Signal(val bit: Int) na ordem UNTRUSTED_INSTALL_SOURCE(bit = 0) NFC_PERMISSION(1) CARD_EMULATION_SERVICE(2) ACCESSIBILITY_SERVICE_ENABLED(3) OVERLAY_PERMISSION(4) RECENTLY_INSTALLED_OR_UPDATED(5) UNKNOWN_DEFAULT_PAYMENT_APP(6) SMS_PERMISSION(7) BANK_LOOKALIKE(8) sempre por argumento nomeado; KDoc de cada entrada com o codigo S1 a S9 e a descricao da secao 5; sem peso
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/signal/SignalBitMask.kt,create,fun Set<Signal>.toBitMask(): Int (soma de 1 shl bit); fun signalsFromBitMask(mask: Int): Set<Signal> com require de que mask nao tem bit fora da mascara de todos os sinais (calculada de Signal.entries; negativa falha) e mensagem com a mascara; devolve unmodifiableCopy()
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/signal/SignalCollector.kt,create,interface SignalCollector { suspend fun collect(app: InstalledApp): Set<Signal> }
+  core-domain-risk:
+    files[4]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskLevel.kt,create,enum class RiskLevel { GREEN; YELLOW; RED } nessa ordem (gravidade crescente); KDoc: nomes gravados em app_snapshot.level e alert_event.level; sem conversao de score
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskResult.kt,create,modelo com colecao: score Int; level RiskLevel; signals Set<Signal>; init com require(score in MIN_SCORE..MAX_SCORE) e mensagem com o score; private const val MIN_SCORE = 0 e MAX_SCORE = 100 no companion; nivel nao conferido contra o score (KDoc cita a regra 2)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/ScoringContext.kt,create,modelo com colecao: trustedPackages Set<String> (apps marcados como confiaveis pelo usuario); KDoc: pesos sao configuracao da implementacao e a regra 3 sai da ausencia de S1
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskScorer.kt,create,interface RiskScorer { fun score(app: InstalledApp; signals: Set<Signal>; ctx: ScoringContext): RiskResult } (parametros separados por virgula no codigo)
+  core-domain-scan:
+    files[4]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanTrigger.kt,create,enum class ScanTrigger { MANUAL; APP_OPEN; PERIODIC }; KDoc: valores de scan_run.trigger
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScannedApp.kt,create,data class ScannedApp(val app: InstalledApp; val risk: RiskResult) com construtor publico (sem colecao)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanReport.kt,create,modelo com colecao: trigger ScanTrigger; startedAt Instant; finishedAt Instant; apps List<ScannedApp>; fabrica copia apps mantendo a ordem; init com require(!finishedAt.isBefore(startedAt)) e mensagem com os dois instantes; sem id e sem contagens
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanDevice.kt,create,interface ScanDevice { suspend operator fun invoke(trigger: ScanTrigger): ScanReport }
+  core-domain-card:
+    files[4]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/NfcTagHandle.kt,create,interface NfcTagHandle sem corpo; KDoc: marcador opaco do cartao aproximado; o core-nfc embrulha a Tag do Android na propria implementacao e a desembrulha no CardReader (SPEC-041)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/LastFourDigits.kt,create,@JvmInline value class LastFourDigits(val value: String); init com require(value.length == LENGTH e todos os caracteres entre '0' e '9') e mensagem fixa que nao repete o valor; private const val LENGTH = 4 no companion; toString() = LastFourDigits(****)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/CardReadResult.kt,create,sealed interface CardReadResult com data class Success(applicationLabel: String; lastFourDigits: LastFourDigits; expiry: YearMonth) e toString() = Success(****); data object UnsupportedCard; data object ReadInterrupted; KDoc: nenhum campo para o numero completo (RNF-02 e ADR-008)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/card/CardReader.kt,create,interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
+  docs:
+    files[8]{path,action,description}:
+      core-domain/README.md,modify,estado (SPEC-010); pacotes e tipos; regra de imutabilidade; mascara de sinais; NfcTagHandle e CardReadResult; detekt.yml; comandos
+      .agent/project-reference.md,modify,tipos do dominio com campos e pacotes (troca o TODO: no code yet); RiskLevelUi continua ate a SPEC-030
+      .agent/glossary.md,modify,ScoringContext com a forma; ScannedApp; LastFourDigits; nomes dos sinais no enum; NfcTagHandle opaco
+      .agent/conventions.md,modify,imutabilidade dos modelos (fabrica e copia nao modificavel e copy privado e DataClassShouldBeImmutable); falhas esperadas como valores (CardReadResult); conversao da mascara no dominio
+      .agent/context.md,modify,modelos e contratos do dominio criados na SPEC-010
+      .agent/SKILLS.md,modify,Project Overrides: regra de imutabilidade dos modelos do core-domain; core-domain/detekt.yml; regra 1 no AppInventory; mascara no dominio; NfcTagHandle opaco; numero do cartao barrado pelo tipo
+      .agent/decisions.md,modify,ADR-015 handle opaco do cartao; LastFourDigits e toString mascarado; mascara no dominio com bit explicito; tecnica de imutabilidade; regra 1 no AppInventory e regras 2 a 4 na SPEC-017
+      .agent/plans/spec-010-modelos-dominio.md,modify,marcar tarefas e registrar a conferencia
+
+migrations[0]:
+
+dependencies:
+  uses[4]:
+    core-domain/build.gradle.kts (existente: kotlin jvm e ktlint e detekt e kover com a regra de 80% e JUnit 5)
+    app/build.gradle.kts e app/detekt.yml (existentes: padrao do bloco detekt)
+    JUnit 5 do catalogo (junit-bom e junit-jupiter e junit-platform-launcher; existentes)
+    JDK: java.time.Instant e java.time.YearMonth e java.util.Collections e LinkedHashSet e ArrayList
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: InstalledApp
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledAppTest.kt
+      type: junit5-jvm
+      scenarios[3]:
+        fields-are-read-back-and-installer-accepts-null
+        mutating-source-permissions-and-services-does-not-change-the-model
+        exposed-permissions-and-services-reject-add-remove-and-clear-through-mutable-set-cast
+    - target: Signal
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/signal/SignalTest.kt
+      type: junit5-jvm
+      scenarios[2]:
+        nine-entries-with-bits-0-to-8-in-s1-to-s9-order
+        bits-are-distinct
+    - target: SignalBitMask
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/signal/SignalBitMaskTest.kt
+      type: junit5-jvm
+      scenarios[5]:
+        all-512-combinations-round-trip
+        empty-set-is-0-and-all-signals-is-511
+        single-signal-mask-is-1-shifted-by-its-bit
+        negative-and-above-bit-8-masks-are-rejected
+        decoded-set-rejects-add-through-mutable-set-cast
+    - target: RiskLevel
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskLevelTest.kt
+      type: junit5-jvm
+      scenarios[2]:
+        severity-order-is-green-yellow-red
+        names-match-persisted-values
+    - target: RiskResult
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskResultTest.kt
+      type: junit5-jvm
+      scenarios[5]:
+        score-0-and-100-are-accepted
+        score-minus-1-and-101-are-rejected
+        level-is-not-checked-against-score
+        mutating-source-signals-does-not-change-the-model
+        exposed-signals-reject-add-remove-and-clear-through-mutable-set-cast
+    - target: ScoringContext
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/ScoringContextTest.kt
+      type: junit5-jvm
+      scenarios[3]:
+        holds-the-trusted-packages
+        mutating-source-trusted-packages-does-not-change-the-model
+        exposed-trusted-packages-reject-add-remove-and-clear-through-mutable-set-cast
+    - target: ScanTrigger
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanTriggerTest.kt
+      type: junit5-jvm
+      scenarios[1]:
+        entries-are-manual-app-open-and-periodic
+    - target: ScanReport e ScannedApp
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanReportTest.kt
+      type: junit5-jvm
+      scenarios[5]:
+        fields-and-apps-in-the-given-order-are-read-back
+        finished-before-started-is-rejected-and-equal-is-accepted
+        scanned-app-holds-app-and-risk
+        mutating-source-apps-does-not-change-the-report
+        exposed-apps-reject-add-remove-and-clear-through-mutable-list-cast
+    - target: LastFourDigits
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/card/LastFourDigitsTest.kt
+      type: junit5-jvm
+      scenarios[3]:
+        four-ascii-digits-are-accepted
+        three-five-sixteen-digits-letters-spaces-and-non-ascii-digits-are-rejected
+        to-string-hides-the-digits
+    - target: CardReadResult
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/card/CardReadResultTest.kt
+      type: junit5-jvm
+      scenarios[3]:
+        exhaustive-when-covers-success-unsupported-card-and-read-interrupted
+        success-holds-label-last-four-digits-and-expiry
+        success-to-string-hides-digits-expiry-and-label
+  fixtures:
+    file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt
+    content: anInstalledApp(...) e aRiskResult(...) com argumentos padrao e dados sinteticos (com.example...)
+  integration-tests:
+    # nenhum: modulo Kotlin puro sem adaptador nem I/O nesta spec
+  verification[4]{criterion,how}:
+    AC-001,./gradlew :core-domain:build e busca por import android ou androidx em core-domain/src
+    AC-003,Local e desfeito sem commit: trocar um val por var numa data class faz o detekt falhar
+    AC-022,Local e desfeito sem commit: um modelo temporario sem teste faz o koverVerify falhar; com a arvore restaurada passa
+    AC-023 e AC-025,./gradlew build com codigo 0 sem aviso novo; CI da PR verde
+  excluded[8]{target,reason}:
+    AppInventory e SignalCollector e RiskScorer e ScanDevice e CardReader,Interfaces sem codigo executavel; assinaturas conferidas pela compilacao e no review (AC-002)
+    NfcTagHandle,Interface sem membros; conferida no review (AC-016)
+    UnmodifiableCopies.kt,Coberto pelos testes de copia e de cast dos modelos e da mascara
+    ScannedApp (teste proprio),Coberto pelo ScanReportTest
+    copy() privado e construtor privado,Nao testavel em execucao; conferido no review (AC-006)
+    Campos do Success e ausencia de campo de app do sistema,Conferidos no review (AC-019 e AC-013)
+    Ausencia de implementacao e app sem mudanca,Conferidos no review e por git diff (AC-021)
+    core-domain/detekt.yml,Verificado pelo caso negativo local (AC-003)
