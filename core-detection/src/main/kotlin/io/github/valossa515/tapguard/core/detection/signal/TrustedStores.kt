@@ -28,11 +28,11 @@ object TrustedStores {
                 "com.sec.android.app.samsungapps",
                 // Xiaomi GetApps. Fontes: verificação do Google; seção 5; Talsec.
                 "com.xiaomi.mipicks",
-                // Xiaomi GetApps, pacote antigo (Xiaomi Market). Fontes: Talsec; APKMirror (GetApps 4.88).
+                // Xiaomi GetApps, variante (Xiaomi Market). Fontes: Talsec; APKMirror (GetApps 4.88).
                 "com.xiaomi.market",
                 // OPPO App Market (OPPO, realme, OnePlus). Fontes: verificação do Google; Talsec.
                 "com.heytap.market",
-                // OPPO App Market, pacote antigo (realme). Fonte: Talsec.
+                // OPPO App Market, variante. Fonte: Talsec.
                 "com.oppo.market",
                 // vivo V-Appstore. Fontes: verificação do Google; Talsec.
                 "com.vivo.appstore",
