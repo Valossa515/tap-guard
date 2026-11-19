@@ -34,6 +34,7 @@ dependencies {
     // api: AppInventory, InstalledApp e CoroutineDispatcher aparecem na API pública do módulo.
     api(project(":core-domain"))
     api(libs.kotlinx.coroutines.core)
+    testImplementation(testFixtures(project(":core-domain")))
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

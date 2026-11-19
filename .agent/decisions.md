@@ -162,6 +162,56 @@
   - A visibilidade de pacotes, o limite de transferência e o desempenho em aparelho ficam para o teste ponta a ponta e para a SPEC-018.
 - **Open:** `explicitApi()` no `core-detection` quando o SDK for publicado, para que todo símbolo público seja declarado de propósito.
 
+## ADR-017 — Sinal S1: coletor no `core-detection`, lojas confiáveis e limitações
+- **Date:** 2026-11-18
+- **Status:** Aceita (implementada na SPEC-012)
+- **Context:** a SPEC-012 entrega o coletor do S1 (instalado fora de uma loja confiável). O `AppInventory` já lê o instalador nos dois caminhos de API (ADR-016, comentário na issue #8), então o coletor só compara `InstalledApp.installerPackageName` com uma lista e não usa API do Android. A §5 citava cinco lojas sem pacote. Desde 30/09/2026, o Google exige verificação de desenvolvedores no Brasil para instalações de sete lojas participantes ([Android Developers Blog, jun/2026](https://android-developers.googleblog.com/2026/06/android-developer-verification.html)). O `core-detection` vai virar SDK para bancos.
+- **Decision:**
+  - **Coletor no `core-detection`** (`InstallSourceCollector`, pacote `core.detection.signal`), mesmo sem API do Android. A §7 põe os coletores no `core-detection` e só as interfaces no `core-domain`. A regra "nada de lógica de score fora do `core-domain`" vale para o score: o coletor só detecta. Para o SDK não muda nada, porque o `core-detection` expõe o `core-domain` como `api`. Todos os coletores ficam juntos com o `ScanDevice`. Custo aceito: o coletor fica fora do Kover. Os testes são JUnit 4 sem Robolectric.
+  - **S1 quando o instalador é nulo ou está fora da lista**, com comparação exata (o nome de pacote diferencia maiúsculas e minúsculas). Nulo aparece em `adb install` e quando o instalador foi desinstalado ([InstallSourceInfo](https://developer.android.com/reference/android/content/pm/InstallSourceInfo)).
+  - **Lista `TrustedStores.packageNames`**, com 11 pacotes e a fonte de cada um num comentário:
+    - as sete lojas da verificação do Google: Google Play `com.android.vending`, Galaxy Store `com.sec.android.app.samsungapps`, Xiaomi GetApps `com.xiaomi.mipicks`, OPPO App Market `com.heytap.market`, vivo V-Appstore `com.vivo.appstore`, HONOR App Market `com.hihonor.appmarket` e Palm Store `com.transsnet.store`;
+    - as variantes `com.xiaomi.market` e `com.oppo.market`: sem elas, celulares Xiaomi e realme teriam falso positivo;
+    - Huawei AppGallery `com.huawei.appmarket`, que está na §5;
+    - Amazon Appstore `com.amazon.venezia`: está na §5 e fechou em celulares Android comuns em 20/08/2025, mas segue nos aparelhos Fire. Os apps instalados antes ainda mostram esse instalador, e tirar a loja daria S1 a eles.
+    - Os pacotes vêm de fontes de terceiros: [Talsec](https://docs.talsec.app/appsec-articles/glossary/sideloading/installation-sources-cookbook), APKMirror, [bayton](https://sysapps.bayton.org) e Stack Overflow. Não há documento oficial dos fabricantes.
+  - **Ficam fora:**
+    - os instaladores de pacote do sistema (`com.google.android.packageinstaller`, `com.android.packageinstaller` e os de fabricante, como `com.miui.packageinstaller`) e `com.android.shell`, porque são o que aparece num APK instalado à mão ou por adb;
+    - F-Droid (`org.fdroid.fdroid`): o cliente aceita repositórios de terceiros, que não seguem as regras do repositório oficial;
+    - Aurora Store (`com.aurora.store`): cliente não oficial da Play, que aparece como instaladora de tudo o que baixa;
+    - apps de clonagem (Smart Switch, Mi Mover, Clone Phone), que copiam também um APK de golpe;
+    - `com.motorola.installer`: tem `INSTALL_PACKAGES`, mas a função não está descrita. Não foi achada loja própria da Motorola no Brasil.
+  - **Risco de app ruim em loja confiável:** vem do limite da regra 3 (score até 29 sem S7 ou S9), que não é desta spec. Exemplo: o app pirata MovieBox passou de 300 milhões de downloads na Palm Store.
+  - **Extensão pelo SDK:** o coletor recebe o conjunto inteiro na construção. O parâmetro é obrigatório, sem valor padrão, como o dispatcher do inventário (ADR-016), e o conjunto é copiado. A lista padrão é pública e não pode ser alterada nem por cast. O banco passa `TrustedStores.packageNames + "com.banco.loja"` ou uma lista menor. Um conjunto vazio faz todo app receber S1.
+  - **Lista num arquivo próprio** (`object` público no `core.detection.signal`). As listas da SPEC-015 (carteiras e bancos) seguem a mesma forma ([comentário na #11](https://github.com/Valossa515/tap-guard/issues/11#issuecomment-6989480523)).
+  - **Fixtures do domínio em `core-domain/src/testFixtures`** (`java-test-fixtures`), usadas pelo `core-detection` com `testImplementation(testFixtures(project(":core-domain")))`. Duas correções no build, verificadas num projeto descartável:
+    - a tarefa `detekt` não analisava `src/testFixtures` e passa a analisar (`source.from`);
+    - o Kover contava as fixtures na cobertura e passa a excluir o source set (`excludedSourceSets`).
+- **Limitações conhecidas do S1:**
+  - **Instalador falsificado com shell ou root:**
+    - um app comum não consegue se passar por uma loja: `setInstallerPackageName` lança `SecurityException` se o novo instalador não tiver o certificado de quem chama, ou se o atual for de outro certificado (documentação do SDK);
+    - com shell, isso é possível: `pm install -i com.android.vending` via adb, ou apps que usam o Shizuku (depuração sem fio), como o Universal Installer, com a opção "Set Install Source";
+    - com root, um módulo como o AlterInstaller edita o registro de pacotes;
+    - exige que a vítima ligue a depuração ou tenha root. Não foi achado relato de golpe de NFC que use isso.
+  - **Nome de pacote emprestado** (dedução, sem fonte): o nome de pacote é único por aparelho, não no mundo. Num aparelho sem uma das lojas (por exemplo, `com.huawei.appmarket` num Samsung), um app comum pode usar o pacote dela e instalar outros apps, que aparecem como instalados por loja confiável. Análise:
+    - o app que instala o golpe foi instalado à mão e recebe S1;
+    - se ele se desinstalar, o instalador do golpe vira nulo e também gera S1;
+    - a brecha é o tempo em que o app instalador continua no aparelho.
+    - Defesa planejada na issue #57 (pós-MVP): confiar no instalador só se ele for app do sistema, com exceção a decidir para a Amazon Appstore, e `getInitiatingPackageName` (API 30+), que não muda com `setInstallerPackageName`, como segunda defesa.
+  - **Apps de clonagem:** um app de banco copiado para um celular novo pode ter o app de clonagem como instalador e ficar vermelho (S1 + S2 + S3 = 65). Quem resolve isso é a lista de bancos conhecidos da SPEC-015, não a lista de lojas. Para isso, a SPEC-017 precisa definir como essa lista entra no score, e conferir só o nome do pacote cai na limitação acima. A conferência em aparelho real fica para o teste ponta a ponta.
+  - **Instalação à mão a partir da API 30:** não foi confirmado se o instalador registrado é o do sistema ou o app que abriu o APK (navegador, WhatsApp). Nos dois casos fica fora da lista e gera S1.
+- **Alternatives:**
+  - coletor no `core-domain` (rejeitada: os coletores ficariam em dois módulos, contra a §7);
+  - valor padrão no construtor (rejeitada: um esquecimento passaria calado);
+  - lista num recurso JSON (rejeitada: ler recurso Android exige `Context`, e o arquivo Kotlin compila);
+  - tornar `unmodifiableCopy()` público (rejeitada: mudaria a API do `core-domain` por uma linha);
+  - F-Droid, Aurora Store e apps de clonagem na lista (rejeitadas pelos motivos acima);
+  - `detektTestFixtures` no `check` (rejeitada: experimental e com outra configuração).
+- **Consequences:**
+  - a §5 da especificação, o glossário e o `backlog_rules.md` passam a listar os pacotes;
+  - os testes do coletor parametrizam sobre uma lista escrita à mão, para que uma mudança na lista de produção derrube um teste;
+  - fora de `src/test`, a regra `MagicNumber` do detekt vale no `testFixtures`.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.

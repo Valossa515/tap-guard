@@ -106,7 +106,7 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Versions** (only in `gradle/libs.versions.toml` — never a literal version in a `build.gradle.kts`): Gradle 9.7.0, AGP 9.3.3, Kotlin 2.4.21, ktlint-gradle 14.2.0 with ktlint 1.8.0, detekt 1.23.8, JUnit 5.14.4 (+ `junit-platform-launcher` 1.14.4) in `core-domain`, JUnit 4.13.2 in Android modules. In `app`: Compose BOM 2026.09.00 (Material 3), `activity-compose` 1.13.0, `navigation-compose` 2.10.2 (brings the `kotlinx-serialization-core` used by type-safe routes; do not add `kotlinx-serialization-json` unless code needs JSON), Compose and serialization compiler plugins 2.4.21; tests: Robolectric 4.18, `androidx.test:core` 1.7.0, `ui-test-junit4` (BOM). In `core-detection` (SPEC-011): `kotlinx-coroutines-core` 1.11.0 as `api` (the catalog version `coroutines` is shared with `kotlinx-coroutines-test`); tests: Robolectric, `androidx.test:core`, `kotlinx-coroutines-test`.
 - **JDK 21** is required: it is the toolchain of every module (`kotlin { jvmToolchain(...) }`), the CI JDK, and the Gradle daemon JDK. `gradle/gradle-daemon-jvm.properties` (`toolchainVersion=21`) makes the daemon run on an installed JDK 21 regardless of `JAVA_HOME`. It was written by hand because `./gradlew updateDaemonJvm` needs a JDK download repository (foojay plugin), which the project does not configure. Reason: detekt 1.23.8 runs inside the Gradle process and fails on JDK 25.
 - **No `build-logic`, no convention plugins, no `subprojects {}` / `allprojects {}` configuration**: each module declares its own plugins, `android {}` block, SDKs and dependencies using catalog aliases.
-- **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. Interfaces do not count, `data class` does. Since SPEC-010 the module has production code (domain models): line coverage 98.8%. Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
+- **Kover** (0.9.11) is applied **only in `core-domain`**, with a verification rule of at least 80% line coverage; `check` depends on `koverVerify`, so `./gradlew build` and CI enforce it. Interfaces do not count, `data class` does. Since SPEC-010 the module has production code (domain models): line coverage 98.8%. The `testFixtures` source set is excluded (`excludedSourceSets.add("testFixtures")`, SPEC-012). Do not apply Kover to Android modules (no coverage target there; open bug `Kotlin/kotlinx-kover#815` with AGP 9).
 - **CI**: new GitHub Actions are pinned by commit SHA with the version in a comment on the same line (e.g. `uses: owner/action@<sha> # vX.Y.Z`). New CI steps go into the existing jobs "Regras do projeto" or "Build e testes", which are the required checks of the `main` ruleset.
 - **Composable names**: `@Composable` functions use PascalCase. `.editorconfig` (`ktlint_function_naming_ignore_when_annotated_with = Composable`) and `app/detekt.yml` (`naming > FunctionNaming > ignoreAnnotated: ['Composable']`, applied with `buildUponDefaultConfig = true`) exempt only composables; plain functions are still checked. In detekt, write colors as named `const val` ARGB values and pass `dp` sizes as named arguments (`MagicNumber` ignores both by default) instead of suppressing the rule.
 - **Compose test rules**: use the rules from `androidx.compose.ui.test.junit4.v2` (`createEmptyComposeRule`, `createAndroidComposeRule`); the ones outside `v2` are deprecated in Compose 1.12. The rest of the Compose test setup follows `skills/android/testing.md`.
@@ -139,13 +139,22 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 
 ### Detection (SPEC-011)
 > Reading, dispatcher and version-branch rules: `skills/android/SKILL.md` › Reading installed packages and Dispatchers in adapters. Only what is specific to this project is listed here.
-- **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory` is the only public class of `core-detection`. No Hilt annotations: binding in SPEC-018.
+- **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory`. No Hilt annotations: binding in SPEC-018.
+- **Public API of `core-detection`:** `PackageManagerAppInventory`, `InstallSourceCollector` and `TrustedStores` (SPEC-012). Everything else is `internal` or `private`.
 - **Installer:** `getInstallSourceInfo().installingPackageName` on API 30+, `getInstallerPackageName` below.
 - **Version branches:** `PackageManagerVersionCompat.kt`, tested with `@Config(sdk = [26, 28, 30, 33, 36])` (`skills/android/testing.md` › Adapter Tests — Robolectric).
 - **Lint:** besides `tools:ignore="QueryAllPackagesPermission"` (skill › Permissions and Manifest), `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat`, with a comment (ADR-016).
 - **`api`:** `core-detection` exposes `core-domain` and `kotlinx-coroutines-core` as `api` (skill › `api` or `implementation` in library modules).
 - **Robolectric hooks:** cancellation and "uninstalled during the read" are tested with a label `CharSequence` that acts on its second read (Robolectric parcels the `PackageInfo` it returns). If Robolectric stops parceling, those tests fail instead of passing.
 - Open (ADR-016): `explicitApi()` in `core-detection` when the SDK is published.
+
+### Signal collectors (SPEC-012)
+- **Collectors live in `core-detection`**, package `core.detection.signal`, even when they use no Android API (ADR-017). They only return signals; score logic stays in `core-domain`.
+- **S1:** `InstallSourceCollector(trustedInstallers)` returns `UNTRUSTED_INSTALL_SOURCE` when `installerPackageName` is null or not in the set (exact, case-sensitive match). The parameter is required, with no default value; the set is copied. It never calls the `PackageManager`.
+- **Trusted stores:** `TrustedStores.packageNames`, 11 packages, one comment per entry with the store name and the source. System package installers, `com.android.shell`, F-Droid, Aurora Store and phone-clone apps are not stores (ADR-017). An SDK user builds its own set from it (`+` or `-`). The SPEC-015 lists (wallets, banks) follow the same shape: one public `object` per type in `core.detection.signal`, unmodifiable, with a source per entry.
+- **Unmodifiable public collections outside `core-domain`:** `Collections.unmodifiableSet(LinkedHashSet(...))` (or `linkedSetOf`), the same idiom as `unmodifiableCopy()`, which stays `internal`.
+- **Tests of a collector with no Android API:** JUnit 4 on the JVM, no Robolectric, no `@Config(sdk)`. A parameterized test (`Parameterized`, one class per parameter group) reads a list written by hand in the test, never the production list, so removing an entry fails its case.
+- Known limitations of S1 (ADR-017): installer spoofed with shell or root; borrowed package name of a store missing from the device (issue #57).
 
 ### Permissions
 <!-- Anything not listed here must not be added. -->
@@ -167,7 +176,8 @@ Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manife
 
 ### How data and platform layers are tested (planned)
 - `core-domain`: JUnit 5 on the JVM, MockK; minimum 80% line coverage, enforced by Kover (`:core-domain:koverVerify`, part of `./gradlew build`)
-- Collectors: Robolectric (JUnit 4) with a simulated `PackageManager`
+- Collectors: Robolectric (JUnit 4) with a simulated `PackageManager` when they call it; plain JUnit 4 when they only read `InstalledApp` (SPEC-012)
+- **Domain fixtures (SPEC-012):** `anInstalledApp` and `aRiskResult` live in `core-domain/src/testFixtures` (`java-test-fixtures` plugin); other modules use `testImplementation(testFixtures(project(":core-domain")))`. The `detekt` task does not scan `src/testFixtures` by default, so `core-domain/build.gradle.kts` adds it with `source.from(files("src/testFixtures/kotlin"))`; `MagicNumber` applies there
 - **Injected dispatcher (SPEC-011):** as in `skills/android/testing.md` › Code that must run on an injected dispatcher; the project's example is `CountingDispatcher` in `PackageManagerAppInventoryTest`
 - Room repositories: Robolectric with an **in-memory** database — no real on-device database in integration tests
 - Screens: Compose UI tests for each screen state and navigation; Turbine for Flows

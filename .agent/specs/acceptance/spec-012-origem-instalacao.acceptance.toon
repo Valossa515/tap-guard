@@ -1,0 +1,27 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-012-origem-instalacao.acceptance.toon
+# SPEC-012 (issue #8) – testes JUnit 4 sem Robolectric no core-detection/src/test; fixtures de core-domain/src/testFixtures
+
+acceptance:
+  feature-ref: FT-012
+  version: 1.0
+
+criteria[18]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Cada loja nao gera S1,Coletor com a lista padrao e um app instalado por cada um dos 11 pacotes (lista literal no teste; um caso parametrizado por pacote),collect(app),Devolve conjunto vazio em cada caso,must-have,BR-003
+  AC-002,Instalador nulo gera S1,Coletor com a lista padrao e app com installerPackageName null,collect(app),Devolve {UNTRUSTED_INSTALL_SOURCE},must-have,BR-001
+  AC-003,Fora da lista gera S1,Coletor com a lista padrao e apps instalados por com.example.store e org.fdroid.fdroid e com.aurora.store e com.sec.android.easyMover,collect(app) em cada caso,Devolve {UNTRUSTED_INSTALL_SOURCE} em cada caso,must-have,BR-005
+  AC-004,Instalador do sistema gera S1,Coletor com a lista padrao e apps instalados por com.google.android.packageinstaller e com.android.packageinstaller e com.miui.packageinstaller e com.android.shell,collect(app) em cada caso,Devolve {UNTRUSTED_INSTALL_SOURCE} em cada caso,must-have,BR-005
+  AC-005,Comparacao exata,Coletor com a lista padrao e app instalado por COM.ANDROID.VENDING,collect(app),Devolve {UNTRUSTED_INSTALL_SOURCE},must-have,BR-002
+  AC-006,So S1 ou nada,Coletor com a lista padrao e app de fora da lista com permissao de NFC e servico declarado,collect(app),Devolve exatamente {UNTRUSTED_INSTALL_SOURCE} sem outro sinal,must-have,BR-003
+  AC-007,Lista ampliada pelo SDK,Coletor com a lista padrao mais com.example.bankstore,collect(app instalado por com.example.bankstore) e collect(app instalado por com.android.vending),Os dois devolvem conjunto vazio,must-have,BR-006
+  AC-008,Lista menor pelo SDK,Coletor com a lista padrao sem com.amazon.venezia,collect(app instalado por com.amazon.venezia),Devolve {UNTRUSTED_INSTALL_SOURCE},must-have,BR-006
+  AC-009,Conjunto recebido e copiado,Coletor criado com um MutableSet que contem com.example.bankstore; depois o pacote e retirado do MutableSet,collect(app instalado por com.example.bankstore),Devolve conjunto vazio (o coletor nao viu a alteracao),must-have,BR-006
+  AC-010,Dois caminhos de API,PackageManagerAppInventoryTest da SPEC-011 (AC-007 e AC-008),./gradlew build,Os testes do instalador nos dois caminhos e do instalador ausente passam; esta spec nao chama o PackageManager,must-have,BR-008
+  AC-011,Lista padrao com as 11 entradas,Lista padrao publica,Comparar com o conjunto literal das 11 entradas do teste e tentar alterar por cast para MutableSet,Iguais; a alteracao lanca UnsupportedOperationException; cada entrada tem nome da loja e fonte em comentario (review),must-have,BR-004
+  AC-012,Fixtures em testFixtures,core-domain e core-detection,./gradlew build e inspecionar,DomainFixtures.kt so em core-domain/src/testFixtures; testes do core-domain e do core-detection usam anInstalledApp; anInstalledApp com o parametro installerPackageName,must-have,BR-009
+  AC-013,detekt analisa testFixtures,Violacao do detekt colocada em core-domain/src/testFixtures (localmente),./gradlew :core-domain:detekt,Falha (DETEKT_SKIPS_TEST_FIXTURES nao acontece) e a alteracao e desfeita sem commit,must-have,BR-010
+  AC-014,Kover sem fixtures,Relatorio do Kover do core-domain,./gradlew :core-domain:koverXmlReport,DomainFixturesKt ausente (FIXTURES_IN_COVERAGE nao acontece); cobertura de linhas igual a de antes e acima de 80%,must-have,BR-010
+  AC-015,Sem API do Android no coletor,Codigo do coletor e da lista,Inspecionar imports e o git diff,Nenhum import android.* nem chamada ao PackageManager; sem dispatcher; sem anotacoes do Hilt; core-domain/src/main sem mudanca,must-have,BR-008
+  AC-016,ktlint e detekt e lint e testes passam,Codigo da spec,./gradlew build,Termina com codigo 0 sem aviso novo do compilador nem do lint,must-have,BR-010
+  AC-017,Documentacao atualizada,PR da SPEC-012,Revisar core-detection/README.md e core-domain/README.md e docs/especificacao.md (secao 5) e glossary.md e backlog_rules.md e SKILLS.md e project-reference.md e conventions.md e context.md e decisions.md,Coletor e lista e extensao pelo SDK e fixtures em testFixtures documentados; lista de lojas igual nos documentos; ADR-017 com motivos e limitacoes,must-have,BR-011
+  AC-018,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,

@@ -153,7 +153,7 @@ O score de um app é a soma dos pesos dos sinais presentes, limitada a 100, e de
 
 **Listas de apoio, embutidas no app**
 
-- Lojas confiáveis: Google Play, Galaxy Store, Xiaomi GetApps, Huawei AppGallery, Amazon Appstore.
+- Lojas confiáveis (pacote do instalador): Google Play (`com.android.vending`), Galaxy Store (`com.sec.android.app.samsungapps`), Xiaomi GetApps (`com.xiaomi.mipicks` e `com.xiaomi.market`), OPPO App Market (`com.heytap.market` e `com.oppo.market`), vivo V-Appstore (`com.vivo.appstore`), HONOR App Market (`com.hihonor.appmarket`), Palm Store (`com.transsnet.store`), Huawei AppGallery (`com.huawei.appmarket`) e Amazon Appstore (`com.amazon.venezia`). Não são lojas: os instaladores de pacote do sistema e o shell (o que aparece num APK instalado à mão ou por adb), F-Droid, Aurora Store e apps de clonagem. Instalador desconhecido conta como fora da loja. Motivos e fontes no ADR-017 (SPEC-012).
 - Carteiras conhecidas: Google Wallet, Samsung Wallet e apps oficiais dos grandes bancos e carteiras digitais do Brasil (pacotes a levantar na SPEC-015).
 - Bancos conhecidos para S9: nome de exibição e pacote oficial de cada um.
 
