@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────
 name: tap-guard
 stack: android
-sdd-version: "1.7.0"
+sdd-version: "1.8.0"
 ---
 
 # Project Agent Skills
