@@ -9,7 +9,7 @@ import java.time.Instant
 
 class InstalledAppTest {
     @Test
-    fun `fields are read back including card emulation services and installer accepts null`() {
+    fun `fields are read back including enabled accessibility services and installer accepts null`() {
         val app =
             InstalledApp(
                 packageName = "com.example.app",
@@ -21,7 +21,7 @@ class InstalledAppTest {
                 requestedPermissions = setOf(NFC),
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
-                enabledAccessibilityServices = emptySet(),
+                enabledAccessibilityServices = setOf(A11Y_SERVICE),
             )
 
         assertEquals("com.example.app", app.packageName)
@@ -33,6 +33,7 @@ class InstalledAppTest {
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+        assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
     }
 
     @Test
@@ -40,20 +41,24 @@ class InstalledAppTest {
         val permissions = mutableSetOf(NFC)
         val services = mutableSetOf(SERVICE)
         val cardEmulationServices = mutableSetOf(HCE_SERVICE)
+        val accessibilityServices = mutableSetOf(A11Y_SERVICE)
         val app =
             anInstalledApp(
                 requestedPermissions = permissions,
                 services = services,
                 cardEmulationServices = cardEmulationServices,
+                enabledAccessibilityServices = accessibilityServices,
             )
 
         permissions.add(SMS)
         services.clear()
         cardEmulationServices.clear()
+        accessibilityServices.clear()
 
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+        assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
     }
 
     @Test
@@ -63,9 +68,12 @@ class InstalledAppTest {
                 requestedPermissions = setOf(NFC),
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
+                enabledAccessibilityServices = setOf(A11Y_SERVICE),
             )
+        val exposedCollections =
+            listOf(app.requestedPermissions, app.services, app.cardEmulationServices, app.enabledAccessibilityServices)
 
-        for (exposed in listOf(app.requestedPermissions, app.services, app.cardEmulationServices)) {
+        for (exposed in exposedCollections) {
             val mutable = exposed as MutableSet<String>
             assertThrows(UnsupportedOperationException::class.java) { mutable.add(SMS) }
             assertThrows(UnsupportedOperationException::class.java) { mutable.remove(mutable.first()) }
@@ -74,6 +82,7 @@ class InstalledAppTest {
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+        assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
     }
 
     private companion object {
@@ -81,6 +90,7 @@ class InstalledAppTest {
         const val SMS = "android.permission.READ_SMS"
         const val SERVICE = "com.example.app.PaymentService"
         const val HCE_SERVICE = "com.example.app.CardService"
+        const val A11Y_SERVICE = "com.example.app.A11yService"
         val FIRST_INSTALL: Instant = Instant.parse("2026-01-01T00:00:00Z")
         val LAST_UPDATE: Instant = Instant.parse("2026-02-01T00:00:00Z")
     }

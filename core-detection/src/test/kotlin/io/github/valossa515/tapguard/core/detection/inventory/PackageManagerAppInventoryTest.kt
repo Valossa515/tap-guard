@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
 import io.github.valossa515.tapguard.core.domain.inventory.InstalledApp
 import kotlinx.coroutines.CancellationException
@@ -161,6 +162,7 @@ class PackageManagerAppInventoryTest {
             assertEquals(emptySet<String>(), app.requestedPermissions)
             assertEquals(emptySet<String>(), app.services)
             assertEquals(emptySet<String>(), app.cardEmulationServices)
+            assertEquals(emptySet<String>(), app.enabledAccessibilityServices)
         }
 
     @Test
@@ -256,6 +258,58 @@ class PackageManagerAppInventoryTest {
             val services = inventory().installedApps().associate { it.packageName to it.cardEmulationServices }
 
             assertEquals(mapOf(USER_APP to setOf(HCE_SERVICE), OTHER_APP to emptySet()), services)
+        }
+
+    @Test
+    fun `fills enabled accessibility services from full and short forms and keeps services`() =
+        runTest {
+            install(aPackageInfo(USER_APP).apply { services = arrayOf(aService(USER_APP, A11Y_SERVICE)) })
+            enableAccessibilityServices("$USER_APP/$A11Y_SERVICE:$USER_APP/.SecondA11yService")
+
+            val app = inventory().installedApps().single()
+
+            assertEquals(setOf(A11Y_SERVICE, SECOND_A11Y_SERVICE), app.enabledAccessibilityServices)
+            assertEquals(setOf(A11Y_SERVICE), app.services)
+        }
+
+    @Test
+    fun `null or empty key leaves every app without enabled services`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            val inventory = inventory()
+
+            enableAccessibilityServices(null)
+            val withNullKey = inventory.installedApps().map { it.enabledAccessibilityServices }
+            enableAccessibilityServices("")
+            val withEmptyKey = inventory.installedApps().map { it.enabledAccessibilityServices }
+
+            assertEquals(listOf(emptySet<String>(), emptySet<String>()), withNullKey)
+            assertEquals(listOf(emptySet<String>(), emptySet<String>()), withEmptyKey)
+        }
+
+    @Test
+    fun `ignores malformed entries and keeps the valid one`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            enableAccessibilityServices(":garbage:/OnlyClass:com.pkg/:$USER_APP/.A11yService:")
+
+            assertEquals(setOf(A11Y_SERVICE), inventory().installedApps().single().enabledAccessibilityServices)
+        }
+
+    @Test
+    fun `keeps enabled services per package and ignores system own and missing packages`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            install(aPackageInfo(SYSTEM_APP, flags = ApplicationInfo.FLAG_SYSTEM))
+            enableAccessibilityServices(
+                listOf(USER_APP, SYSTEM_APP, context.packageName, MISSING_APP).joinToString(":") { "$it/.A11yService" },
+            )
+
+            val services = inventory().installedApps().associate { it.packageName to it.enabledAccessibilityServices }
+
+            assertEquals(mapOf(USER_APP to setOf(A11Y_SERVICE), OTHER_APP to emptySet()), services)
         }
 
     @Test
@@ -364,6 +418,16 @@ class PackageManagerAppInventoryTest {
     }
 
     /**
+     * Grava a chave dos serviços de acessibilidade ligados, como o sistema faria. No Robolectric 4.18,
+     * `Settings.Secure.putString` basta nas cinco APIs, sem reflexão, e a chave volta a `null` no
+     * começo de cada teste. O Robolectric não aplica o `@Readable` da API 31 em diante: a
+     * legibilidade da chave vem das fontes do AOSP (ADR-019).
+     */
+    private fun enableAccessibilityServices(value: String?) {
+        Settings.Secure.putString(context.contentResolver, ENABLED_ACCESSIBILITY_SERVICES, value)
+    }
+
+    /**
      * Repassa ao [delegate] (o `StandardTestDispatcher` do próprio `runTest`) e conta os despachos.
      * Prova que a leitura passou pelo dispatcher injetado: se o inventário não fizer o
      * `withContext` nele, não há despacho e o teste falha (verificado trocando, na produção, o
@@ -424,6 +488,7 @@ class PackageManagerAppInventoryTest {
         const val OTHER_APP = "com.example.b.other"
         const val THIRD_APP = "com.example.c.third"
         const val SYSTEM_APP = "com.example.system"
+        const val MISSING_APP = "com.example.missing"
         const val PLAY_STORE = "com.android.vending"
         const val OTHER_STORE = "com.example.store"
         const val NFC_PERMISSION = "android.permission.NFC"
@@ -439,6 +504,9 @@ class PackageManagerAppInventoryTest {
         const val OFF_HOST_APDU_ACTION = "android.nfc.cardemulation.action.OFF_HOST_APDU_SERVICE"
         const val HOST_NFCF_ACTION = "android.nfc.cardemulation.action.HOST_NFCF_SERVICE"
         const val BIND_NFC_SERVICE = "android.permission.BIND_NFC_SERVICE"
+        const val ENABLED_ACCESSIBILITY_SERVICES = "enabled_accessibility_services"
+        const val A11Y_SERVICE = "com.example.a.user.A11yService"
+        const val SECOND_A11Y_SERVICE = "com.example.a.user.SecondA11yService"
         const val FIRST_INSTALL_MILLIS = 1_767_225_600_000L
         const val LAST_UPDATE_MILLIS = 1_767_312_000_000L
         const val LONG_VERSION_CODE = 5_000_000_000L

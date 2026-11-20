@@ -2,7 +2,7 @@
 
 > Fonte: `test-strategy` de `.agent/specs/contracts/spec-014-sinais-controle.contract.toon` (versão 1.0) e critérios de `.agent/specs/acceptance/spec-014-sinais-controle.acceptance.toon` (versão 1.0) · 2026-11-20
 > **BATCH-01** (esta seção): 4 alvos e 22 cenários (5 + 7 + 1 + 9), um método de teste por cenário. O parametrizado das permissões de SMS roda 5 casos. Execuções novas: 26 no `core-detection`, todas na JVM.
-> **BATCH-02:** a seção do S4 (coletor, `InstalledAppTest` e inventário no Robolectric) entra no PR do BATCH-02.
+> **BATCH-02:** a seção do S4 (coletor, `InstalledAppTest` e inventário no Robolectric) está no fim deste arquivo.
 
 ## Scope (BATCH-01)
 - **Coletor de S5:** `OverlayPermissionCollector` gera S5 só com `android.permission.SYSTEM_ALERT_WINDOW`, com comparação exata, e nunca devolve outro sinal (AC-001 a AC-003, AC-013).
@@ -77,3 +77,79 @@
 
 ## Infrastructure
 - Nenhuma biblioteca nova: `junit4`, `kotlinx-coroutines-test` e `testFixtures(project(":core-domain"))` já estão no `core-detection`; `java.time` é do JDK.
+
+
+---
+
+# BATCH-02: S4 (serviço de acessibilidade ligado)
+
+> Fonte: o mesmo contrato (versão 1.2) e os critérios AC-013 a AC-019 · 2026-11-20
+> 3 alvos e 12 cenários (4 + 3 + 5), um método de teste por cenário.
+> - Os 5 cenários do inventário rodam nos cinco níveis de API; 4 são novos e 1 (conjuntos vazios) ganha uma asserção.
+> - Execuções novas ou alteradas: 4 no coletor (novas), 3 no `core-domain` (alteradas) e 25 no inventário (5 × 5; 20 novas).
+
+## Scope (BATCH-02)
+- **Modelo:** `InstalledApp.enabledAccessibilityServices` é lido de volta, copiado e recusa alteração por cast, como as outras coleções (AC-019).
+- **Coletor de S4:** `EnabledAccessibilityServiceCollector` gera S4 quando o campo não está vazio; um serviço só declarado em `services` não gera; nunca devolve outro sinal (AC-013, AC-014).
+- **Inventário:** leitura de `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` no Robolectric, nos cinco níveis de API (AC-015 a AC-018). Cobre:
+  - formatos completo e curto, sem cruzar com `services`;
+  - chave nula e vazia;
+  - entradas malformadas;
+  - isolamento por pacote, app do sistema, próprio pacote e pacote não instalado.
+- **Onde roda:**
+  - `core-domain`: JUnit 5 (Kover);
+  - coletor: JUnit 4 na JVM, sem Robolectric e sem `@Config(sdk)`;
+  - inventário: Robolectric com o `@Config(sdk = [26, 28, 30, 33, 36])` da classe.
+  - Tudo roda no `./gradlew build`.
+- **Fora (contrato, `excluded`):**
+  - falha do provedor de configurações (o shadow não a simula; o framework devolve `null`; ADR-019);
+  - leitura recusada pelo `@Readable` (o Robolectric não o aplica; fontes do AOSP e SPEC-022);
+  - `SecurityException` propagada (sem como provocar; a leitura não tem `try`, revisão);
+  - ausência de `import android.*` e de Hilt no coletor (inspeção, AC-020).
+
+## Padrões seguidos (pattern analysis)
+- **`CardEmulationServiceCollectorTest` (SPEC-013):** campo do `InstalledApp` não vazio gera o sinal; serviço comum em `services` não gera; "só o seu sinal" com todos os dados.
+- **Cenários de HCE no `PackageManagerAppInventoryTest` (SPEC-013):** `install(...)`, `aPackageInfo(...)`, `aService(...)`, pacotes `com.example.a…`/`b…`, app do sistema com `FLAG_SYSTEM`, mapa de pacote para conjunto.
+- **`InstalledAppTest` (SPEC-010 e SPEC-013):** JUnit 5, laço sobre as coleções expostas com cast para `MutableSet`.
+- **Experimento do plano (2026-11-20):** `Settings.Secure.putString` nas cinco APIs, chave nula no começo de cada teste, `/OnlyClass` com pacote vazio.
+
+## Unit tests
+
+### Modelo — `core-domain/src/test/.../inventory/InstalledAppTest.kt` (JUnit 5, alterado)
+| # | Scenario | Expected result | AC |
+|---|----------|-----------------|----|
+| 1 | fields-are-read-back-including-enabled-accessibility-services | `enabledAccessibilityServices` igual ao passado | AC-019 |
+| 2 | mutating-source-collections-does-not-change-the-model | limpar o `MutableSet` de origem não muda o campo | AC-019 |
+| 3 | exposed-collections-reject-mutation-through-cast | `add`, `remove` e `clear` por cast lançam `UnsupportedOperationException` | AC-019 |
+
+### Coletor de S4 — `core-detection/src/test/.../signal/EnabledAccessibilityServiceCollectorTest.kt` (JUnit 4)
+| # | Scenario | Expected result | AC |
+|---|----------|-----------------|----|
+| 1 | enabled-service-yields-s4 | `{ACCESSIBILITY_SERVICE_ENABLED}` | AC-014 |
+| 2 | no-enabled-service-yields-nothing | conjunto vazio | AC-014 |
+| 3 | declared-but-not-enabled-service-yields-nothing | `services` com o serviço e o campo vazio → conjunto vazio | AC-014 |
+| 4 | yields-only-s4-for-app-with-all-spec-signals | `SYSTEM_ALERT_WINDOW`, `READ_SMS`, `NFC`, HCE, instalador nulo e serviço ligado → exatamente `{ACCESSIBILITY_SERVICE_ENABLED}` | AC-013 |
+
+## Integration tests (Robolectric, APIs 26, 28, 30, 33 e 36)
+
+### Inventário — `core-detection/src/test/.../inventory/PackageManagerAppInventoryTest.kt` (alterado)
+| # | Scenario | Setup | Expected result | AC |
+|---|----------|-------|-----------------|----|
+| 1 | fills-enabled-accessibility-services-from-full-and-short-forms-and-keeps-services | app declara `A11yService`; chave com `pkg/pkg.A11yService` e `pkg/.SecondA11yService` (esta não declarada) | o campo tem os dois nomes completos; `services` só com o declarado | AC-015 |
+| 2 | null-or-empty-key-leaves-every-app-without-enabled-services | dois apps; chave `null` e depois `""` | os dois apps com o campo vazio nos dois casos; sem exceção | AC-016 |
+| 3 | ignores-malformed-entries-and-keeps-the-valid-one | `:garbage:/OnlyClass:com.pkg/:pkg/.A11yService:` | só o serviço válido; sem exceção | AC-017 |
+| 4 | keeps-enabled-services-per-package-and-ignores-system-own-and-missing-packages | `USER_APP`, `OTHER_APP` e app do sistema; chave com serviços de `USER_APP`, do app do sistema, do próprio pacote e de `com.example.missing` | só `USER_APP` com o serviço; `OTHER_APP` vazio; app do sistema e próprio pacote ausentes; pacote não instalado não gera app | AC-018 |
+| 5 | returns-empty-sets-without-permissions-or-services (existente) | app sem nada | também `enabledAccessibilityServices` vazio | AC-016 |
+
+## Edge cases
+- `/OnlyClass` não volta `null` em `unflattenFromString`: volta pacote vazio, que fica fora pelo cruzamento com a lista (cenário 3).
+- Dois-pontos no fim e entrada vazia no começo (cenário 3).
+- Serviço ligado que o app não declara (cenário 1, critério mais largo).
+
+## Test data & fixtures
+- **`anInstalledApp(...)`** ganha `enabledAccessibilityServices` com padrão vazio (a fixture já tem o `@Suppress` da emenda 1.2).
+- **`enableAccessibilityServices(value: String?)`**, novo no `PackageManagerAppInventoryTest`: `Settings.Secure.putString(context.contentResolver, "enabled_accessibility_services", value)`. O KDoc explica que basta nas cinco APIs, que a chave volta a `null` em cada teste e que o Robolectric não aplica o `@Readable`.
+- **Constantes:** a chave escrita à mão (`enabled_accessibility_services`), não lida da produção: trocar a chave na produção derruba os testes.
+
+## Infrastructure
+- Nenhuma biblioteca nova: `robolectric`, `androidx.test:core`, `junit4`, `kotlinx-coroutines-test` e `testFixtures(project(":core-domain"))` já estão no `core-detection`; JUnit 5 no `core-domain`.
