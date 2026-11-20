@@ -9,7 +9,7 @@ import java.time.Instant
 
 class InstalledAppTest {
     @Test
-    fun `fields are read back and installer accepts null`() {
+    fun `fields are read back including card emulation services and installer accepts null`() {
         val app =
             InstalledApp(
                 packageName = "com.example.app",
@@ -20,7 +20,7 @@ class InstalledAppTest {
                 lastUpdateTime = LAST_UPDATE,
                 requestedPermissions = setOf(NFC),
                 services = setOf(SERVICE),
-                cardEmulationServices = emptySet(),
+                cardEmulationServices = setOf(HCE_SERVICE),
             )
 
         assertEquals("com.example.app", app.packageName)
@@ -31,26 +31,40 @@ class InstalledAppTest {
         assertEquals(LAST_UPDATE, app.lastUpdateTime)
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
+        assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
     }
 
     @Test
-    fun `mutating source permissions and services does not change the model`() {
+    fun `mutating source collections does not change the model`() {
         val permissions = mutableSetOf(NFC)
         val services = mutableSetOf(SERVICE)
-        val app = anInstalledApp(requestedPermissions = permissions, services = services)
+        val cardEmulationServices = mutableSetOf(HCE_SERVICE)
+        val app =
+            anInstalledApp(
+                requestedPermissions = permissions,
+                services = services,
+                cardEmulationServices = cardEmulationServices,
+            )
 
         permissions.add(SMS)
         services.clear()
+        cardEmulationServices.clear()
 
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
+        assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
     }
 
     @Test
-    fun `exposed permissions and services reject add remove and clear through mutable set cast`() {
-        val app = anInstalledApp(requestedPermissions = setOf(NFC), services = setOf(SERVICE))
+    fun `exposed collections reject add remove and clear through mutable set cast`() {
+        val app =
+            anInstalledApp(
+                requestedPermissions = setOf(NFC),
+                services = setOf(SERVICE),
+                cardEmulationServices = setOf(HCE_SERVICE),
+            )
 
-        for (exposed in listOf(app.requestedPermissions, app.services)) {
+        for (exposed in listOf(app.requestedPermissions, app.services, app.cardEmulationServices)) {
             val mutable = exposed as MutableSet<String>
             assertThrows(UnsupportedOperationException::class.java) { mutable.add(SMS) }
             assertThrows(UnsupportedOperationException::class.java) { mutable.remove(mutable.first()) }
@@ -58,12 +72,14 @@ class InstalledAppTest {
         }
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
+        assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
     }
 
     private companion object {
         const val NFC = "android.permission.NFC"
         const val SMS = "android.permission.READ_SMS"
         const val SERVICE = "com.example.app.PaymentService"
+        const val HCE_SERVICE = "com.example.app.CardService"
         val FIRST_INSTALL: Instant = Instant.parse("2026-01-01T00:00:00Z")
         val LAST_UPDATE: Instant = Instant.parse("2026-02-01T00:00:00Z")
     }

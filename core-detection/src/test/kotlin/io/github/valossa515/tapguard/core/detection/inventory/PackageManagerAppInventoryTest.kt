@@ -1,8 +1,11 @@
 package io.github.valossa515.tapguard.core.detection.inventory
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
@@ -157,6 +160,102 @@ class PackageManagerAppInventoryTest {
 
             assertEquals(emptySet<String>(), app.requestedPermissions)
             assertEquals(emptySet<String>(), app.services)
+            assertEquals(emptySet<String>(), app.cardEmulationServices)
+        }
+
+    @Test
+    fun `fills card emulation services with hce service and keeps it in services`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            installService(aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+
+            val app = inventory().installedApps().single()
+
+            assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+            assertTrue("O serviço de HCE também fica em services", HCE_SERVICE in app.services)
+        }
+
+    @Test
+    fun `skips hce filter without permission and permission without filter`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            installService(aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+            installService(aService(USER_APP, FILTER_ONLY_SERVICE), HOST_APDU_ACTION)
+            installService(aService(USER_APP, PERMISSION_ONLY_SERVICE, permission = BIND_NFC_SERVICE), action = null)
+
+            val app = inventory().installedApps().single()
+
+            assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+            assertEquals(setOf(HCE_SERVICE, FILTER_ONLY_SERVICE, PERMISSION_ONLY_SERVICE), app.services)
+        }
+
+    @Test
+    fun `skips off host and nfcf services`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            installService(aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+            installService(aService(USER_APP, OFF_HOST_SERVICE, permission = BIND_NFC_SERVICE), OFF_HOST_APDU_ACTION)
+            installService(aService(USER_APP, NFCF_SERVICE, permission = BIND_NFC_SERVICE), HOST_NFCF_ACTION)
+
+            assertEquals(setOf(HCE_SERVICE), inventory().installedApps().single().cardEmulationServices)
+        }
+
+    @Test
+    fun `includes disabled hce services`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            installService(
+                aService(USER_APP, HCE_SERVICE, enabled = false, permission = BIND_NFC_SERVICE),
+                HOST_APDU_ACTION,
+            )
+            installService(aService(USER_APP, DISABLED_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+            packageManager.setComponentEnabledSetting(
+                ComponentName(USER_APP, DISABLED_SERVICE),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                0,
+            )
+
+            val services = inventory().installedApps().single().cardEmulationServices
+
+            assertEquals(setOf(HCE_SERVICE, DISABLED_SERVICE), services)
+        }
+
+    @Test
+    fun `includes hce service of disabled app`() =
+        runTest {
+            install(aPackageInfo(USER_APP).apply { applicationInfo?.enabled = false })
+            installService(aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+
+            assertEquals(setOf(HCE_SERVICE), inventory().installedApps().single().cardEmulationServices)
+        }
+
+    @Test
+    fun `includes hce service not exported without meta data in app without nfc`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            installService(
+                aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE, exported = false),
+                HOST_APDU_ACTION,
+            )
+
+            val app = inventory().installedApps().single()
+
+            assertEquals(emptySet<String>(), app.requestedPermissions)
+            assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
+        }
+
+    @Test
+    fun `keeps hce services per package and ignores system app`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            install(aPackageInfo(SYSTEM_APP, flags = ApplicationInfo.FLAG_SYSTEM))
+            installService(aService(USER_APP, HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+            installService(aService(SYSTEM_APP, SYSTEM_HCE_SERVICE, permission = BIND_NFC_SERVICE), HOST_APDU_ACTION)
+
+            val services = inventory().installedApps().associate { it.packageName to it.cardEmulationServices }
+
+            assertEquals(mapOf(USER_APP to setOf(HCE_SERVICE), OTHER_APP to emptySet()), services)
         }
 
     @Test
@@ -244,6 +343,27 @@ class PackageManagerAppInventoryTest {
     }
 
     /**
+     * Registra [service] no pacote já instalado e, se [action] não for nulo, um filtro de intent com
+     * essa ação. O serviço não vai no `PackageInfo` passado a `installPackage`: ali ele aparece no
+     * `getPackageInfo`, mas não entra na resolução de intents (o `addIntentFilterForService` lança
+     * "doesn't exist"). No Robolectric 4.18, só o `addOrUpdateService` de um componente novo cria a
+     * entrada de filtros. Se isso mudar, os testes de HCE falham em vez de passar por engano: cada
+     * um espera pelo menos um serviço encontrado pela consulta.
+     */
+    private fun installService(
+        service: ServiceInfo,
+        action: String?,
+    ) {
+        shadowPackageManager.addOrUpdateService(service)
+        if (action != null) {
+            shadowPackageManager.addIntentFilterForService(
+                ComponentName(service.packageName, service.name),
+                IntentFilter(action),
+            )
+        }
+    }
+
+    /**
      * Repassa ao [delegate] (o `StandardTestDispatcher` do próprio `runTest`) e conta os despachos.
      * Prova que a leitura passou pelo dispatcher injetado: se o inventário não fizer o
      * `withContext` nele, não há despacho e o teste falha (verificado trocando, na produção, o
@@ -310,6 +430,15 @@ class PackageManagerAppInventoryTest {
         const val SMS_PERMISSION = "android.permission.RECEIVE_SMS"
         const val HCE_SERVICE = "com.example.a.user.PaymentService"
         const val DISABLED_SERVICE = "com.example.a.user.DisabledService"
+        const val FILTER_ONLY_SERVICE = "com.example.a.user.FilterOnlyService"
+        const val PERMISSION_ONLY_SERVICE = "com.example.a.user.PermissionOnlyService"
+        const val OFF_HOST_SERVICE = "com.example.a.user.OffHostService"
+        const val NFCF_SERVICE = "com.example.a.user.NfcFService"
+        const val SYSTEM_HCE_SERVICE = "com.example.system.PaymentService"
+        const val HOST_APDU_ACTION = "android.nfc.cardemulation.action.HOST_APDU_SERVICE"
+        const val OFF_HOST_APDU_ACTION = "android.nfc.cardemulation.action.OFF_HOST_APDU_SERVICE"
+        const val HOST_NFCF_ACTION = "android.nfc.cardemulation.action.HOST_NFCF_SERVICE"
+        const val BIND_NFC_SERVICE = "android.permission.BIND_NFC_SERVICE"
         const val FIRST_INSTALL_MILLIS = 1_767_225_600_000L
         const val LAST_UPDATE_MILLIS = 1_767_312_000_000L
         const val LONG_VERSION_CODE = 5_000_000_000L
@@ -334,11 +463,15 @@ class PackageManagerAppInventoryTest {
             packageName: String,
             name: String,
             enabled: Boolean = true,
+            permission: String? = null,
+            exported: Boolean = true,
         ): ServiceInfo =
             ServiceInfo().apply {
                 this.packageName = packageName
                 this.name = name
                 this.enabled = enabled
+                this.permission = permission
+                this.exported = exported
                 applicationInfo = ApplicationInfo().apply { this.packageName = packageName }
             }
 
