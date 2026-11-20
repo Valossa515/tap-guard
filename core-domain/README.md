@@ -36,7 +36,7 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 - Toda a lógica de score fica neste módulo.
 - Não pode depender do `app` (vai fazer parte do SDK para bancos).
 - **Modelos imutáveis:** data classes só com `val` (o detekt barra `var` pela `DataClassShouldBeImmutable`, em `detekt.yml`). Modelo com coleção tem construtor e `copy()` privados e uma fábrica com o mesmo nome que copia a coleção para uma coleção não modificável, que recusa alteração mesmo por cast.
-- **`@Suppress`:** só `@Suppress("LongParameterList")` numa fábrica que espelha exatamente o construtor de uma data class (hoje, a do `InstalledApp`). Fora disso, nenhum (ADR-015).
+- **`@Suppress`:** só `@Suppress("LongParameterList")` numa fábrica que espelha exatamente o construtor de uma data class (hoje, a do `InstalledApp`, ADR-015) e numa fixture do `testFixtures` que espelha essa fábrica com valores padrão (hoje, a `anInstalledApp`, ADR-019). Fora disso, nenhum, nem em outras funções de teste.
 - Invariantes por `require`, que lança `IllegalArgumentException`: score de 0 a 100, máscara válida, quatro dígitos, fim da varredura não anterior ao início.
 
 ## Dependências
@@ -45,7 +45,8 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 - **Plugins:** só `kotlin("jvm")` (mais ktlint, detekt e Kover). Nenhum plugin ou dependência Android ou AndroidX.
 - **Bibliotecas:** nenhuma além da stdlib do Kotlin e do JDK (`java.time`, `java.util.Collections`, disponíveis no Android desde a API 26).
 - **Testes:** JUnit 5 (com `junit-platform-launcher`, exigido pelo Gradle 9), sem mocks.
-- **Fixtures** (SPEC-012): `anInstalledApp(...)` (com `cardEmulationServices` desde a SPEC-013) e `aRiskResult(...)` em `src/testFixtures/.../DomainFixtures.kt`, pelo plugin `java-test-fixtures`. Os testes deste módulo as enxergam direto; os outros módulos usam `testImplementation(testFixtures(project(":core-domain")))` (hoje, o `core-detection`). Cada fixture expõe só os parâmetros que algum teste troca.
+- **Fixtures** (SPEC-012): `anInstalledApp(...)` (com `cardEmulationServices` desde a SPEC-013 e `firstInstallTime` e `lastUpdateTime` desde a SPEC-014, com os valores de antes como padrão) e `aRiskResult(...)` em `src/testFixtures/.../DomainFixtures.kt`, pelo plugin `java-test-fixtures`. Os testes deste módulo as enxergam direto; os outros módulos usam `testImplementation(testFixtures(project(":core-domain")))` (hoje, o `core-detection`). Cada fixture expõe só os parâmetros que algum teste troca.
+- **`@Suppress("LongParameterList")` na `anInstalledApp`** (SPEC-014): com 7 parâmetros, ela passa do limite do detekt (6). Espelha a fábrica do `InstalledApp` com valores padrão e só existe no `testFixtures`. É a exceção do ADR-015, estendida pelo ADR-019 a fixtures que espelham a fábrica de uma data class; não vale para outras funções de teste.
 - **detekt e Kover no `testFixtures`:** a tarefa `detekt` não analisa `src/testFixtures` por padrão, então o `build.gradle.kts` o acrescenta (`source.from`). O Kover exclui o source set `testFixtures` (`excludedSourceSets`), para as fixtures não contarem na cobertura. Fora de `src/test`, a regra `MagicNumber` do detekt vale: número literal numa fixture vira constante nomeada.
 - **Cobertura:** Kover, com no mínimo 80% de cobertura de linhas (RNF-08). O `./gradlew build` falha abaixo disso. Na SPEC-010: 98,8%; na SPEC-012, sem as fixtures: 98,8% (82 de 83 linhas).
 

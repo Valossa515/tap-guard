@@ -101,18 +101,30 @@ O sistema separa o texto do mesmo jeito: `AccessibilityManagerService.readColonD
 ## Tasks
 
 ### BATCH-01: S5, S6 e S8 (PR "SPEC-014 BATCH-01 …", `Refs #10`)
-1. [ ] **Coletores** (`feat:`): coletor de S5, coletor de S8 e coletor de S6 com `Clock`, com KDoc (o que conta, o que não conta e por quê; ADR-019). `./gradlew build` verde.
-2. [ ] **Testes dos coletores** (`test:`, papel tester):
+1. [x] **Coletores** (`feat:`): coletor de S5, coletor de S8 e coletor de S6 com `Clock`, com KDoc (o que conta, o que não conta e por quê; ADR-019). `./gradlew build` verde.
+2. [x] **Testes dos coletores** (`test:`, papel tester):
    - `anInstalledApp` ganha `firstInstallTime` e `lastUpdateTime`, com os valores de hoje como padrão;
    - S5: com e sem a permissão, maiúsculas, só S5;
    - S8: `READ_SMS`, `RECEIVE_SMS`, as duas, sem nenhuma, maiúsculas, permissões que não contam (parametrizado), só S8;
    - S6: instalado dentro da janela, só a atualização recente, exatamente 7 dias, 7 dias e 1 ms, instalação e atualização no futuro, dois relógios para o mesmo app, só S6.
-3. [ ] **Conferência dos critérios**, local e desfeita sem commit:
+3. [x] **Conferência dos critérios**, local e desfeita sem commit:
    - trocar o limite inclusivo por exclusivo derruba o teste dos 7 dias exatos;
    - ler só o `firstInstallTime` derruba o teste da atualização recente com instalação antiga;
    - pôr `SEND_SMS` na lista do S8 derruba o caso parametrizado;
    - `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-4. [ ] **Documentação** (`docs:`):
+   - 2026-11-20, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma), rodando os testes de `core.detection.signal` (66 execuções):
+     - `!latest.isBefore(...)` trocado por `latest.isAfter(...)` → 1 falha: `latest exactly seven days ago yields s6` (AC-010).
+     - `latest` só com `firstInstallTime` → 2 falhas: `old install with update two days ago yields s6` (AC-009) e `old install with update in the future yields s6` (AC-011).
+     - `SEND_SMS` aceito no coletor de S8 → 1 falha: o caso `[android.permission.SEND_SMS]` do parametrizado (AC-006).
+     - `./gradlew clean build` verde em 2 min 24 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-021, AC-022).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows, como já previsto), `core-detection` 177 (151 de antes + 26 novos: 5 + 7 + 5 + 9), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Total: 260.
+       - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova).
+       - Kover do `core-domain`: 84 de 85 linhas (98,8%), igual à SPEC-013.
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia. A depreciação do Gradle já aparecia na `main`.
+   - **Desvios do contrato no BATCH-01:**
+     - Na tarefa 2, o detekt recusou a `anInstalledApp` com 7 parâmetros (`LongParameterList` dispara a partir de 6; conferido localmente). Com a aprovação do usuário, a fixture recebeu `@Suppress("LongParameterList")` com KDoc, a exceção do ADR-015 foi estendida pelo ADR-019, e o contrato passou à versão 1.2.
+     - Os testes de maiúsculas do S5 guardam a lista em `otherCases`, e o teste do S6 usa o ajudante `collectorAt(now)`: na forma de uma linha, o detekt (`MaxLineLength` de 120) recusaria.
+4. [x] **Documentação** (`docs:`):
    - `core-detection/README.md` (coletores de S5, S6 e S8; o `Clock` do S6);
    - `core-domain/README.md` (parâmetros novos da fixture);
    - `SKILLS.md` (API pública e coletores), `project-reference.md`, `context.md`, `glossary.md` (janela de recência);

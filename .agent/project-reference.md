@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; demais, SPEC-014 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector` e `RecentInstallOrUpdateCollector`, SPEC-014 BATCH-01; demais, SPEC-014 BATCH-02 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -97,7 +97,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `LastFourDigits` | `card` | Value class: exatamente quatro dígitos ASCII; `toString()` mascarado |
 | `CardReadResult` | `card` | `Success(applicationLabel, lastFourDigits: LastFourDigits, expiry: YearMonth)` com `toString()` mascarado, `UnsupportedCard`, `ReadInterrupted`. Sem campo para o número completo |
 
-### Detecção (SPEC-011 a SPEC-013)
+### Detecção (SPEC-011 a SPEC-014)
 
 | Classe / arquivo | Pacote | Responsibility |
 |------------------|--------|----------------|
@@ -107,8 +107,11 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `TrustedStores.packageNames` | `core.detection.signal` | Lista padrão de lojas confiáveis, 11 pacotes, que não pode ser alterada: Google Play, Galaxy Store, Xiaomi GetApps (`com.xiaomi.mipicks`, `com.xiaomi.market`), OPPO App Market (`com.heytap.market`, `com.oppo.market`), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Quem usa o SDK amplia ou reduz com `+` e `-` |
 | `NfcPermissionCollector()` | `core.detection.signal` | Sinal S2: `NFC_PERMISSION` quando `requestedPermissions` contém `android.permission.NFC` (comparação exata). As permissões relacionadas não contam. Sem API do Android (ADR-018) |
 | `CardEmulationServiceCollector()` | `core.detection.signal` | Sinal S3: `CARD_EMULATION_SERVICE` quando `cardEmulationServices` não está vazio. Não depende do S2. Sem API do Android (ADR-018) |
+| `OverlayPermissionCollector()` | `core.detection.signal` | Sinal S5: `OVERLAY_PERMISSION` quando `requestedPermissions` contém `android.permission.SYSTEM_ALERT_WINDOW` (comparação exata). Vale a permissão declarada, não a concedida. Sem API do Android (ADR-019) |
+| `SmsPermissionCollector()` | `core.detection.signal` | Sinal S8: `SMS_PERMISSION` quando `requestedPermissions` contém `android.permission.READ_SMS` ou `android.permission.RECEIVE_SMS` (comparação exata). As outras permissões de SMS não contam. Sem API do Android (ADR-019) |
+| `RecentInstallOrUpdateCollector(clock)` | `core.detection.signal` | Sinal S6: `RECENTLY_INSTALLED_OR_UPDATED` quando o mais recente entre `firstInstallTime` e `lastUpdateTime` não é anterior ao agora do `Clock` menos 7 dias. Limite inclusivo; futuro conta. `Clock` obrigatório no construtor; sem API do Android (ADR-019) |
 
-API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector` e `CardEmulationServiceCollector`.
+API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector` e `RecentInstallOrUpdateCollector`.
 
 ### App (SPEC-003)
 

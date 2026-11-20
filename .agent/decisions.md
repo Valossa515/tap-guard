@@ -250,6 +250,47 @@
   - Um app instalado entre a lista leve e a consulta fica sem S3 nessa varredura; a seguinte corrige.
   - Um serviço com o filtro e a permissão, mas não exportado ou sem meta-data, gera S3 sem funcionar como HCE (falso positivo aceito).
 
+## ADR-019 — Sinais S4, S5, S6 e S8: fonte do S4, janela do S6 e exceção da fixture
+- **Date:** 2026-11-20
+- **Status:** Aceita (S5, S6 e S8 implementados no BATCH-01 da SPEC-014; S4 planejado para o BATCH-02)
+- **Context:**
+  - A SPEC-014 entrega os sinais S4 (serviço de acessibilidade ativo), S5 (pede sobreposição de tela), S6 (instalado ou atualizado nos últimos 7 dias) e S8 (pede leitura ou recebimento de SMS). É a primeira spec com batches: BATCH-01 com S5, S6 e S8, que usam dados que o `InstalledApp` já tinha; BATCH-02 com S4, que precisa de campo novo e de mudança no inventário.
+  - A §8 citava `AccessibilityManager.getEnabledAccessibilityServiceList` como fonte do S4. Ele só devolve os serviços conectados ao sistema, e no Robolectric exige reflexão (`setComponentName`, método oculto) para dizer de que app é o serviço.
+- **Decision:**
+  - **S5 pela permissão declarada:** `OverlayPermissionCollector` devolve `OVERLAY_PERMISSION` quando `requestedPermissions` contém `android.permission.SYSTEM_ALERT_WINDOW`, com comparação exata. A §5 diz "pede"; a concessão (`AppOpsManager.unsafeCheckOpNoThrow`) não é lida: exigiria o `uid` no `InstalledApp`, uma chamada por app e, com `MODE_DEFAULT`, conferir a permissão em si.
+  - **S8 só com `READ_SMS` e `RECEIVE_SMS`:** `SmsPermissionCollector`, comparação exata; as duas juntas geram um só S8. Não contam `SEND_SMS`, `RECEIVE_MMS`, `RECEIVE_WAP_PUSH`, `READ_CELL_BROADCASTS` e `BROADCAST_SMS` ([Manifest.permission](https://developer.android.com/reference/android/Manifest.permission)).
+  - **S6 com janela de 7 dias inclusiva e `Clock` injetado:** `RecentInstallOrUpdateCollector(clock: Clock)` devolve `RECENTLY_INSTALLED_OR_UPDATED` quando `maxOf(firstInstallTime, lastUpdateTime)` não é anterior a `clock.instant()` menos `Duration.ofDays(7)` (168 horas corridas, sem fuso). O `Clock` é obrigatório e sem padrão; o coletor não chama `Instant.now()`. A janela fica privada no coletor: a §5 fixa 7 dias, e calibrar é da SPEC-017.
+  - **Horário no futuro conta como S6** (decisão do usuário). Com o relógio do aparelho atrasado, todos os apps ganham S6. Sozinho, o S6 vale 10 e não tira nenhum app do verde. **Somado a outros sinais, ele muda o nível de alguns apps** (pesos e regras da §5):
+    - app de loja confiável com S9 (20, verde) vai a 30, amarelo, porque o S9 tira o teto de 29 (regra 3);
+    - app de fora da loja com S1 e S3 (50, amarelo) vai a 60, vermelho, porque tem S1 e um sinal de NFC (regra 4);
+    - app de fora da loja com S1, S2 e S5 ou S8 (55, amarelo) vai a 65, vermelho.
+  - **S4 por `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`** (decisão do usuário, no lugar do `AccessibilityManager`; a §8 muda no BATCH-02). Motivos:
+    1. o sinal é o usuário ter ligado o serviço: um serviço que caiu reconecta e continua perigoso, e a chave o mantém, enquanto o `AccessibilityManager` só lista os conectados;
+    2. **correção:** o motivo dado era que o `AccessibilityManager` devolve lista vazia quando a chamada ao sistema falha, o que esconderia o S4 sem erro. O `Settings.Secure` tem o mesmo problema: `Settings.NameValueCache.getStringForUser` pega a `RemoteException` do provedor, escreve no log e devolve `null` ("Return null, but don't cache it"), em [android-8.0.0_r1](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-8.0.0_r1/core/java/android/provider/Settings.java), android-16.0.0_r1 e `main`. Esse `null` não se distingue de "nenhum serviço ligado". Nenhuma das duas fontes deixa propagar a falha. **A troca de fonte se mantém pelos motivos 1 e 3**;
+    3. no Robolectric basta `Settings.Secure.putString`, sem reflexão (conferido nas APIs 26, 28, 30, 33 e 36).
+  - **Legível sem permissão da API 26 à 36:** até a API 30, o `SettingsProvider.enforceSettingReadable` só barra instant apps (tags 8.0.0_r1, 9.0.0_r1, 10.0.0_r1 e [11.0.0_r1](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-11.0.0_r1/packages/SettingsProvider/src/com/android/providers/settings/SettingsProvider.java)). Da API 31 em diante, o `checkReadableAnnotation` exige `@Readable`, e a chave tem `@Readable` sem `maxTargetSdk` nas tags 12.0.0_r1 a 16.0.0_r1 e na [`main`](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/provider/Settings.java). Vale para targetSdk 36 e acima. O texto é global, sem filtro de pacotes: o SDK não precisa de `<queries>` para o S4.
+  - **S4 no inventário, coletor puro (opção A):** o inventário lê a chave uma vez por varredura, separa por `:`, pula entradas vazias, passa cada uma por `ComponentName.unflattenFromString` (formato completo e curto `pkg/.Cls`, o que o sistema grava com `flattenToShortString`), pula as nulas e agrupa os nomes de classe por pacote no campo novo `InstalledApp.enabledAccessibilityServices`. É a mesma separação do `AccessibilityManagerService.readColonDelimitedStringToSet`. Pacotes fora da lista de apps de usuário são ignorados; chave nula ou vazia quer dizer nenhum serviço ligado. A `SecurityException` (se a chave deixar de ser legível) propaga, sem `try`.
+  - **S4 não cruza com `services`** (confirmado pelo usuário): um serviço ligado conta mesmo que a classe não esteja entre os declarados. É o critério mais largo do ADR-018.
+  - **Quatro coletores, um por sinal**, públicos, `class`, no `core.detection.signal`, sem API do Android: `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e (BATCH-02) `EnabledAccessibilityServiceCollector`.
+  - **Exceção do ADR-015 estendida à fixture `anInstalledApp`:** com `firstInstallTime` e `lastUpdateTime`, ela passa a 7 parâmetros, e o detekt (`LongParameterList`) já dispara com 6. Ela recebe `@Suppress("LongParameterList")` com KDoc: espelha a fábrica do `InstalledApp` com valores padrão e só existe no `testFixtures`. A exceção vale **só** para fixtures que espelham a fábrica de uma data class, não para qualquer função de teste (emenda 1.2 do contrato, aprovada pelo usuário).
+  - **Banco:** sem mudança. S4, S5, S6 e S8 vão nos bits 3, 4, 5 e 7 de `signals` pela SPEC-018; o `1.json` não muda.
+- **Alternatives:**
+  - S5 pela concessão no `AppOpsManager` (rejeitada: a §5 pede a permissão declarada; custo de `uid` e de uma chamada por app);
+  - `AccessibilityManager.getEnabledAccessibilityServiceList` para o S4 (rejeitada pelo usuário: só os conectados; reflexão no Robolectric);
+  - S4 num contexto de varredura passado a `collect` (rejeitada: muda a interface e os coletores existentes) ou num coletor que lê o Android (rejeitada: N leituras ou cache, e `android.*` no coletor);
+  - cruzar o S4 com `services` (rejeitada pelo usuário);
+  - ignorar horários no futuro no S6 (rejeitada pelo usuário: um falso positivo raro é melhor que deixar de avisar);
+  - janela do S6 como parâmetro do construtor (rejeitada por ora: a §5 fixa 7 dias);
+  - para a fixture: `ignoreDefaultParameters` no detekt do módulo (afrouxaria a regra para a produção) ou fixture com 5 parâmetros e ajudantes locais (repetiria os padrões e não resolveria o BATCH-02).
+- **Consequences:**
+  - O S6 dispara em toda atualização automática da loja; um app de loja confiável fica limitado a 29 pela regra 3, a não ser que tenha S7 ou S9.
+  - O `Clock` do grafo (`Clock.systemUTC()`) entra com a ligação no Hilt, na SPEC-018.
+- **Limitações e riscos:**
+  - Falha do provedor de configurações: o S4 some nessa varredura sem erro, igual a "nenhum serviço ligado".
+  - Relógio do aparelho atrasado: S6 em todos os apps e mudança de nível nos exemplos acima.
+  - O Robolectric não aplica o `@Readable`: a legibilidade vem das fontes do AOSP; conferência em aparelho na SPEC-022.
+  - Serviço ligado que o app não declara mais gera S4 (falso positivo raro, aceito).
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
