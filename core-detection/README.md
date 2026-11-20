@@ -91,6 +91,10 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 - **S3** (`CARD_EMULATION_SERVICE`): `cardEmulationServices` não está vazio. O critério é o do inventário (acima). Não depende do S2: um serviço de HCE num app sem a permissão `NFC` gera S3.
 - Motivos e limitações no ADR-018.
 
+## Coletor do sinal S4 (acessibilidade)
+
+`EnabledAccessibilityServiceCollector()`, no mesmo pacote, devolve `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio, ou um conjunto vazio. O critério é o do inventário (acima): serviço só declarado, que o usuário não ligou, não conta. Não tem parâmetros e não usa API do Android. Motivos da fonte (`Settings.Secure` no lugar do `AccessibilityManager`) no ADR-019.
+
 ## Coletores dos sinais S5, S6 e S8 (controle)
 
 `OverlayPermissionCollector()`, `SmsPermissionCollector()` e `RecentInstallOrUpdateCollector(clock)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementam `SignalCollector`. Não usam API do Android e não chamam o `PackageManager`: leem o que o inventário já trouxe. Cada um devolve o seu sinal ou um conjunto vazio, nunca outro sinal.
@@ -101,10 +105,6 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - O agora vem só do `java.time.Clock` recebido no construtor, obrigatório. Quem usa a biblioteca passa `Clock.systemUTC()`; a SPEC-018 o liga pelo Hilt.
   - O limite é inclusivo, e um horário no futuro conta. Com o relógio do aparelho atrasado, todos os apps ganham S6. Sozinho ele vale 10 e o app fica verde, mas somado a outros sinais pode mudar o nível.
 - Motivos, exemplos e limitações no ADR-019.
-
-## Coletor do sinal S4 (acessibilidade)
-
-`EnabledAccessibilityServiceCollector()`, no mesmo pacote, devolve `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio, ou um conjunto vazio. O critério é o do inventário (acima): serviço só declarado, que o usuário não ligou, não conta. Não tem parâmetros e não usa API do Android. Motivos da fonte (`Settings.Secure` no lugar do `AccessibilityManager`) no ADR-019.
 
 ## Dependências
 

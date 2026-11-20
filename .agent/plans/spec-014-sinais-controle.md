@@ -157,7 +157,7 @@ O sistema separa o texto do mesmo jeito: `AccessibilityManagerService.readColonD
    - **Desvios do contrato no BATCH-02:**
      - Na tarefa 5, o `InstalledAppTest` ganhou só o argumento `enabledAccessibilityServices = emptySet()` para compilar (a fábrica passou a exigi-lo); as asserções vieram na tarefa 6, como na SPEC-013.
      - O teste "sem serviço ligado" do coletor guarda o app numa variável: na forma de uma linha, o detekt (`MaxLineLength` de 120) recusaria.
-     - Na documentação, além dos arquivos do contrato, `.agent/architecture.md` também citava o `AccessibilityManager` como fonte do S4 (duas linhas) e foi corrigido, para não contradizer o ADR-019.
+     - Na documentação, além dos arquivos do contrato, `.agent/architecture.md` também citava o `AccessibilityManager` como fonte do S4 (duas linhas) e foi corrigido, para não contradizer o ADR-019. O review apontou o arquivo fora do contrato, e a emenda 1.3, aprovada pelo usuário, o incluiu na camada `docs`. Na mesma emenda, a seção do S4 do README do `core-detection` passou para antes da de S5, S6 e S8 (sugestão do review).
 8. [x] **Documentação** (`docs:`):
    - READMEs do `core-detection` (inventário em quatro etapas, coletor de S4, sem `<queries>` para o S4) e do `core-domain` (campo novo);
    - §8 de `docs/especificacao.md` (linhas "Inventário" e "S4 acessibilidade");
