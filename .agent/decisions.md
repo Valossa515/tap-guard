@@ -212,6 +212,44 @@
   - os testes do coletor parametrizam sobre uma lista escrita à mão, para que uma mudança na lista de produção derrube um teste;
   - fora de `src/test`, a regra `MagicNumber` do detekt vale no `testFixtures`.
 
+## ADR-018 — Sinais S2 e S3: permissão de NFC, descoberta do HCE e critério mais largo
+- **Date:** 2026-11-19
+- **Status:** Aceita (implementada na SPEC-013)
+- **Context:**
+  - A SPEC-013 entrega os sinais S2 (declara a permissão de NFC) e S3 (declara serviço de emulação de cartão, HCE).
+  - `InstalledApp.services` só guardava nomes de classe, e pelo nome não dá para saber se um serviço é de HCE.
+  - O sistema NFC acha os serviços em [`RegisteredServicesCache.getInstalledServices`](https://android.googlesource.com/platform/packages/modules/Nfc/+/refs/heads/main/NfcNci/src/com/android/nfc/cardemulation/RegisteredServicesCache.java) (AOSP, main):
+    - duas consultas `queryIntentServicesAsUser`, com `HostApduService.SERVICE_INTERFACE` e `OffHostApduService.SERVICE_INTERFACE`, com `GET_META_DATA` e sem `MATCH_DISABLED_COMPONENTS`;
+    - pula o serviço não exportado, o de pacote sem a permissão `NFC`, o que não exige `BIND_NFC_SERVICE` e o de meta-data ausente ou inválido.
+  - `BIND_NFC_SERVICE` também é exigida por `OffHostApduService` e `HostNfcFService` ([HostNfcFService](https://developer.android.com/reference/android/nfc/cardemulation/HostNfcFService)).
+- **Decision:**
+  - **S2 só com `android.permission.NFC`** em `requestedPermissions`, com comparação exata. É permissão normal, concedida na instalação, e é a que o modo leitor do golpe exige ([Manifest.permission](https://developer.android.com/reference/android/Manifest.permission)). Não contam:
+    - `NFC_TRANSACTION_EVENT` (API 28) e `NFC_PREFERRED_PAYMENT_INFO` (API 30), que não leem nem emulam cartão sem a `NFC`;
+    - `BIND_NFC_SERVICE`, de nível signature: o app a usa para proteger o serviço, não a pede.
+  - **S3 pela mesma descoberta do sistema:** o inventário faz uma consulta `queryIntentServices(Intent(HostApduService.SERVICE_INTERFACE), MATCH_DISABLED_COMPONENTS)` por varredura, depois da lista leve. Fica com os serviços cuja `ServiceInfo.permission` é `BIND_NFC_SERVICE` e os agrupa por pacote em `InstalledApp.cardEmulationServices`. Pacotes fora da lista leve (sistema, o próprio app) são ignorados.
+  - **Off-host e NFC-F não contam:** no off-host os comandos vão para o chip seguro e não passam pelo app ([OffHostApduService](https://developer.android.com/reference/android/nfc/cardemulation/OffHostApduService)). NFC-F (FeliCa) não é o padrão dos cartões EMV no Brasil.
+  - **Critério mais largo que o do sistema, de propósito:** não exige serviço exportado, meta-data nem a permissão `NFC` no pacote. Um falso positivo raro (serviço declarado com o filtro e a permissão, mas que o sistema ignoraria) é melhor que deixar de avisar. Por isso o S3 não depende do S2.
+  - **Desligados contam:** componente desligado no manifesto, desligado em tempo de execução e app inteiro desligado. O app pode ligar o serviço depois com `setComponentEnabledSetting`. Segue o inventário da SPEC-011, que já inclui serviços e apps desligados.
+  - **Dois coletores, um por sinal:** `NfcPermissionCollector` e `CardEmulationServiceCollector`, públicos, `class` sem parâmetros, no `core.detection.signal`, sem API do Android ([comentário na #9](https://github.com/Valossa515/tap-guard/issues/9#issuecomment-7027958269)). Cada um devolve o seu sinal ou nada, como o do S1. Os dois leem partes diferentes do `InstalledApp`, e o SDK pode usar só um. As constantes do Android que eles comparam ficam como literais, sem `import android.*`.
+  - **Campo `InstalledApp.cardEmulationServices: Set<String>`**, obrigatório, depois de `services`, copiado com `unmodifiableCopy()`. O nome é o do `Signal.CARD_EMULATION_SERVICE`; `hostApduServices` levaria uma classe do Android para o `core-domain`. Não é validado como parte de `services`: os dois vêm de chamadas diferentes. A SPEC-016 (S7) pode reaproveitá-lo para montar o `ComponentName` de cada serviço.
+  - **Segunda supressão de lint:** `@SuppressLint("QueryPermissionsNeeded")` em `queryIntentServicesCompat`, com comentário, ao lado da de `installedPackagesCompat` (ADR-016). O lint acusa os dois ramos (`ResolveInfoFlags` na API 33+).
+  - **Banco:** sem mudança. `app_snapshot` não guarda serviços; S2 e S3 vão nos bits 1 e 2 de `signals` pela SPEC-018. O `1.json` não muda.
+- **Alternatives:**
+  - `ServiceInfo.permission` do `getPackageInfo` que já existia (rejeitada: conta off-host e NFC-F e não confere o filtro de intent, que é como o sistema acha o serviço);
+  - permissão mais a chave do meta-data com `GET_META_DATA` (rejeitada: não confere o filtro e carrega o meta-data de todos os serviços de cada app);
+  - a mesma consulta por app com `setPackage` (rejeitada: N chamadas em vez de uma);
+  - `services` como pares nome e permissão (rejeitada: o filtro de intent não vem no `ServiceInfo`, e o coletor repetiria a regra do inventário);
+  - exigir exportação, meta-data e `NFC`, como o sistema (rejeitada pelo usuário: deixaria de avisar sobre serviços mal declarados);
+  - um coletor para os dois sinais (rejeitada pelo usuário: motivos acima);
+  - lista pública das permissões que não contam (rejeitada: o SDK não tem o que ampliar ali).
+- **Consequences:**
+  - O inventário faz uma chamada a mais por varredura, não por app. Para o SDK, a visibilidade segue a regra da lista (ADR-016); sem `QUERY_ALL_PACKAGES`, o README pede o `<queries>` com a ação de HCE.
+  - **Testes no Robolectric 4.18:** um serviço que precisa aparecer no `queryIntentServices` entra com `addOrUpdateService` e `addIntentFilterForService`. Posto no `PackageInfo` do `installPackage`, ele não entra na resolução de intents: no bytecode do `ShadowPackageManager`, `addComponent` só cria a entrada de filtros para componente novo. Cada teste de HCE espera pelo menos um serviço encontrado, então uma mudança na biblioteca derruba os testes em vez de passar por engano.
+- **Limitações e riscos:**
+  - `MATCH_DISABLED_COMPONENTS` na consulta: o Robolectric o respeita, mas a documentação só o descreve para `PackageInfo` e `ComponentInfo`. Conferir na SPEC-022 com um serviço de HCE desligado no app isca.
+  - Um app instalado entre a lista leve e a consulta fica sem S3 nessa varredura; a seguinte corrige.
+  - Um serviço com o filtro e a permissão, mas não exportado ou sem meta-data, gera S3 sem funcionar como HCE (falso positivo aceito).
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.

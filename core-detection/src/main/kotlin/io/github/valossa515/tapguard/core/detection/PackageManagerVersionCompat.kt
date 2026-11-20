@@ -1,8 +1,10 @@
 package io.github.valossa515.tapguard.core.detection
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.os.Build
 
 /*
@@ -25,6 +27,25 @@ internal fun PackageManager.installedPackagesCompat(flags: Int): List<PackageInf
         getInstalledPackages(PackageManager.PackageInfoFlags.of(flags.toLong()))
     } else {
         getInstalledPackages(flags)
+    }
+
+/**
+ * Serviços que respondem a [intent], com as flags de [PackageManager] (as do tipo
+ * `ResolveInfoFlags` a partir da API 33).
+ *
+ * O `@SuppressLint("QueryPermissionsNeeded")` existe pelo mesmo motivo do de
+ * [installedPackagesCompat]: a partir da API 30 a lista só traz os pacotes visíveis, e a permissão
+ * fica no manifesto de quem usa a biblioteca (ADR-016 e ADR-018).
+ */
+@SuppressLint("QueryPermissionsNeeded")
+internal fun PackageManager.queryIntentServicesCompat(
+    intent: Intent,
+    flags: Int,
+): List<ResolveInfo> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        queryIntentServices(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+    } else {
+        queryIntentServices(intent, flags)
     }
 
 /** Detalhe de um pacote. Lança [PackageManager.NameNotFoundException] se ele não existe mais. */

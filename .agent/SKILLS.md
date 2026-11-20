@@ -137,23 +137,28 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Full card number barred by type:** `CardReadResult.Success` holds `LastFourDigits` (exactly four ASCII digits), `applicationLabel` and `expiry` only. `toString()` of `Success` and `LastFourDigits` shows no value, and the validation message never repeats the input. `CardReadResult` is `Success`, `UnsupportedCard` or `ReadInterrupted`; missing or disabled NFC is not a result of `read`.
 - **`ScoringContext`** holds only `trustedPackages`; weights are configuration of the `RiskScorer` implementation (SPEC-017). This replaces the `rules` parameter shown in the skill example, and `RiskScorer` is an interface (spec §7), not the class of the skill example.
 
-### Detection (SPEC-011)
+### Detection (SPEC-011, SPEC-013)
 > Reading, dispatcher and version-branch rules: `skills/android/SKILL.md` › Reading installed packages and Dispatchers in adapters. Only what is specific to this project is listed here.
 - **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory`. No Hilt annotations: binding in SPEC-018.
-- **Public API of `core-detection`:** `PackageManagerAppInventory`, `InstallSourceCollector` and `TrustedStores` (SPEC-012). Everything else is `internal` or `private`.
+- **Three steps (SPEC-013):** the skill's two-step read plus one `queryIntentServices` per scan, between the light list and the details: action `HostApduService.SERVICE_INTERFACE`, flag `MATCH_DISABLED_COMPONENTS`, kept when `ServiceInfo.permission == BIND_NFC_SERVICE`, grouped by package into `InstalledApp.cardEmulationServices`. Off-host and NFC-F are left out; exported, meta-data and the package's `NFC` permission are not required (ADR-018).
+- **Public API of `core-detection`:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores` (SPEC-012), `NfcPermissionCollector` and `CardEmulationServiceCollector` (SPEC-013). Everything else is `internal` or `private`.
 - **Version branches:** `PackageManagerVersionCompat.kt`, tested with `@Config(sdk = [26, 28, 30, 33, 36])` (`skills/android/testing.md` › Adapter Tests — Robolectric).
-- **Lint:** besides `tools:ignore="QueryAllPackagesPermission"` (skill › Permissions and Manifest), `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat`, with a comment (ADR-016).
+- **Lint:** besides `tools:ignore="QueryAllPackagesPermission"` (skill › Permissions and Manifest), `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat` and `queryIntentServicesCompat`, with a comment (ADR-016, ADR-018).
 - **`api`:** `core-detection` exposes `core-domain` and `kotlinx-coroutines-core` as `api` (skill › `api` or `implementation` in library modules).
 - **Robolectric hooks:** cancellation and "uninstalled during the read" are tested with a label `CharSequence` that acts on its second read (Robolectric parcels the `PackageInfo` it returns). If Robolectric stops parceling, those tests fail instead of passing.
+- **Services in `queryIntentServices` (Robolectric 4.18, SPEC-013):** a service put in the `PackageInfo` given to `installPackage` shows in `getPackageInfo` but not in intent resolution (`addIntentFilterForService` throws "doesn't exist"). Install the package without it, then `addOrUpdateService(serviceInfo)` and `addIntentFilterForService(component, IntentFilter(action))` (helper `installService` in `PackageManagerAppInventoryTest`). Every HCE test expects at least one service found by the query, so a change in Robolectric fails them instead of passing.
 - Open (ADR-016): `explicitApi()` in `core-detection` when the SDK is published.
 
-### Signal collectors (SPEC-012)
+### Signal collectors (SPEC-012, SPEC-013)
 - **Collectors live in `core-detection`**, package `core.detection.signal`, even when they use no Android API (ADR-017). They only return signals; score logic stays in `core-domain`.
 - **S1:** `InstallSourceCollector(trustedInstallers)` returns `UNTRUSTED_INSTALL_SOURCE` when `installerPackageName` is null or not in the set (exact, case-sensitive match). The parameter is required, with no default value; the set is copied. It never calls the `PackageManager`.
 - **Trusted stores:** `TrustedStores.packageNames`, 11 packages, one comment per entry with the store name and the source. System package installers, `com.android.shell`, F-Droid, Aurora Store and phone-clone apps are not stores (ADR-017). An SDK user builds its own set from it (`+` or `-`). The SPEC-015 lists (wallets, banks) follow the same shape: one public `object` per type in `core.detection.signal`, unmodifiable, with a source per entry.
 - **Unmodifiable public collections outside `core-domain`:** `Collections.unmodifiableSet(LinkedHashSet(...))` (or `linkedSetOf`), the same idiom as `unmodifiableCopy()`, which stays `internal`.
 - **Tests of a collector with no Android API:** JUnit 4 on the JVM, no Robolectric, no `@Config(sdk)`. A parameterized test (`Parameterized`, one class per parameter group) reads a list written by hand in the test, never the production list, so removing an entry fails its case.
 - Known limitations of S1 (ADR-017): installer spoofed with shell or root; borrowed package name of a store missing from the device (issue #57).
+- **S2:** `NfcPermissionCollector()` returns `NFC_PERMISSION` only for `android.permission.NFC` in `requestedPermissions` (exact match). `NFC_TRANSACTION_EVENT`, `NFC_PREFERRED_PAYMENT_INFO` and `BIND_NFC_SERVICE` do not count (ADR-018).
+- **S3:** `CardEmulationServiceCollector()` returns `CARD_EMULATION_SERVICE` when `InstalledApp.cardEmulationServices` is not empty; it does not depend on S2 (ADR-018).
+- **One collector per signal**, each returning its own signal or nothing. A collector with no parameters is still a `class`, the same shape as `InstallSourceCollector`. Collectors import nothing from `android.*`: Android constants they compare against are written as literals.
 
 ### Permissions
 <!-- Anything not listed here must not be added. -->

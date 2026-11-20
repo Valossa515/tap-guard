@@ -5,7 +5,7 @@
 ## Entities
 | Term | Definition | Source |
 |------|-----------|--------|
-| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas e serviços declarados | §7, SPEC-010 |
+| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas, serviços declarados e serviços de HCE (`cardEmulationServices`) | §7, SPEC-010, SPEC-013 |
 | **Signal** | Característica estática de um app que indica perfil de golpe (S1–S9); enum com o bit de cada sinal na máscara | §5, §7, SPEC-010 |
 | **RiskLevel** | Nível de risco: `GREEN`, `YELLOW`, `RED`, em ordem de gravidade | §5, SPEC-010 |
 | **RiskResult** | Resultado do `RiskScorer`: score (0 a 100), nível e sinais de um app | §7, SPEC-010 |
@@ -49,6 +49,7 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 ## Business Terms
 - **Golpe de retransmissão (relay) de cartão por NFC:** app malicioso lê o cartão da vítima por aproximação e retransmite os comandos pela internet para o celular de um comparsa, que emula o cartão.
 - **HCE (Host Card Emulation):** emulação de cartão pelo celular. Termo técnico: não aparece na interface.
+- **Serviço de HCE:** serviço que responde à ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e exige a permissão `android.permission.BIND_NFC_SERVICE`, inclusive desligado. Fica em `InstalledApp.cardEmulationServices` e gera S3. Off-host e NFC-F não são serviços de HCE para o Tap Guard (ADR-018).
 - **APDU:** comando trocado com o cartão. Termo técnico: não aparece na interface.
 - **EMV:** padrão dos cartões de pagamento lidos no F2.
 - **PPSE:** ambiente de pagamento por aproximação selecionado no início da leitura EMV.

@@ -233,10 +233,10 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 
 | Sinal | API do Android |
 | --- | --- |
-| Inventário | Duas etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
+| Inventário | Três etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; uma consulta dos serviços de HCE de todos os pacotes (linha S3); depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
 | S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
-| S3 HCE | `queryIntentServices` com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` |
+| S3 HCE | Uma consulta `queryIntentServices` por varredura com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e `MATCH_DISABLED_COMPONENTS`, ficando com os serviços que exigem `android.permission.BIND_NFC_SERVICE` (inclusive desligados). Off-host e NFC-F não contam; não exige serviço exportado, meta-data nem a permissão `NFC` no pacote (ADR-018) |
 | S4 acessibilidade | `AccessibilityManager.getEnabledAccessibilityServiceList` |
 | S5 sobreposição | `SYSTEM_ALERT_WINDOW` em `requestedPermissions` |
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |

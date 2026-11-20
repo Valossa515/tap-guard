@@ -11,6 +11,7 @@ fun anInstalledApp(
     installerPackageName: String? = "com.android.vending",
     requestedPermissions: Set<String> = emptySet(),
     services: Set<String> = emptySet(),
+    cardEmulationServices: Set<String> = emptySet(),
 ): InstalledApp =
     InstalledApp(
         packageName = packageName,
@@ -21,6 +22,7 @@ fun anInstalledApp(
         lastUpdateTime = Instant.parse("2026-01-02T00:00:00Z"),
         requestedPermissions = requestedPermissions,
         services = services,
+        cardEmulationServices = cardEmulationServices,
     )
 
 fun aRiskResult(

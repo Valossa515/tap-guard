@@ -2,18 +2,25 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `AccessibilityManager`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-012):** inventário de apps (`PackageManagerAppInventory`, SPEC-011) e coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012). Os demais coletores entram da SPEC-013 à SPEC-016, e o `ScanDevice` e a ligação no Hilt, na SPEC-018.
+> **Estado (SPEC-013):** inventário de apps com os serviços de HCE (`PackageManagerAppInventory`, SPEC-011 e SPEC-013), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012) e coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013). Os demais coletores entram da SPEC-014 à SPEC-016, e o `ScanDevice` e a ligação no Hilt, na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector` e `TrustedStores`. O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector` e `CardEmulationServiceCollector`. O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
-`PackageManagerAppInventory(context, ioDispatcher)` fica no pacote `io.github.valossa515.tapguard.core.detection.inventory`. `installedApps()` devolve um `InstalledApp` para cada app de usuário, com rótulo, código de versão longo, instalador, datas de instalação e de atualização, permissões pedidas e serviços declarados (inclusive os desligados).
+`PackageManagerAppInventory(context, ioDispatcher)` fica no pacote `io.github.valossa515.tapguard.core.detection.inventory`. `installedApps()` devolve um `InstalledApp` para cada app de usuário, com rótulo, código de versão longo, instalador, datas de instalação e de atualização, permissões pedidas, serviços declarados (inclusive os desligados) e serviços de HCE (`cardEmulationServices`).
 
 - **Ficam de fora:** apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` (regra 1 da especificação) e o pacote do próprio app que consulta.
-- **Duas etapas, no `ioDispatcher`:** uma lista leve de todos os pacotes, onde rodam os filtros; depois, o detalhe de cada app de usuário, um por chamada. O cancelamento é verificado antes de cada app.
+- **Três etapas, no `ioDispatcher`:**
+  1. uma lista leve de todos os pacotes, onde rodam os filtros;
+  2. uma consulta dos serviços de HCE de todos os pacotes (abaixo);
+  3. o detalhe de cada app de usuário, um por chamada. O cancelamento é verificado antes de cada app.
+- **Serviços de HCE:** uma só chamada `queryIntentServices` por varredura, com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e `MATCH_DISABLED_COMPONENTS`. Entram os serviços que exigem `android.permission.BIND_NFC_SERVICE`, inclusive os desligados e os de app desligado, agrupados por pacote; os pacotes fora da lista leve são ignorados. É a mesma descoberta do sistema NFC (`RegisteredServicesCache` do AOSP), com duas diferenças registradas no ADR-018:
+  - off-host (`OFF_HOST_APDU_SERVICE`) e NFC-F (`HOST_NFCF_SERVICE`) ficam fora;
+  - o critério é mais largo de propósito: não exige serviço exportado, meta-data nem a permissão `NFC` no pacote.
+  - Um app instalado entre a lista e a consulta fica sem serviços de HCE nessa varredura.
 - **Falhas:** um app desinstalado durante a leitura é pulado; os demais erros do `PackageManager` são propagados.
-- **Versões do Android:** os ramos ficam em `PackageManagerVersionCompat.kt` (funções `internal`). O código de versão longo vem da API 28; o instalador sai de `getInstallSourceInfo().installingPackageName` a partir da API 30 e de `getInstallerPackageName` abaixo dela; o `PackageInfoFlags` é usado a partir da API 33.
+- **Versões do Android:** os ramos ficam em `PackageManagerVersionCompat.kt` (funções `internal`). O código de versão longo vem da API 28; o instalador sai de `getInstallSourceInfo().installingPackageName` a partir da API 30 e de `getInstallerPackageName` abaixo dela; o `PackageInfoFlags` e o `ResolveInfoFlags` são usados a partir da API 33.
 - O construtor guarda só o `PackageManager` e o nome do pacote, não o `Context`.
 
 ### Permissão para quem usa a biblioteca
@@ -26,7 +33,17 @@ O módulo **não declara permissão nenhuma**: uma permissão no manifesto de um
     tools:ignore="QueryAllPackagesPermission" />
 ```
 
-Sem ela, a partir da API 30 o Android só devolve os pacotes visíveis ao app. A permissão é restrita na Play Store e exige a declaração de app de segurança. No Tap Guard, ela fica no manifesto do `app` (ADR-016), e o `LibraryManifestTest` falha se o manifesto da biblioteca passar a declarar alguma permissão.
+Sem ela, a partir da API 30 o Android só devolve os pacotes visíveis ao app, tanto na lista quanto na consulta de HCE. A permissão é restrita na Play Store e exige a declaração de app de segurança. Um app que use `<queries>` em vez dela precisa, para os serviços de HCE, de:
+
+```xml
+<queries>
+    <intent>
+        <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+    </intent>
+</queries>
+```
+
+e continua precisando ver os próprios pacotes na lista. No Tap Guard, ela fica no manifesto do `app` (ADR-016), e o `LibraryManifestTest` falha se o manifesto da biblioteca passar a declarar alguma permissão.
 
 ## Coletor do sinal S1 (origem da instalação)
 
@@ -60,6 +77,14 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - com shell ou root (adb, Shizuku), um app pode ser registrado como instalado por uma loja da lista;
   - num aparelho sem uma das lojas, outro app pode usar o nome de pacote dela. Nesse caso, o app que instalou o golpe recebe S1, e, se ele se desinstalar, o instalador do golpe vira nulo e também gera S1. A defesa (confiar só em instalador que seja app do sistema) está na issue #57.
 
+## Coletores dos sinais S2 e S3 (NFC)
+
+`NfcPermissionCollector()` e `CardEmulationServiceCollector()`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementam `SignalCollector`. Não têm parâmetros, não usam API do Android e não chamam o `PackageManager`: leem o que o inventário já trouxe. Cada um devolve o seu sinal ou um conjunto vazio, nunca outro sinal.
+
+- **S2** (`NFC_PERMISSION`): `requestedPermissions` contém `android.permission.NFC`, com comparação exata. Não contam `android.permission.NFC_TRANSACTION_EVENT` e `android.permission.NFC_PREFERRED_PAYMENT_INFO` (não leem nem emulam cartão sem a `NFC`), nem `android.permission.BIND_NFC_SERVICE` (o app a usa para proteger o serviço, não a pede).
+- **S3** (`CARD_EMULATION_SERVICE`): `cardEmulationServices` não está vazio. O critério é o do inventário (acima). Não depende do S2: um serviço de HCE num app sem a permissão `NFC` gera S3.
+- Motivos e limitações no ADR-018.
+
 ## Dependências
 
 - **Módulos:** `core-domain` como `api`, porque `AppInventory` e `InstalledApp` aparecem na API pública.
@@ -74,12 +99,18 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - a regra 1 com três casos e o próprio pacote;
   - os campos, o código de versão longo e o instalador nos dois caminhos;
   - os serviços e os apps desligados;
+  - os serviços de HCE: filtro e permissão, off-host e NFC-F fora, desligados, app desligado, critério mais largo que o do sistema e isolamento por pacote;
   - a desinstalação durante a leitura, o cancelamento e o dispatcher injetado.
+  - Um serviço que precisa aparecer no `queryIntentServices` entra com `addOrUpdateService` e `addIntentFilterForService` (helper `installService`). Posto no `PackageInfo` do `installPackage`, ele não entra na resolução de intents do Robolectric.
 - `LibraryManifestTest` confere que a biblioteca não declara permissões, fora o `REORDER_TASKS` que o `androidx.test:core` traz só em teste.
 - Coletor de S1, em JUnit 4 sem Robolectric (não há API do Android nem ramo por versão):
   - `InstallSourceCollectorTrustedStoreTest`: um caso por loja, parametrizado sobre uma lista escrita à mão no teste (`ExpectedTrustedStores.kt`), não sobre a lista de produção;
   - `InstallSourceCollectorUntrustedInstallerTest`: lojas recusadas, app de clonagem e instaladores do sistema;
   - `InstallSourceCollectorTest`: instalador nulo, maiúsculas, só S1, lista maior e menor, cópia do conjunto, lista padrão igual à esperada e imutável.
+- Coletores de S2 e S3, também em JUnit 4 sem Robolectric:
+  - `NfcPermissionCollectorTest`: permissão de NFC, sem permissões, permissão sem relação, maiúsculas e minúsculas, só S2;
+  - `NfcPermissionCollectorRelatedPermissionTest`: as três permissões relacionadas, parametrizado sobre uma lista escrita à mão;
+  - `CardEmulationServiceCollectorTest`: serviço de HCE, sem serviços, serviço comum, HCE sem NFC, só S3.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras
@@ -87,6 +118,7 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 - Não pode depender do `app` (vai fazer parte do SDK para bancos).
 - Nenhuma lógica de score aqui: os coletores só devolvem sinais.
 - `@Suppress("DEPRECATION")` só no ramo antigo de um teste de `SDK_INT`, e no código de produção só em `PackageManagerVersionCompat.kt` (ADR-016).
+- `@SuppressLint("QueryPermissionsNeeded")` só em `installedPackagesCompat` e `queryIntentServicesCompat`, com comentário (ADR-016 e ADR-018).
 
 ## Comandos
 
