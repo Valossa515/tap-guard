@@ -1,0 +1,34 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-014-sinais-controle.acceptance.toon
+# SPEC-014 (issue #10) – coletores com JUnit 4 sem Robolectric (S6 com Clock.fixed); inventario com Robolectric nas APIs 26 e 28 e 30 e 33 e 36; modelo com JUnit 5 no core-domain
+# BATCH-01: AC-001 a AC-013 e AC-020 a AC-024; BATCH-02: AC-014 a AC-024
+
+acceptance:
+  feature-ref: FT-014
+  version: 1.0
+
+criteria[24]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Sobreposicao gera S5,App com android.permission.SYSTEM_ALERT_WINDOW entre outras permissoes,collect(app) no coletor de S5,Devolve {OVERLAY_PERMISSION},must-have,BR-001
+  AC-002,Sem sobreposicao nao gera S5,App sem permissoes e app so com android.permission.RECEIVE_SMS,collect(app) no coletor de S5,Devolve conjunto vazio nos dois casos,must-have,BR-001
+  AC-003,Comparacao exata no S5,App com ANDROID.PERMISSION.SYSTEM_ALERT_WINDOW e app com android.permission.system_alert_window,collect(app) no coletor de S5,Devolve conjunto vazio nos dois casos,must-have,BR-001
+  AC-004,Permissao de SMS gera S8,App so com android.permission.READ_SMS; app so com android.permission.RECEIVE_SMS; app com as duas,collect(app) no coletor de S8,Devolve {SMS_PERMISSION} nos tres casos,must-have,BR-002
+  AC-005,Sem permissao de SMS nao gera S8,App sem permissoes e app so com android.permission.NFC,collect(app) no coletor de S8,Devolve conjunto vazio nos dois casos,must-have,BR-002
+  AC-006,Permissoes de SMS que nao contam,App so com SEND_SMS; so com RECEIVE_MMS; so com RECEIVE_WAP_PUSH; so com READ_CELL_BROADCASTS; so com BROADCAST_SMS (prefixo android.permission.; lista literal no teste; um caso parametrizado por permissao),collect(app) no coletor de S8,Devolve conjunto vazio em cada caso,must-have,BR-003
+  AC-007,Comparacao exata no S8,App com ANDROID.PERMISSION.READ_SMS e app com android.permission.receive_sms,collect(app) no coletor de S8,Devolve conjunto vazio nos dois casos,must-have,BR-002
+  AC-008,Instalacao recente gera S6,Clock fixo; app instalado e atualizado 1 dia antes de agora; app instalado 30 dias antes e atualizado 30 dias antes,collect(app) no coletor de S6,O primeiro devolve {RECENTLY_INSTALLED_OR_UPDATED}; o segundo devolve conjunto vazio,must-have,BR-004
+  AC-009,Atualizacao recente gera S6,Clock fixo; app instalado 400 dias antes e atualizado 2 dias antes,collect(app) no coletor de S6,Devolve {RECENTLY_INSTALLED_OR_UPDATED},must-have,BR-004
+  AC-010,Limite de 7 dias inclusivo,Clock fixo; app com a data mais recente exatamente 7 dias (168 h) antes de agora; outro com 7 dias e 1 ms antes,collect(app) no coletor de S6,O primeiro devolve {RECENTLY_INSTALLED_OR_UPDATED}; o segundo devolve conjunto vazio,must-have,BR-004
+  AC-011,Horario no futuro conta,Clock fixo; app instalado e atualizado 1 hora depois de agora; app instalado antes da janela e atualizado 3 dias depois de agora,collect(app) no coletor de S6,Devolve {RECENTLY_INSTALLED_OR_UPDATED} nos dois casos,must-have,BR-005
+  AC-012,Relogio injetado,Um app atualizado em 2026-01-10 e dois Clock.fixed (2026-01-12 e 2026-02-12),collect(app) em um coletor de S6 por relogio,O primeiro devolve {RECENTLY_INSTALLED_OR_UPDATED} e o segundo conjunto vazio; o codigo do coletor nao chama Instant.now nem System.currentTimeMillis (inspecao),must-have,BR-006
+  AC-013,Cada coletor so devolve o seu sinal,App com SYSTEM_ALERT_WINDOW e READ_SMS e NFC e servico de HCE e instalador nulo e atualizado agora (e no BATCH-02 com servico de acessibilidade ligado),collect(app) em cada coletor da spec,Cada um devolve exatamente o conjunto com o seu sinal,must-have,BR-013
+  AC-014,Servico ligado gera S4,App com um servico em enabledAccessibilityServices; app com o campo vazio; app com com.example.A11yService em services mas o campo vazio,collect(app) no coletor de S4,O primeiro devolve {ACCESSIBILITY_SERVICE_ENABLED}; os outros devolvem conjunto vazio,must-have,BR-007
+  AC-015,Inventario le a chave nos dois formatos,App de usuario e a chave com uma entrada no formato completo e outra no curto (pkg/.Cls) do mesmo app; uma das classes nao esta em services (APIs 26 e 28 e 30 e 33 e 36),installedApps(),enabledAccessibilityServices do app tem os dois nomes de classe completos; services nao muda,must-have,BR-011
+  AC-016,Chave nula ou vazia,Dois apps de usuario e a chave nao definida; depois a chave com string vazia,installedApps(),Os dois apps aparecem com enabledAccessibilityServices vazio nos dois casos; nenhuma excecao,must-have,BR-010
+  AC-017,Entradas malformadas ignoradas,Chave com entrada vazia e garbage e /OnlyClass e com.pkg/ e dois-pontos no fim e uma entrada valida do app de usuario,installedApps(),So a entrada valida aparece no campo do app; a varredura termina sem excecao,must-have,BR-009
+  AC-018,Pacotes nao se misturam,Dois apps de usuario (um com servico ligado e outro sem) e servicos ligados de um app do sistema e do proprio pacote e de um pacote nao instalado,installedApps(),So o app com servico tem o campo preenchido; o outro tem conjunto vazio; app do sistema e proprio app nao aparecem; o pacote nao instalado nao gera app,must-have,BR-010
+  AC-019,Campo novo copiado e imutavel,InstalledApp criado com um MutableSet de servicos de acessibilidade,Alterar o MutableSet depois e tentar alterar o campo por cast para MutableSet,O campo nao muda e a alteracao lanca UnsupportedOperationException; koverVerify do core-domain passa acima de 80%,must-have,BR-013
+  AC-020,Sem API do Android nos coletores,Codigo dos quatro coletores,Inspecionar imports e o git diff,Nenhum import android.* nem chamada ao PackageManager ou ao Settings; sem dispatcher; sem anotacoes do Hilt; o de S6 so depende de java.time,must-have,BR-013
+  AC-021,Sem permissao nova e schema igual,Build de cada batch,./gradlew build e git status,LibraryManifestTest e MergedManifestTest passam (LIBRARY_PERMISSION_ADDED nao acontece); core-data/schemas sem diff (SCHEMA_CHANGED nao acontece),must-have,BR-014
+  AC-022,ktlint e detekt e lint e testes passam,Codigo de cada batch,./gradlew build,Termina com codigo 0 sem aviso novo do compilador nem do lint,must-have,BR-012
+  AC-023,Documentacao atualizada,PR de cada batch,Revisar core-detection/README.md e core-domain/README.md e SKILLS.md e project-reference.md e context.md e glossary.md e decisions.md; no BATCH-02 tambem docs/especificacao.md (secao 8),Coletores do batch e fixture documentados; ADR-019 com a fonte do S4 e a correcao do motivo 2 e o limite inclusivo e o futuro e a ressalva do relogio atrasado; secao 8 com Settings.Secure no S4 e o inventario em quatro etapas,must-have,BR-008
+  AC-024,CI de cada PR verde,PR de cada batch aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,
