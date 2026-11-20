@@ -8,7 +8,12 @@ import java.time.Instant
  * sistema: o inventário já não os devolve (regra 1 da seção 5).
  *
  * [installerPackageName] é nulo quando o sistema não informa o instalador. [services] guarda os
- * nomes de classe dos serviços declarados. As coleções são cópias que não podem ser alteradas.
+ * nomes de classe dos serviços declarados. [cardEmulationServices] guarda os nomes de classe dos
+ * serviços de emulação de cartão (HCE) no próprio aparelho: os que respondem à ação
+ * `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e exigem a permissão
+ * `android.permission.BIND_NFC_SERVICE`, inclusive desligados. Off-host e NFC-F ficam fora
+ * (ADR-018). Os dois conjuntos vêm de consultas diferentes ao sistema. As coleções são cópias que
+ * não podem ser alteradas.
  */
 @ConsistentCopyVisibility
 data class InstalledApp private constructor(
@@ -20,6 +25,7 @@ data class InstalledApp private constructor(
     val lastUpdateTime: Instant,
     val requestedPermissions: Set<String>,
     val services: Set<String>,
+    val cardEmulationServices: Set<String>,
 ) {
     companion object {
         /**
@@ -36,6 +42,7 @@ data class InstalledApp private constructor(
             lastUpdateTime: Instant,
             requestedPermissions: Set<String>,
             services: Set<String>,
+            cardEmulationServices: Set<String>,
         ): InstalledApp =
             InstalledApp(
                 packageName = packageName,
@@ -46,6 +53,7 @@ data class InstalledApp private constructor(
                 lastUpdateTime = lastUpdateTime,
                 requestedPermissions = requestedPermissions.unmodifiableCopy(),
                 services = services.unmodifiableCopy(),
+                cardEmulationServices = cardEmulationServices.unmodifiableCopy(),
             )
     }
 }

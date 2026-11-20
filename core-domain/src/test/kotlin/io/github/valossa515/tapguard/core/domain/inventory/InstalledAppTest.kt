@@ -20,6 +20,7 @@ class InstalledAppTest {
                 lastUpdateTime = LAST_UPDATE,
                 requestedPermissions = setOf(NFC),
                 services = setOf(SERVICE),
+                cardEmulationServices = emptySet(),
             )
 
         assertEquals("com.example.app", app.packageName)
