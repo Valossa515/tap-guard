@@ -233,11 +233,11 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 
 | Sinal | API do Android |
 | --- | --- |
-| Inventário | Três etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; uma consulta dos serviços de HCE de todos os pacotes (linha S3); depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
+| Inventário | Quatro etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; uma consulta dos serviços de HCE de todos os pacotes (linha S3); uma leitura dos serviços de acessibilidade ligados (linha S4); depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
 | S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | Uma consulta `queryIntentServices` por varredura com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e `MATCH_DISABLED_COMPONENTS`, ficando com os serviços que exigem `android.permission.BIND_NFC_SERVICE` (inclusive desligados). Off-host e NFC-F não contam; não exige serviço exportado, meta-data nem a permissão `NFC` no pacote (ADR-018) |
-| S4 acessibilidade | `AccessibilityManager.getEnabledAccessibilityServiceList` |
+| S4 acessibilidade | Uma leitura de `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` por varredura: o que o usuário ligou, inclusive um serviço que caiu. Cada entrada passa por `ComponentName.unflattenFromString` (formatos completo e curto); vazias e inválidas são ignoradas; agrupado por pacote e cruzado com os apps de usuário, sem exigir a classe entre os serviços declarados. Chave nula = nenhum serviço ligado. Legível sem permissão da API 26 à 36. Substitui o `AccessibilityManager.getEnabledAccessibilityServiceList`, que só lista os conectados (ADR-019) |
 | S5 sobreposição | `SYSTEM_ALERT_WINDOW` em `requestedPermissions` |
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |
 | S7 pagamento padrão | `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT`, para cada serviço HCE encontrado. No Android 15+ o pagamento padrão passou a ser o app com o papel de carteira: confirmar a API na SPEC-016 |

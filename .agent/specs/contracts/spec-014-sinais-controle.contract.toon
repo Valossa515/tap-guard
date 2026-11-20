@@ -6,10 +6,11 @@
 # Estimativa pelos arquivos: 624 linhas de codigo e testes (393 no BATCH-01 e 231 no BATCH-02; tabela no documento de arquitetura)
 # Cada linha diz o batch: BATCH-01 (S5 e S6 e S8) ou BATCH-02 (S4)
 # Emenda 1.2 (2026-11-20 aprovada pelo usuario): o detekt recusa a fixture anInstalledApp a partir de 6 parametros (LongParameterList; limite 6); ela recebe @Suppress("LongParameterList") com KDoc; a excecao do ADR-015 vale para fixtures que espelham a fabrica de uma data class (ADR-019 e SKILLS.md)
+# Emenda 1.3 (2026-11-20 aprovada pelo usuario): .agent/architecture.md entra na camada docs (BATCH-02); ainda citava o AccessibilityManager como fonte do S4 (aviso do review do BATCH-02)
 
 contract:
   feature-ref: FT-014
-  version: 1.2
+  version: 1.3
 
 layers:
   core-domain:
@@ -26,7 +27,7 @@ layers:
       core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/RecentInstallOrUpdateCollector.kt,create,BATCH-01: class RecentInstallOrUpdateCollector(private val clock: Clock) : SignalCollector (parametro obrigatorio e sem padrao); collect: val latest = maxOf(app.firstInstallTime; app.lastUpdateTime); DETECTED quando !latest.isBefore(clock.instant().minus(WINDOW)) e emptySet() senao; companion privado: val WINDOW: Duration = Duration.ofDays(7) e val DETECTED = setOf(Signal.RECENTLY_INSTALLED_OR_UPDATED); KDoc: limite inclusivo; horario no futuro conta; relogio atrasado da S6 a todos e o S6 somado pode mudar o nivel (ADR-019); sem Instant.now; so java.time; sem Hilt
       core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/EnabledAccessibilityServiceCollector.kt,create,BATCH-02: class EnabledAccessibilityServiceCollector : SignalCollector; collect devolve DETECTED quando app.enabledAccessibilityServices.isNotEmpty() e emptySet() senao; companion privado: val DETECTED = setOf(Signal.ACCESSIBILITY_SERVICE_ENABLED); KDoc: o criterio vem do AppInventory (Settings.Secure; o que o usuario ligou inclusive o que caiu; servico so declarado nao conta; nao cruza com services); ADR-019; sem import android.*; sem Hilt
   docs:
-    files[10]{path,action,description}:
+    files[11]{path,action,description}:
       core-detection/README.md,modify,BATCH-01: estado (SPEC-014 BATCH-01); coletores de S5 e S6 e S8 (o que gera cada sinal e o que nao conta; o Clock do S6 e a janela inclusiva); API publica; testes; BATCH-02: inventario em quatro etapas com a chave de acessibilidade (sem permissao e sem queries para o SDK); coletor de S4; API publica com as nove classes
       core-domain/README.md,modify,BATCH-01: parametros firstInstallTime e lastUpdateTime da anInstalledApp; BATCH-02: InstalledApp.enabledAccessibilityServices (o que entra e o que nao entra) e o parametro da fixture
       docs/especificacao.md,modify,BATCH-02: secao 8: linha Inventario com a leitura da chave de acessibilidade (quatro etapas); linha S4 acessibilidade com Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES no lugar do AccessibilityManager (separacao por ComponentName.unflattenFromString; agrupado por pacote; chave nula = nenhum ligado; ADR-019)
@@ -35,6 +36,7 @@ layers:
       .agent/project-reference.md,modify,BATCH-01: os tres coletores na tabela do core-detection; BATCH-02: InstalledApp com enabledAccessibilityServices e o coletor de S4
       .agent/context.md,modify,BATCH-01: coletores de S5 e S6 e S8 criados na SPEC-014; BATCH-02: coletor de S4 e a leitura do Settings.Secure
       .agent/decisions.md,modify,BATCH-01: ADR-019 com S5 declarada (AppOps fora); S8 so READ_SMS e RECEIVE_SMS; S6 janela de 7 dias inclusiva com Clock e futuro conta e a ressalva do relogio atrasado (S6 sozinho fica verde; somado muda o nivel em exemplos); S4 por Settings.Secure (motivos 1 e 3 do usuario e a correcao do motivo 2: as duas fontes engolem a falha do provedor); legibilidade da API 26 a 36 com fontes; opcao A; campo enabledAccessibilityServices; status com S4 no BATCH-02; BATCH-02: status implementado e a consequencia no Robolectric
+      .agent/architecture.md,modify,BATCH-02: linha S4 acessibilidade da tabela de coleta e a linha das APIs do Android com Settings.Secure no lugar do AccessibilityManager (ADR-019; emenda 1.3)
       .agent/plans/spec-014-sinais-controle.md,modify,BATCH-01 e BATCH-02: marcar tarefas e registrar a conferencia de cada batch
       .agent/plans/spec-014-sinais-controle-tests.md,create,BATCH-01: plano de testes (papel tester) dos tres coletores; BATCH-02: secao do S4
 

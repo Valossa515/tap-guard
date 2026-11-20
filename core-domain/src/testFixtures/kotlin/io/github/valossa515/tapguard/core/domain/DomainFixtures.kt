@@ -21,6 +21,7 @@ fun anInstalledApp(
     requestedPermissions: Set<String> = emptySet(),
     services: Set<String> = emptySet(),
     cardEmulationServices: Set<String> = emptySet(),
+    enabledAccessibilityServices: Set<String> = emptySet(),
 ): InstalledApp =
     InstalledApp(
         packageName = packageName,
@@ -32,6 +33,7 @@ fun anInstalledApp(
         requestedPermissions = requestedPermissions,
         services = services,
         cardEmulationServices = cardEmulationServices,
+        enabledAccessibilityServices = enabledAccessibilityServices,
     )
 
 fun aRiskResult(
