@@ -6,9 +6,17 @@ import io.github.valossa515.tapguard.core.domain.risk.RiskResult
 import io.github.valossa515.tapguard.core.domain.signal.Signal
 import java.time.Instant
 
+/**
+ * Espelha a fábrica do [InstalledApp], com valores padrão, e só existe no `testFixtures`. Por isso o
+ * `@Suppress("LongParameterList")`: é a exceção do ADR-015 estendida pelo ADR-019 a fixtures que
+ * espelham a fábrica de uma data class, e não vale para outras funções de teste.
+ */
+@Suppress("LongParameterList")
 fun anInstalledApp(
     packageName: String = "com.example.app",
     installerPackageName: String? = "com.android.vending",
+    firstInstallTime: Instant = Instant.parse("2026-01-01T00:00:00Z"),
+    lastUpdateTime: Instant = Instant.parse("2026-01-02T00:00:00Z"),
     requestedPermissions: Set<String> = emptySet(),
     services: Set<String> = emptySet(),
     cardEmulationServices: Set<String> = emptySet(),
@@ -18,8 +26,8 @@ fun anInstalledApp(
         label = "Example",
         versionCode = 1L,
         installerPackageName = installerPackageName,
-        firstInstallTime = Instant.parse("2026-01-01T00:00:00Z"),
-        lastUpdateTime = Instant.parse("2026-01-02T00:00:00Z"),
+        firstInstallTime = firstInstallTime,
+        lastUpdateTime = lastUpdateTime,
         requestedPermissions = requestedPermissions,
         services = services,
         cardEmulationServices = cardEmulationServices,
