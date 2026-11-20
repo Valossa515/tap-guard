@@ -1,0 +1,58 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-013-sinais-nfc.spec.toon
+# SPEC-013 (issue #9) – interface library: outputs.*.status e o resultado devolvido ou a falha do build
+# Decisoes do usuario em 2026-11-19 (tabela do plano); primeira spec com o SDD 1.8.0
+# Emenda 1.1 (2026-11-19 revisao do architect): o campo novo se chama cardEmulationServices; estimate-lines 420 pelos arquivos do contrato
+
+feature:
+  id: FT-013
+  name: SPEC-013 Sinais de NFC (S2 e S3)
+  version: 1.1
+  status: draft
+  interface: library
+  estimate-lines: 420
+
+requirement:
+  summary: Dois coletores no core-detection. O de S2 devolve NFC_PERMISSION quando InstalledApp.requestedPermissions contem android.permission.NFC. O de S3 devolve CARD_EMULATION_SERVICE quando o app tem servico de HCE. Para o S3 o AppInventory passa a descobrir os servicos de HCE com uma consulta queryIntentServices por varredura (acao HostApduService.SERVICE_INTERFACE com MATCH_DISABLED_COMPONENTS) e a conferir ServiceInfo.permission igual a BIND_NFC_SERVICE; os nomes de classe vao para o campo novo InstalledApp.cardEmulationServices. Os coletores nao chamam o PackageManager.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: SignalCollector.collect(app) e AppInventory.installedApps()
+
+inputs[3]{name,type,required,constraints}:
+  app,InstalledApp,true,o coletor de S2 so le requestedPermissions; o de S3 so le cardEmulationServices
+  requestedPermissions,Set<String>,true,permissoes pedidas pelo app como o inventario devolve (SPEC-011)
+  cardEmulationServices,Set<String>,true,campo novo do InstalledApp com os nomes de classe dos servicos que respondem a HostApduService.SERVICE_INTERFACE e exigem BIND_NFC_SERVICE (inclusive desligados); vazio quando o app nao tem nenhum
+
+outputs:
+  success:
+    description: Cada coletor devolve um conjunto vazio ou so com o seu sinal; o inventario devolve cada app com cardEmulationServices preenchido
+    status: Success
+    body[3]{name,type,value}:
+      sinais do coletor de S2,Set<Signal>,vazio ou {NFC_PERMISSION}; nunca outro sinal
+      sinais do coletor de S3,Set<Signal>,vazio ou {CARD_EMULATION_SERVICE}; nunca outro sinal
+      InstalledApp.cardEmulationServices,Set<String>,nomes de classe; vazio sem servico de HCE
+  errors[2]{code,status,when}:
+    SCHEMA_CHANGED,BuildFailure,o build regenera core-data/schemas com diff (passo Schema do Room commitado do CI)
+    LIBRARY_PERMISSION_ADDED,BuildFailure,o manifesto mesclado do core-detection passa a declarar permissao (LibraryManifestTest) ou o do app ganha permissao fora da lista (MergedManifestTest)
+
+business-rules[12]{id,rule}:
+  BR-001,S2 quando requestedPermissions contem android.permission.NFC; comparacao exata com maiusculas e minusculas
+  BR-002,Nao geram S2: android.permission.NFC_TRANSACTION_EVENT e android.permission.NFC_PREFERRED_PAYMENT_INFO (nao leem nem emulam cartao sem a NFC) e android.permission.BIND_NFC_SERVICE (nivel signature; o app a usa para proteger o servico)
+  BR-003,S3 quando InstalledApp.cardEmulationServices nao esta vazio; nao depende de S2
+  BR-004,Servico de HCE: responde a HostApduService.SERVICE_INTERFACE (android.nfc.cardemulation.action.HOST_APDU_SERVICE) numa consulta queryIntentServices e tem ServiceInfo.permission igual a android.permission.BIND_NFC_SERVICE; mesma descoberta do RegisteredServicesCache do AOSP e da secao 8
+  BR-005,Uma so consulta por varredura cruzada com os apps de usuario da lista; servicos de pacotes fora da lista (sistema e proprio app) sao ignorados; app instalado entre a lista e a consulta fica sem S3 nessa varredura
+  BR-006,Off-host (OffHostApduService) e NFC-F (HostNfcFService) nao contam: no off-host os comandos vao para o chip seguro e nao passam pelo app; NFC-F (FeliCa) nao e o padrao dos cartoes EMV no Brasil (ADR-018)
+  BR-007,Criterio mais largo que o do sistema de proposito: nao exige servico exportado nem meta-data nem a permissao NFC no pacote; falso positivo raro e melhor que deixar de avisar (ADR-018)
+  BR-008,Servicos de HCE desligados contam: componente desligado no manifesto ou em tempo de execucao e app inteiro desligado (MATCH_DISABLED_COMPONENTS na consulta)
+  BR-009,Dois coletores (um por sinal) no pacote core.detection.signal; cada um devolve o seu sinal ou nada; sem API do Android e sem PackageManager e sem dispatcher e sem anotacoes do Hilt
+  BR-010,InstalledApp ganha cardEmulationServices (obrigatorio e depois de services) com copia que nao pode ser alterada nem por cast; services fica igual; anInstalledApp ganha o parametro com padrao vazio
+  BR-011,Erros do sistema na consulta sao propagados e o cancelamento segue o da SPEC-011; sem permissao nova no core-detection nem no app; visibilidade igual a da lista (QUERY_ALL_PACKAGES no app; para o SDK o README cita o queries com a acao de HCE)
+  BR-012,Fora: S7 e pagamento padrao (SPEC-016); variantes do app isca (SPEC-020 e SPEC-021); Hilt e ScanDevice (SPEC-018); pesos e regra 4 (SPEC-017); conferencia em aparelho (SPEC-022); core-data e app_snapshot sem mudanca (S2 e S3 vao nos bits 1 e 2 de signals pela SPEC-018)
+
+assumptions[7]:
+  Decisoes do usuario em 2026-11-19 (tabela do plano)
+  MATCH_DISABLED_COMPONENTS vale para queryIntentServices no aparelho; o Robolectric o respeita mas a documentacao so o descreve para PackageInfo e ComponentInfo; conferir na SPEC-022
+  No Robolectric 4.18 o servico precisa ser registrado com addOrUpdateService e addIntentFilterForService para aparecer na consulta (experimento do plano nas APIs 26 e 28 e 30 e 33 e 36)
+  O lint acusa QueryPermissionsNeeded em queryIntentServices como em getInstalledPackages (experimento do plano)
+  Estimativa de 420 linhas (419 pelos arquivos do contrato) de codigo e testes sem os artefatos do SDD e sem a documentacao; abaixo de 500 e sem batches
+  Fontes: RegisteredServicesCache do AOSP (main) e documentacao de HostApduService e OffHostApduService e HostNfcFService e Manifest.permission e package-visibility
+  outputs.*.status e o resultado devolvido ou a falha do build (feature.interface library)

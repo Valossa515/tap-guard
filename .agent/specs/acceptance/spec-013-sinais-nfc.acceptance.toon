@@ -1,0 +1,29 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-013-sinais-nfc.acceptance.toon
+# SPEC-013 (issue #9) – coletores com JUnit 4 sem Robolectric; inventario com Robolectric nas APIs 26 e 28 e 30 e 33 e 36; modelo com JUnit 5 no core-domain
+
+acceptance:
+  feature-ref: FT-013
+  version: 1.0
+
+criteria[20]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Permissao de NFC gera S2,App com android.permission.NFC entre outras permissoes,collect(app) no coletor de S2,Devolve {NFC_PERMISSION},must-have,BR-001
+  AC-002,Sem permissao de NFC nao gera S2,App sem permissoes e app so com android.permission.RECEIVE_SMS,collect(app) no coletor de S2,Devolve conjunto vazio nos dois casos,must-have,BR-001
+  AC-003,Permissoes relacionadas nao geram S2,App so com android.permission.NFC_TRANSACTION_EVENT; app so com android.permission.NFC_PREFERRED_PAYMENT_INFO; app so com android.permission.BIND_NFC_SERVICE (lista literal no teste; um caso parametrizado por permissao),collect(app) no coletor de S2,Devolve conjunto vazio em cada caso,must-have,BR-002
+  AC-004,Comparacao exata no S2,App com ANDROID.PERMISSION.NFC e app com android.permission.nfc,collect(app) no coletor de S2,Devolve conjunto vazio nos dois casos,must-have,BR-001
+  AC-005,Servico de HCE gera S3,App com um servico de HCE no campo novo,collect(app) no coletor de S3,Devolve {CARD_EMULATION_SERVICE},must-have,BR-003
+  AC-006,Sem servico de HCE nao gera S3,App sem servicos e app com services contendo com.example.PaymentService mas o campo de HCE vazio,collect(app) no coletor de S3,Devolve conjunto vazio nos dois casos,must-have,BR-003
+  AC-007,S3 sem S2,App com servico de HCE e sem android.permission.NFC,collect(app) no coletor de S3,Devolve {CARD_EMULATION_SERVICE},must-have,BR-007
+  AC-008,Cada coletor so devolve o seu sinal,App com android.permission.NFC e servico de HCE e instalador nulo,collect(app) em cada coletor,O de S2 devolve exatamente {NFC_PERMISSION} e o de S3 exatamente {CARD_EMULATION_SERVICE},must-have,BR-009
+  AC-009,Inventario acha o HCE,App de usuario com servico que responde a HOST_APDU_SERVICE e exige BIND_NFC_SERVICE (APIs 26 e 28 e 30 e 33 e 36),installedApps(),O campo de HCE do app tem o nome de classe do servico; services continua com todos os servicos,must-have,BR-004
+  AC-010,Filtro sem permissao e permissao sem filtro ficam fora,Um servico com o filtro de HCE sem permissao e outro com BIND_NFC_SERVICE sem o filtro,installedApps(),Nenhum dos dois entra no campo de HCE; os dois continuam em services,must-have,BR-004
+  AC-011,Off-host e NFC-F ficam fora,Servico com a acao OFF_HOST_APDU_SERVICE e servico com a acao HOST_NFCF_SERVICE; os dois com BIND_NFC_SERVICE,installedApps(),Campo de HCE vazio,must-have,BR-006
+  AC-012,HCE desligado entra,Servico de HCE com enabled false; servico de HCE desligado por setComponentEnabledSetting; app inteiro desligado com servico de HCE,installedApps(),Os tres aparecem no campo de HCE do seu app,must-have,BR-008
+  AC-013,Criterio mais largo que o do sistema,Servico de HCE nao exportado e sem meta-data num app sem android.permission.NFC,installedApps(),O servico entra no campo de HCE,must-have,BR-007
+  AC-014,Pacotes nao se misturam,Dois apps de usuario (um com HCE e outro sem) e um app do sistema com HCE,installedApps(),So o app com HCE tem o campo preenchido; o outro tem conjunto vazio; o app do sistema nao aparece,must-have,BR-005
+  AC-015,Campo novo copiado e imutavel,InstalledApp criado com um MutableSet de servicos de HCE,Alterar o MutableSet depois e tentar alterar o campo por cast para MutableSet,O campo nao muda e a alteracao lanca UnsupportedOperationException; koverVerify do core-domain passa acima de 80%,must-have,BR-010
+  AC-016,Sem API do Android nos coletores,Codigo dos dois coletores,Inspecionar imports e o git diff,Nenhum import android.* nem chamada ao PackageManager; sem dispatcher; sem anotacoes do Hilt,must-have,BR-009
+  AC-017,Sem permissao nova e schema igual,Build da spec,./gradlew build e git status,LibraryManifestTest e MergedManifestTest passam (LIBRARY_PERMISSION_ADDED nao acontece); core-data/schemas sem diff (SCHEMA_CHANGED nao acontece),must-have,BR-011
+  AC-018,ktlint e detekt e lint e testes passam,Codigo da spec,./gradlew build,Termina com codigo 0 sem aviso novo do compilador nem do lint,must-have,BR-011
+  AC-019,Documentacao atualizada,PR da SPEC-013,Revisar core-detection/README.md e core-domain/README.md e docs/especificacao.md (secao 8) e SKILLS.md e project-reference.md e context.md e glossary.md e decisions.md,Coletores e criterio do HCE e campo novo e visibilidade para o SDK documentados; ADR-018 com off-host e NFC-F fora e o criterio mais largo de proposito,must-have,BR-012
+  AC-020,CI da PR verde,PR aberta para main,Jobs Regras do projeto e Build e testes executam,Os dois passam,should-have,

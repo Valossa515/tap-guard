@@ -1,0 +1,108 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-013-sinais-nfc.contract.toon
+# SPEC-013 (issue #9) – camadas = modelo e fixture do core-domain e inventario e coletores do core-detection e docs
+# Publicos novos: NfcPermissionCollector e CardEmulationServiceCollector (core.detection.signal); campo novo InstalledApp.cardEmulationServices
+# Sem @Suppress novo; um @SuppressLint novo (QueryPermissionsNeeded em queryIntentServicesCompat; ADR-018); sem import android.* nos coletores
+# Estimativa pelos arquivos: 419 linhas de codigo e testes (tabela no documento de arquitetura); um PR so
+
+contract:
+  feature-ref: FT-013
+  version: 1.0
+
+layers:
+  core-domain:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,modify,val cardEmulationServices: Set<String> depois de services no construtor privado e na fabrica invoke (obrigatorio e sem padrao); a fabrica copia com unmodifiableCopy(); KDoc da classe: nomes de classe dos servicos de HCE no proprio aparelho (acao HOST_APDU_SERVICE e permissao BIND_NFC_SERVICE) inclusive desligados; off-host e NFC-F fora; sem promessa de subconjunto de services
+      core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt,modify,anInstalledApp ganha cardEmulationServices: Set<String> = emptySet() depois de services e o repassa ao InstalledApp
+  core-detection-inventory:
+    files[2]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/PackageManagerVersionCompat.kt,modify,@SuppressLint("QueryPermissionsNeeded") internal fun PackageManager.queryIntentServicesCompat(intent: Intent; flags: Int): List<ResolveInfo> com ResolveInfoFlags.of(flags.toLong()) a partir da TIRAMISU e queryIntentServices(intent; flags) abaixo; KDoc com o motivo da supressao (visibilidade de pacotes; permissao no manifesto de quem usa a biblioteca; ADR-016 e ADR-018)
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventory.kt,modify,installedApps(): lista leve filtrada; depois val hce = cardEmulationServicesByPackage(); depois readApp(packageName; hce[packageName].orEmpty()) com ensureActive() antes de cada app; private fun cardEmulationServicesByPackage(): Map<String; Set<String>> = queryIntentServicesCompat(Intent(HostApduService.SERVICE_INTERFACE); PackageManager.MATCH_DISABLED_COMPONENTS) mapNotNull serviceInfo filtrado por permission == Manifest.permission.BIND_NFC_SERVICE e agrupado por packageName em Set de name; toInstalledApp recebe e repassa cardEmulationServices; erros da consulta propagados (sem try novo); KDoc da classe com as tres etapas e o criterio do HCE mais largo que o do sistema (ADR-018)
+  core-detection-signal:
+    files[2]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/NfcPermissionCollector.kt,create,class NfcPermissionCollector : SignalCollector; override suspend fun collect(app: InstalledApp): Set<Signal> = if (NFC_PERMISSION in app.requestedPermissions) DETECTED else emptySet(); companion privado: const val NFC_PERMISSION = "android.permission.NFC" e val DETECTED = setOf(Signal.NFC_PERMISSION); KDoc: comparacao exata; NFC_TRANSACTION_EVENT e NFC_PREFERRED_PAYMENT_INFO e BIND_NFC_SERVICE nao contam e por que; nao chama o PackageManager; sem import android.*; sem anotacoes do Hilt
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/CardEmulationServiceCollector.kt,create,class CardEmulationServiceCollector : SignalCollector; override suspend fun collect(app: InstalledApp): Set<Signal> = if (app.cardEmulationServices.isNotEmpty()) DETECTED else emptySet(); companion privado: val DETECTED = setOf(Signal.CARD_EMULATION_SERVICE); KDoc: o criterio vem do AppInventory (acao HOST_APDU_SERVICE e BIND_NFC_SERVICE inclusive desligados; off-host e NFC-F fora); mais largo que o do sistema de proposito; nao depende de S2; ADR-018; sem import android.*; sem anotacoes do Hilt
+  docs:
+    files[10]{path,action,description}:
+      core-detection/README.md,modify,estado (SPEC-013); coletores de S2 e S3 (o que gera cada sinal e o que nao conta); consulta de HCE no inventario (tres etapas); para o SDK sem QUERY_ALL_PACKAGES o queries com a acao android.nfc.cardemulation.action.HOST_APDU_SERVICE; API publica com as cinco classes; testes (Robolectric no inventario e JUnit 4 nos coletores)
+      core-domain/README.md,modify,InstalledApp.cardEmulationServices (o que entra e o que nao entra) e o parametro da anInstalledApp
+      docs/especificacao.md,modify,secao 8: linha Inventario com a consulta de HCE por varredura; linha S3 HCE com a permissao BIND_NFC_SERVICE e os desligados e off-host e NFC-F fora
+      .agent/glossary.md,modify,Servico de HCE com o criterio (acao HOST_APDU_SERVICE e BIND_NFC_SERVICE inclusive desligados) e cardEmulationServices
+      .agent/SKILLS.md,modify,Detection: API publica com NfcPermissionCollector e CardEmulationServiceCollector; inventario em tres etapas; Lint com o segundo @SuppressLint(QueryPermissionsNeeded) em queryIntentServicesCompat; Robolectric: servico que precisa aparecer em queryIntentServices entra com addOrUpdateService e addIntentFilterForService (nao no PackageInfo do installPackage); Signal collectors: S2 so android.permission.NFC e S3 pelo campo cardEmulationServices
+      .agent/project-reference.md,modify,InstalledApp com cardEmulationServices; NfcPermissionCollector e CardEmulationServiceCollector na tabela de classes do core-detection
+      .agent/context.md,modify,coletores de S2 e S3 criados na SPEC-013
+      .agent/decisions.md,modify,ADR-018: S2 so android.permission.NFC e por que as relacionadas nao contam; S3 por queryIntentServices com a acao de HCE e BIND_NFC_SERVICE (mesma descoberta do RegisteredServicesCache; opcoes A e A' e B' rejeitadas com custo); off-host e NFC-F fora (comandos no chip seguro; FeliCa nao e o padrao EMV no Brasil); criterio mais largo que o do sistema de proposito (sem exportacao nem meta-data nem NFC; falso positivo raro e melhor que deixar de avisar); desligados contam; dois coletores (comentario na #9); campo cardEmulationServices; segundo @SuppressLint; riscos (MATCH_DISABLED_COMPONENTS a conferir na SPEC-022; app instalado entre a lista e a consulta; mecanismo do Robolectric)
+      .agent/plans/spec-013-sinais-nfc.md,modify,marcar tarefas e registrar a conferencia
+      .agent/plans/spec-013-sinais-nfc-tests.md,create,plano de testes (papel tester)
+
+migrations[0]:
+
+dependencies:
+  uses[7]:
+    SignalCollector e Signal e InstalledApp e unmodifiableCopy (core-domain; SPEC-010)
+    PackageManagerAppInventory e PackageManagerVersionCompat.kt (core-detection; SPEC-011)
+    anInstalledApp em core-domain/src/testFixtures (SPEC-012)
+    PackageManagerAppInventoryTest com install e aService e aPackageInfo (SPEC-011)
+    android.nfc.cardemulation.HostApduService.SERVICE_INTERFACE e android.Manifest.permission.BIND_NFC_SERVICE (framework; API 19)
+    libs.junit4 e libs.robolectric e libs.androidx.test.core e libs.kotlinx.coroutines.test (testImplementation do core-detection)
+    JUnit 5 do core-domain (InstalledAppTest)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: InstalledApp (cardEmulationServices)
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledAppTest.kt
+      type: junit5
+      scenarios[3]:
+        fields-are-read-back-including-card-emulation-services
+        mutating-source-collections-does-not-change-the-model
+        exposed-collections-reject-mutation-through-cast
+    - target: NfcPermissionCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/NfcPermissionCollectorTest.kt
+      type: junit4
+      scenarios[5]:
+        nfc-permission-yields-s2
+        no-permissions-yields-nothing
+        unrelated-permission-yields-nothing
+        nfc-permission-in-other-case-yields-nothing
+        yields-only-s2-for-app-with-hce-and-null-installer
+    - target: NfcPermissionCollector (permissoes relacionadas)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/NfcPermissionCollectorRelatedPermissionTest.kt
+      type: junit4-parameterized
+      parameters: android.permission.NFC_TRANSACTION_EVENT; android.permission.NFC_PREFERRED_PAYMENT_INFO; android.permission.BIND_NFC_SERVICE (lista literal no teste; @Parameters(name = "{0}"))
+      scenarios[1]:
+        related-permission-yields-nothing
+    - target: CardEmulationServiceCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/CardEmulationServiceCollectorTest.kt
+      type: junit4
+      scenarios[5]:
+        hce-service-yields-s3
+        no-services-yields-nothing
+        ordinary-service-without-hce-yields-nothing
+        hce-without-nfc-permission-yields-s3
+        yields-only-s3-for-app-with-nfc-and-null-installer
+  integration-tests:
+    - target: PackageManagerAppInventory (servicos de HCE)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
+      type: robolectric
+      config: "@Config(sdk = [26, 28, 30, 33, 36]) da classe"
+      helpers: installService(service: ServiceInfo; action: String?) com shadow.addOrUpdateService e shadow.addIntentFilterForService depois de install(...); aService ganha permission: String? = null e exported: Boolean = true; KDoc do helper com o motivo (servico no PackageInfo do installPackage nao entra na resolucao de intents)
+      scenarios[8]:
+        fills-card-emulation-services-with-hce-service-and-keeps-it-in-services
+        skips-hce-filter-without-permission-and-permission-without-filter
+        skips-off-host-and-nfcf-services
+        includes-disabled-hce-services
+        includes-hce-service-of-disabled-app
+        includes-hce-service-not-exported-without-meta-data-in-app-without-nfc
+        keeps-hce-services-per-package-and-ignores-system-app
+        returns-empty-sets-without-permissions-or-services
+  verification[4]{criterion,how}:
+    AC-012,Local e desfeito sem commit: tirar MATCH_DISABLED_COMPONENTS da consulta derruba includes-disabled-hce-services e includes-hce-service-of-disabled-app
+    AC-010,Local e desfeito sem commit: tirar o filtro de BIND_NFC_SERVICE derruba skips-hce-filter-without-permission-and-permission-without-filter
+    AC-011,Local e desfeito sem commit: trocar a acao da consulta por OFF_HOST_APDU_SERVICE derruba fills-card-emulation-services-with-hce-service-and-keeps-it-in-services e skips-off-host-and-nfcf-services
+    AC-015 e AC-017 e AC-018 e AC-020,./gradlew build com codigo 0 sem aviso novo; koverVerify do core-domain acima de 80%; core-data/schemas sem diff; LibraryManifestTest e MergedManifestTest passam; CI da PR verde
+  excluded[4]{target,reason}:
+    MATCH_DISABLED_COMPONENTS no queryIntentServices em aparelho real,Robolectric respeita o flag mas a documentacao so o descreve para PackageInfo; conferencia na SPEC-022 com o app isca
+    Erro do sistema na consulta de HCE,O shadow nao simula a morte do servico de pacotes; a consulta nao tem try e o erro propaga como os demais da SPEC-011 (revisao)
+    App instalado entre a lista e a consulta,Corrida que o Robolectric nao reproduz de forma deterministica; efeito aceito (sem S3 nessa varredura) e documentado no ADR-018
+    Ausencia de import android.* e de anotacoes do Hilt nos coletores,Inspecao no review (AC-016)
