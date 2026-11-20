@@ -21,6 +21,7 @@ class InstalledAppTest {
                 requestedPermissions = setOf(NFC),
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
+                enabledAccessibilityServices = emptySet(),
             )
 
         assertEquals("com.example.app", app.packageName)
