@@ -1,0 +1,144 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-014-sinais-controle.contract.toon
+# SPEC-014 (issue #10) – camadas = modelo e fixture do core-domain e inventario e coletores do core-detection e docs
+# Publicos novos: OverlayPermissionCollector e SmsPermissionCollector e RecentInstallOrUpdateCollector e EnabledAccessibilityServiceCollector (core.detection.signal); campo novo InstalledApp.enabledAccessibilityServices
+# Um @Suppress novo: LongParameterList na fixture anInstalledApp (emenda 1.2; ADR-015 estendido pelo ADR-019); sem @SuppressLint novo; sem internal novo; sem import android.* nos coletores
+# Estimativa pelos arquivos: 624 linhas de codigo e testes (393 no BATCH-01 e 231 no BATCH-02; tabela no documento de arquitetura)
+# Cada linha diz o batch: BATCH-01 (S5 e S6 e S8) ou BATCH-02 (S4)
+# Emenda 1.2 (2026-11-20 aprovada pelo usuario): o detekt recusa a fixture anInstalledApp a partir de 6 parametros (LongParameterList; limite 6); ela recebe @Suppress("LongParameterList") com KDoc; a excecao do ADR-015 vale para fixtures que espelham a fabrica de uma data class (ADR-019 e SKILLS.md)
+
+contract:
+  feature-ref: FT-014
+  version: 1.2
+
+layers:
+  core-domain:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,modify,BATCH-02: val enabledAccessibilityServices: Set<String> depois de cardEmulationServices no construtor privado e na fabrica invoke (obrigatorio e sem padrao); a fabrica copia com unmodifiableCopy(); KDoc da classe: nomes de classe completos dos servicos de acessibilidade do app que o usuario ligou (Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) inclusive o que caiu; sem promessa de subconjunto de services
+      core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt,modify,BATCH-01: anInstalledApp ganha firstInstallTime: Instant = Instant.parse("2026-01-01T00:00:00Z") e lastUpdateTime: Instant = Instant.parse("2026-01-02T00:00:00Z") (os valores de hoje) e os repassa; @Suppress("LongParameterList") na fixture com KDoc (espelha a fabrica do InstalledApp com valores padrao e so existe no testFixtures; emenda 1.2); BATCH-02: ganha enabledAccessibilityServices: Set<String> = emptySet() depois de cardEmulationServices
+  core-detection-inventory:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventory.kt,modify,BATCH-02: private val contentResolver = context.contentResolver; installedApps() le val accessibility = enabledAccessibilityServicesByPackage() depois da consulta de HCE e antes do laco (dentro do withContext); readApp e toInstalledApp recebem e repassam o conjunto do pacote (orEmpty); private fun enabledAccessibilityServicesByPackage(): Map<String; Set<String>> = Settings.Secure.getString(contentResolver; Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty() split(':') filtra vazias mapNotNull ComponentName.unflattenFromString agrupa className por packageName em Set; sem try (SecurityException propaga); KDoc da classe com as quatro etapas e a chave nula (nenhum servico ligado; tambem o que o framework devolve quando o provedor falha; ADR-019)
+  core-detection-signal:
+    files[4]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/OverlayPermissionCollector.kt,create,BATCH-01: class OverlayPermissionCollector : SignalCollector; collect devolve DETECTED quando OVERLAY_PERMISSION in app.requestedPermissions e emptySet() senao; companion privado: const val OVERLAY_PERMISSION = "android.permission.SYSTEM_ALERT_WINDOW" e val DETECTED = setOf(Signal.OVERLAY_PERMISSION); KDoc: permissao declarada e nao concedida (secao 5: pede); comparacao exata; AppOpsManager fora; ADR-019; sem import android.*; sem Hilt
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/SmsPermissionCollector.kt,create,BATCH-01: class SmsPermissionCollector : SignalCollector; collect devolve DETECTED quando app.requestedPermissions tem READ_SMS ou RECEIVE_SMS e emptySet() senao; companion privado com as duas const val (android.permission.READ_SMS e android.permission.RECEIVE_SMS) e val DETECTED = setOf(Signal.SMS_PERMISSION); KDoc: comparacao exata; SEND_SMS e RECEIVE_MMS e RECEIVE_WAP_PUSH e READ_CELL_BROADCASTS e BROADCAST_SMS nao contam; ADR-019; sem import android.*; sem Hilt
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/RecentInstallOrUpdateCollector.kt,create,BATCH-01: class RecentInstallOrUpdateCollector(private val clock: Clock) : SignalCollector (parametro obrigatorio e sem padrao); collect: val latest = maxOf(app.firstInstallTime; app.lastUpdateTime); DETECTED quando !latest.isBefore(clock.instant().minus(WINDOW)) e emptySet() senao; companion privado: val WINDOW: Duration = Duration.ofDays(7) e val DETECTED = setOf(Signal.RECENTLY_INSTALLED_OR_UPDATED); KDoc: limite inclusivo; horario no futuro conta; relogio atrasado da S6 a todos e o S6 somado pode mudar o nivel (ADR-019); sem Instant.now; so java.time; sem Hilt
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/EnabledAccessibilityServiceCollector.kt,create,BATCH-02: class EnabledAccessibilityServiceCollector : SignalCollector; collect devolve DETECTED quando app.enabledAccessibilityServices.isNotEmpty() e emptySet() senao; companion privado: val DETECTED = setOf(Signal.ACCESSIBILITY_SERVICE_ENABLED); KDoc: o criterio vem do AppInventory (Settings.Secure; o que o usuario ligou inclusive o que caiu; servico so declarado nao conta; nao cruza com services); ADR-019; sem import android.*; sem Hilt
+  docs:
+    files[10]{path,action,description}:
+      core-detection/README.md,modify,BATCH-01: estado (SPEC-014 BATCH-01); coletores de S5 e S6 e S8 (o que gera cada sinal e o que nao conta; o Clock do S6 e a janela inclusiva); API publica; testes; BATCH-02: inventario em quatro etapas com a chave de acessibilidade (sem permissao e sem queries para o SDK); coletor de S4; API publica com as nove classes
+      core-domain/README.md,modify,BATCH-01: parametros firstInstallTime e lastUpdateTime da anInstalledApp; BATCH-02: InstalledApp.enabledAccessibilityServices (o que entra e o que nao entra) e o parametro da fixture
+      docs/especificacao.md,modify,BATCH-02: secao 8: linha Inventario com a leitura da chave de acessibilidade (quatro etapas); linha S4 acessibilidade com Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES no lugar do AccessibilityManager (separacao por ComponentName.unflattenFromString; agrupado por pacote; chave nula = nenhum ligado; ADR-019)
+      .agent/glossary.md,modify,BATCH-01: Janela de recencia (7 dias inclusivos pelo Clock; futuro conta); BATCH-02: Servico de acessibilidade ligado e enabledAccessibilityServices
+      .agent/SKILLS.md,modify,BATCH-01: Detection API publica com os tres coletores; Signal collectors S5 e S6 (Clock no construtor) e S8; BATCH-02: inventario em quatro etapas; Robolectric: Settings.Secure.putString e getString nas cinco APIs sem reflexao e o @Readable nao aplicado; S4 pelo campo enabledAccessibilityServices
+      .agent/project-reference.md,modify,BATCH-01: os tres coletores na tabela do core-detection; BATCH-02: InstalledApp com enabledAccessibilityServices e o coletor de S4
+      .agent/context.md,modify,BATCH-01: coletores de S5 e S6 e S8 criados na SPEC-014; BATCH-02: coletor de S4 e a leitura do Settings.Secure
+      .agent/decisions.md,modify,BATCH-01: ADR-019 com S5 declarada (AppOps fora); S8 so READ_SMS e RECEIVE_SMS; S6 janela de 7 dias inclusiva com Clock e futuro conta e a ressalva do relogio atrasado (S6 sozinho fica verde; somado muda o nivel em exemplos); S4 por Settings.Secure (motivos 1 e 3 do usuario e a correcao do motivo 2: as duas fontes engolem a falha do provedor); legibilidade da API 26 a 36 com fontes; opcao A; campo enabledAccessibilityServices; status com S4 no BATCH-02; BATCH-02: status implementado e a consequencia no Robolectric
+      .agent/plans/spec-014-sinais-controle.md,modify,BATCH-01 e BATCH-02: marcar tarefas e registrar a conferencia de cada batch
+      .agent/plans/spec-014-sinais-controle-tests.md,create,BATCH-01: plano de testes (papel tester) dos tres coletores; BATCH-02: secao do S4
+
+migrations[0]:
+
+dependencies:
+  uses[8]:
+    SignalCollector e Signal e InstalledApp e unmodifiableCopy (core-domain; SPEC-010)
+    PackageManagerAppInventory e cardEmulationServicesByPackage como modelo de agrupamento (core-detection; SPEC-011 e SPEC-013)
+    anInstalledApp em core-domain/src/testFixtures (SPEC-012)
+    PackageManagerAppInventoryTest com install e aPackageInfo e aService (SPEC-011 e SPEC-013)
+    android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES e android.content.ComponentName.unflattenFromString (framework; so no inventario)
+    java.time.Clock e Duration e Instant (JDK; API 26) no coletor de S6 e Clock.fixed e ZoneOffset.UTC nos testes
+    libs.junit4 e libs.robolectric e libs.androidx.test.core e libs.kotlinx.coroutines.test (testImplementation do core-detection)
+    JUnit 5 do core-domain (InstalledAppTest)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: OverlayPermissionCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/OverlayPermissionCollectorTest.kt
+      type: junit4
+      batch: BATCH-01
+      scenarios[5]:
+        overlay-permission-yields-s5
+        no-permissions-yields-nothing
+        unrelated-permission-yields-nothing
+        overlay-permission-in-other-case-yields-nothing
+        yields-only-s5-for-app-with-all-batch-signals
+    - target: SmsPermissionCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/SmsPermissionCollectorTest.kt
+      type: junit4
+      batch: BATCH-01
+      scenarios[7]:
+        read-sms-yields-s8
+        receive-sms-yields-s8
+        both-sms-permissions-yield-one-s8
+        no-permissions-yields-nothing
+        unrelated-permission-yields-nothing
+        sms-permission-in-other-case-yields-nothing
+        yields-only-s8-for-app-with-all-batch-signals
+    - target: SmsPermissionCollector (permissoes que nao contam)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/SmsPermissionCollectorUnrelatedPermissionTest.kt
+      type: junit4-parameterized
+      batch: BATCH-01
+      parameters: android.permission.SEND_SMS; android.permission.RECEIVE_MMS; android.permission.RECEIVE_WAP_PUSH; android.permission.READ_CELL_BROADCASTS; android.permission.BROADCAST_SMS (lista literal no teste; @Parameters(name = "{0}"))
+      scenarios[1]:
+        unrelated-sms-permission-yields-nothing
+    - target: RecentInstallOrUpdateCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/RecentInstallOrUpdateCollectorTest.kt
+      type: junit4
+      batch: BATCH-01
+      clock: Clock.fixed(NOW; ZoneOffset.UTC) com NOW constante no companion do teste
+      scenarios[9]:
+        install-one-day-ago-yields-s6
+        install-and-update-thirty-days-ago-yield-nothing
+        old-install-with-update-two-days-ago-yields-s6
+        latest-exactly-seven-days-ago-yields-s6
+        latest-seven-days-and-one-milli-ago-yields-nothing
+        install-and-update-in-the-future-yield-s6
+        old-install-with-update-in-the-future-yields-s6
+        same-app-against-two-clocks
+        yields-only-s6-for-app-with-all-batch-signals
+    - target: EnabledAccessibilityServiceCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/EnabledAccessibilityServiceCollectorTest.kt
+      type: junit4
+      batch: BATCH-02
+      scenarios[4]:
+        enabled-service-yields-s4
+        no-enabled-service-yields-nothing
+        declared-but-not-enabled-service-yields-nothing
+        yields-only-s4-for-app-with-all-spec-signals
+    - target: InstalledApp (enabledAccessibilityServices)
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledAppTest.kt
+      type: junit5
+      batch: BATCH-02
+      scenarios[3]:
+        fields-are-read-back-including-enabled-accessibility-services
+        mutating-source-collections-does-not-change-the-model
+        exposed-collections-reject-mutation-through-cast
+  integration-tests:
+    - target: PackageManagerAppInventory (servicos de acessibilidade ligados)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
+      type: robolectric
+      batch: BATCH-02
+      config: "@Config(sdk = [26, 28, 30, 33, 36]) da classe"
+      helpers: enableAccessibilityServices(value: String?) com Settings.Secure.putString(context.contentResolver; ENABLED_ACCESSIBILITY_SERVICES; value); KDoc: no Robolectric 4.18 putString basta nas cinco APIs; a chave volta a null em cada teste; o Robolectric nao aplica o @Readable
+      scenarios[5]:
+        fills-enabled-accessibility-services-from-full-and-short-forms-and-keeps-services
+        null-or-empty-key-leaves-every-app-without-enabled-services
+        ignores-malformed-entries-and-keeps-the-valid-one
+        keeps-enabled-services-per-package-and-ignores-system-own-and-missing-packages
+        returns-empty-sets-without-permissions-or-services
+  verification[7]{criterion,how}:
+    AC-010,BATCH-01 local e desfeito sem commit: trocar !isBefore por isAfter derruba latest-exactly-seven-days-ago-yields-s6
+    AC-009,BATCH-01 local e desfeito sem commit: ler so firstInstallTime derruba old-install-with-update-two-days-ago-yields-s6
+    AC-006,BATCH-01 local e desfeito sem commit: por SEND_SMS na lista do coletor derruba o caso parametrizado de SEND_SMS
+    AC-017,BATCH-02 local e desfeito sem commit: trocar mapNotNull por map com !! derruba ignores-malformed-entries-and-keeps-the-valid-one
+    AC-018,BATCH-02 local e desfeito sem commit: dar a cada app os servicos de todos os pacotes (sem agrupar) derruba keeps-enabled-services-per-package-and-ignores-system-own-and-missing-packages
+    AC-015,BATCH-02 local e desfeito sem commit: trocar a chave lida por Settings.Secure.ACCESSIBILITY_ENABLED derruba fills-enabled-accessibility-services-from-full-and-short-forms-and-keeps-services
+    AC-019 e AC-021 e AC-022 e AC-024,Cada batch: ./gradlew build com codigo 0 sem aviso novo; koverVerify do core-domain acima de 80%; core-data/schemas sem diff; LibraryManifestTest e MergedManifestTest passam; CI da PR verde
+  excluded[5]{target,reason}:
+    Falha do provedor de configuracoes,O shadow nao a simula; o framework pega a RemoteException e devolve null; efeito documentado no ADR-019
+    Leitura recusada pelo @Readable,O Robolectric nao aplica o @Readable; legibilidade conferida nas fontes do AOSP da API 26 a 36; conferencia em aparelho na SPEC-022
+    SecurityException propagada pelo inventario,Sem como provocar no Robolectric; a leitura nao tem try (revisao)
+    Ausencia de import android.* e de Instant.now e de anotacoes do Hilt nos coletores,Inspecao no review (AC-012 e AC-020)
+    Relogio do aparelho em aparelho real,O coletor so ve o Clock; o comportamento com relogio atrasado e o do teste de horario no futuro

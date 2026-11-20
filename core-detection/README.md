@@ -2,9 +2,9 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `AccessibilityManager`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-013):** inventário de apps com os serviços de HCE (`PackageManagerAppInventory`, SPEC-011 e SPEC-013), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012) e coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013). Os demais coletores entram da SPEC-014 à SPEC-016, e o `ScanDevice` e a ligação no Hilt, na SPEC-018.
+> **Estado (SPEC-014, BATCH-01):** inventário de apps com os serviços de HCE (`PackageManagerAppInventory`, SPEC-011 e SPEC-013), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) e coletores dos sinais S5, S6 e S8 (`OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014). O S4 entra no BATCH-02 da SPEC-014, os demais coletores na SPEC-015 e na SPEC-016, e o `ScanDevice` e a ligação no Hilt, na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector` e `CardEmulationServiceCollector`. O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector` e `RecentInstallOrUpdateCollector`. O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
@@ -85,6 +85,17 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 - **S3** (`CARD_EMULATION_SERVICE`): `cardEmulationServices` não está vazio. O critério é o do inventário (acima). Não depende do S2: um serviço de HCE num app sem a permissão `NFC` gera S3.
 - Motivos e limitações no ADR-018.
 
+## Coletores dos sinais S5, S6 e S8 (controle)
+
+`OverlayPermissionCollector()`, `SmsPermissionCollector()` e `RecentInstallOrUpdateCollector(clock)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementam `SignalCollector`. Não usam API do Android e não chamam o `PackageManager`: leem o que o inventário já trouxe. Cada um devolve o seu sinal ou um conjunto vazio, nunca outro sinal.
+
+- **S5** (`OVERLAY_PERMISSION`): `requestedPermissions` contém `android.permission.SYSTEM_ALERT_WINDOW`, com comparação exata. Vale a permissão declarada, não a concedida (a seção 5 diz "pede"); o `AppOpsManager` não é lido.
+- **S8** (`SMS_PERMISSION`): `requestedPermissions` contém `android.permission.READ_SMS` ou `android.permission.RECEIVE_SMS`, com comparação exata; as duas juntas geram um só S8. Não contam `SEND_SMS`, `RECEIVE_MMS`, `RECEIVE_WAP_PUSH`, `READ_CELL_BROADCASTS` e `BROADCAST_SMS`.
+- **S6** (`RECENTLY_INSTALLED_OR_UPDATED`): o mais recente entre `firstInstallTime` e `lastUpdateTime` não é anterior ao agora menos 7 dias (168 horas corridas, sem fuso).
+  - O agora vem só do `java.time.Clock` recebido no construtor, obrigatório. Quem usa a biblioteca passa `Clock.systemUTC()`; a SPEC-018 o liga pelo Hilt.
+  - O limite é inclusivo, e um horário no futuro conta. Com o relógio do aparelho atrasado, todos os apps ganham S6. Sozinho ele vale 10 e o app fica verde, mas somado a outros sinais pode mudar o nível.
+- Motivos, exemplos e limitações no ADR-019.
+
 ## Dependências
 
 - **Módulos:** `core-domain` como `api`, porque `AppInventory` e `InstalledApp` aparecem na API pública.
@@ -111,6 +122,11 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - `NfcPermissionCollectorTest`: permissão de NFC, sem permissões, permissão sem relação, maiúsculas e minúsculas, só S2;
   - `NfcPermissionCollectorRelatedPermissionTest`: as três permissões relacionadas, parametrizado sobre uma lista escrita à mão;
   - `CardEmulationServiceCollectorTest`: serviço de HCE, sem serviços, serviço comum, HCE sem NFC, só S3.
+- Coletores de S5, S6 e S8, também em JUnit 4 sem Robolectric:
+  - `OverlayPermissionCollectorTest`: permissão de sobreposição, sem permissões, permissão sem relação, maiúsculas e minúsculas, só S5;
+  - `SmsPermissionCollectorTest`: `READ_SMS`, `RECEIVE_SMS`, as duas, sem permissões, permissão sem relação, maiúsculas e minúsculas, só S8;
+  - `SmsPermissionCollectorUnrelatedPermissionTest`: as cinco permissões de SMS que não contam, parametrizado sobre uma lista escrita à mão;
+  - `RecentInstallOrUpdateCollectorTest`, com `Clock.fixed`: instalação recente, as duas datas antigas, só a atualização recente, exatamente 7 dias, 7 dias e 1 ms, futuro na instalação e só na atualização, o mesmo app contra dois relógios, só S6.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

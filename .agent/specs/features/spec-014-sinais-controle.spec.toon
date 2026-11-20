@@ -1,0 +1,70 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-014-sinais-controle.spec.toon
+# SPEC-014 (issue #10) – interface library: outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build
+# Decisoes do usuario em 2026-11-20 (tabela do plano); primeira spec com batches (um PR por batch; so o do BATCH-02 leva Closes #10)
+# Emenda 1.1 (2026-11-20 revisao do architect): estimate-lines 625 pelos arquivos do contrato (393 no BATCH-01 e 231 no BATCH-02)
+
+feature:
+  id: FT-014
+  name: SPEC-014 Sinais de controle (S4 e S5 e S6 e S8)
+  version: 1.1
+  status: draft
+  interface: library
+  estimate-lines: 625
+
+requirement:
+  summary: Quatro coletores no core-detection; um por sinal. O de S5 devolve OVERLAY_PERMISSION quando requestedPermissions contem android.permission.SYSTEM_ALERT_WINDOW. O de S8 devolve SMS_PERMISSION com android.permission.READ_SMS ou android.permission.RECEIVE_SMS. O de S6 devolve RECENTLY_INSTALLED_OR_UPDATED quando a instalacao ou a atualizacao mais recente cai nos ultimos 7 dias pelo Clock injetado. O de S4 devolve ACCESSIBILITY_SERVICE_ENABLED quando o campo novo InstalledApp.enabledAccessibilityServices nao esta vazio; o AppInventory o preenche lendo Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES uma vez por varredura. Os coletores nao chamam o Android.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: SignalCollector.collect(app) e AppInventory.installedApps()
+
+inputs[5]{name,type,required,constraints}:
+  app,InstalledApp,true,o coletor de S5 e o de S8 so leem requestedPermissions; o de S6 so le firstInstallTime e lastUpdateTime; o de S4 so le enabledAccessibilityServices
+  requestedPermissions,Set<String>,true,permissoes pedidas pelo app como o inventario devolve (SPEC-011)
+  firstInstallTime e lastUpdateTime,Instant,true,datas do PackageInfo como o inventario devolve (SPEC-011); podem estar no futuro se o relogio do aparelho mudou
+  clock,java.time.Clock,true,parametro obrigatorio do construtor do coletor de S6 sem valor padrao; fonte unica de agora
+  enabledAccessibilityServices,Set<String>,true,campo novo do InstalledApp com os nomes de classe dos servicos de acessibilidade do app listados em Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES; vazio quando nenhum esta ligado
+
+outputs:
+  success:
+    description: Cada coletor devolve um conjunto vazio ou so com o seu sinal; o inventario devolve cada app com enabledAccessibilityServices preenchido
+    status: Success
+    body[5]{name,type,value}:
+      sinais do coletor de S5,Set<Signal>,vazio ou {OVERLAY_PERMISSION}; nunca outro sinal
+      sinais do coletor de S8,Set<Signal>,vazio ou {SMS_PERMISSION}; nunca outro sinal
+      sinais do coletor de S6,Set<Signal>,vazio ou {RECENTLY_INSTALLED_OR_UPDATED}; nunca outro sinal
+      sinais do coletor de S4,Set<Signal>,vazio ou {ACCESSIBILITY_SERVICE_ENABLED}; nunca outro sinal
+      InstalledApp.enabledAccessibilityServices,Set<String>,nomes de classe completos; vazio sem servico ligado ou com a chave nula ou vazia
+  errors[3]{code,status,when}:
+    ACCESSIBILITY_SETTING_NOT_READABLE,SecurityException,Settings.Secure recusa a leitura (a chave deixaria de ser @Readable); installedApps() propaga a excecao sem try
+    SCHEMA_CHANGED,BuildFailure,o build regenera core-data/schemas com diff (passo Schema do Room commitado do CI)
+    LIBRARY_PERMISSION_ADDED,BuildFailure,o manifesto mesclado do core-detection passa a declarar permissao (LibraryManifestTest) ou o do app ganha permissao fora da lista (MergedManifestTest)
+
+business-rules[14]{id,rule}:
+  BR-001,S5 quando requestedPermissions contem android.permission.SYSTEM_ALERT_WINDOW; comparacao exata com maiusculas e minusculas; vale a permissao declarada e nao a concedida (a secao 5 diz pede); AppOpsManager fora
+  BR-002,S8 quando requestedPermissions contem android.permission.READ_SMS ou android.permission.RECEIVE_SMS; comparacao exata; as duas juntas geram um so S8
+  BR-003,Nao geram S8: android.permission.SEND_SMS e android.permission.RECEIVE_MMS e android.permission.RECEIVE_WAP_PUSH e android.permission.READ_CELL_BROADCASTS e android.permission.BROADCAST_SMS
+  BR-004,S6 quando o mais recente entre firstInstallTime e lastUpdateTime nao e anterior a agora menos 7 dias (Duration.ofDays(7); 168 horas corridas sem fuso); o limite e inclusivo
+  BR-005,Horario no futuro conta como S6; com o relogio do aparelho atrasado todos os apps ganham S6; o S6 sozinho (10) fica verde mas somado a outros sinais pode mudar o nivel (ADR-019)
+  BR-006,O coletor de S6 le agora so do Clock recebido no construtor (obrigatorio e sem padrao); sem Instant.now nem System.currentTimeMillis no codigo testado
+  BR-007,S4 quando InstalledApp.enabledAccessibilityServices nao esta vazio
+  BR-008,Fonte do S4: Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES lida pelo inventario uma vez por varredura; e o que o usuario ligou inclusive servico que caiu ou ainda esta conectando; legivel sem permissao da API 26 a 36 (@Readable sem maxTargetSdk a partir da 31); texto global sem filtro de pacotes; substitui o AccessibilityManager citado na secao 8
+  BR-009,Separacao: o texto e dividido por dois-pontos; entradas vazias sao puladas; cada entrada passa por ComponentName.unflattenFromString (formato completo e curto pkg/.Cls); as que voltam nulas sao ignoradas sem derrubar a varredura; os nomes de classe sao agrupados por pacote
+  BR-010,Pacotes fora da lista de apps de usuario sao ignorados (sistema e proprio app e nao instalado e pacote vazio); a chave nula ou vazia significa nenhum servico ligado e todos os apps ficam com o campo vazio sem erro
+  BR-011,O servico ligado conta mesmo que a classe nao esteja em services (criterio mais largo como no ADR-018); enabledAccessibilityServices nao e validado como parte de services
+  BR-012,Erros: a SecurityException do Settings e propagada sem try; a falha do provedor de configuracoes chega como chave nula (o framework pega a RemoteException) e nao se distingue de nenhum servico ligado (ADR-019); o cancelamento segue o da SPEC-011
+  BR-013,InstalledApp ganha enabledAccessibilityServices (obrigatorio e depois de cardEmulationServices) com copia que nao pode ser alterada nem por cast; anInstalledApp ganha firstInstallTime e lastUpdateTime (BATCH-01) e enabledAccessibilityServices com padrao vazio (BATCH-02); quatro coletores no pacote core.detection.signal sem API do Android e sem PackageManager e sem dispatcher e sem anotacoes do Hilt
+  BR-014,Fora: pesos e regras de ajuste (SPEC-017); Hilt e o Clock do grafo e ScanDevice (SPEC-018); variante full do app isca (Etapa 2); conferencia em aparelho (SPEC-022); concessao da sobreposicao; core-data e app_snapshot sem mudanca (S4 e S5 e S6 e S8 vao nos bits 3 e 4 e 5 e 7 de signals pela SPEC-018)
+
+assumptions[8]:
+  Decisoes do usuario em 2026-11-20 (tabela do plano)
+  Legibilidade da chave conferida nas fontes do AOSP: SettingsProvider de android-8.0.0_r1 e 9.0.0_r1 e 10.0.0_r1 e 11.0.0_r1 (so instant apps sao barrados) e Settings.java de android-12.0.0_r1 a 16.0.0_r1 e main (@Readable sem maxTargetSdk); conferencia em aparelho na SPEC-022
+  Settings.NameValueCache devolve null quando o provedor falha (RemoteException) em android-8.0.0_r1 e 16.0.0_r1 e main; o motivo 2 do usuario para trocar a fonte foi corrigido no plano
+  No Robolectric 4.18 Settings.Secure.putString e getString funcionam nas APIs 26 e 28 e 30 e 33 e 36; a chave volta a null no comeco de cada teste; o Robolectric nao aplica o @Readable (experimento do plano)
+  unflattenFromString devolve pacote vazio para /OnlyClass em vez de null; essa entrada fica fora pelo cruzamento com a lista de apps (experimento do plano)
+  O sistema separa a chave do mesmo jeito (AccessibilityManagerService.readColonDelimitedStringToSet pula vazias e nulas) e grava no formato curto (flattenToShortString)
+  Estimativa de 625 linhas (624 pelos arquivos do contrato; 600 no plano antes da revisao) de codigo e testes sem os artefatos do SDD e sem a documentacao; acima de 500 e por isso dois batches
+  outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build (feature.interface library)
+
+batches[2]{id,scope,estimate}:
+  BATCH-01,Coletores de S5 e S6 e S8 com os parametros novos da fixture e testes; documentacao deles e ADR-019; Refs #10,395 lines
+  BATCH-02,S4: campo enabledAccessibilityServices e leitura do Settings.Secure no inventario e coletor e testes; secao 8 e documentacao; Closes #10,230 lines
