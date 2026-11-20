@@ -12,7 +12,7 @@
 - **Chaves de preferência:** camelCase (`onboardingDone`, `monitoringEnabled`, `scanIntervalHours`, `lastDefaultPaymentComponent`).
 - **Módulos Gradle:** kebab-case com prefixo `core-` (`core-domain`, `core-detection`, `core-nfc`, `core-data`), mais `app` e `decoy-app`.
 - **IDs de rastreio:** requisitos `RF-xxx` e `RNF-xx`; sinais `S1`–`S9`; telas `T1`–`T9`; specs `SPEC-0xx`.
-- **Branches e PRs:** uma branch e um PR por spec, com o ID da spec no título. Formato do nome da branch: `spec-NNN-descricao-curta` (ex.: `spec-001-estrutura`).
+- **Branches e PRs:** uma branch e um PR por spec, com o ID da spec no título. Quando a spec tiver batches (acima de 500 linhas de código e testes), um PR por batch, com o ID da spec e o `BATCH-NN` no título; só o PR do último batch leva `Closes #N`. Formato do nome da branch: `spec-NNN-descricao-curta` (ex.: `spec-001-estrutura`).
 
 ## Folder / Package Structure
 Pacotes por assunto dentro de cada módulo. `core-domain` (SPEC-010): `inventory`, `signal`, `risk`, `scan`, `card`, mais utilitários `internal` na raiz `core.domain`. `core-data` (SPEC-004): `database`, `database.entity`, `database.dao`, `settings`, `di`.

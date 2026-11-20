@@ -18,11 +18,11 @@ Obrigado pelo interesse no Tap Guard. Este guia explica como o trabalho é organ
 ## Fluxo de trabalho
 
 1. Crie uma branch a partir de `main` com o nome `spec-NNN-descricao-curta`, por exemplo `spec-011-inventario-de-apps`.
-2. Implemente a spec inteira: código, testes e documentação do módulo.
-3. Abra um pull request com o ID da spec no título e `Closes #N` na descrição.
+2. Implemente a spec inteira, ou o batch da vez quando a spec tiver batches: código, testes e documentação do módulo.
+3. Abra um pull request com o ID da spec no título e `Closes #N` na descrição (quando a spec tiver batches, só no PR do último batch; os outros levam `Refs #N`).
 4. Espere o CI passar e a revisão.
 
-Um pull request por spec. Mudanças que não pertencem à spec vão em outro pull request.
+Uma branch e um PR por spec. Quando a spec tiver batches (acima de 500 linhas de código e testes), um PR por batch, com o ID da spec e o `BATCH-NN` no título; só o PR do último batch leva `Closes #N`. Mudanças que não pertencem à spec vão em outro pull request.
 
 ## Regras que não têm exceção
 
@@ -71,7 +71,7 @@ Você não precisa instalar nada: a pasta `.agent/` já está versionada.
 4. **Implemente** com `@implementation`, um commit por tarefa do plano.
 5. **Teste** com `@test-plan` e `@test`, quando a spec tiver comportamento para testar.
 6. **Revise** com `@review` antes de abrir o pull request.
-7. **Abra o pull request** seguindo o template, com `Closes #N`.
+7. **Abra o pull request** seguindo o template, com `Closes #N` (quando a spec tiver batches, só no PR do último batch; os outros levam `Refs #N`).
 
 Em specs só de estrutura, como a SPEC-001, o builder também escreve os testes de fumaça e a etapa do architect pode ser pulada, porque não há contrato de API.
 
