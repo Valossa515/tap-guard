@@ -141,7 +141,6 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 > Reading, dispatcher and version-branch rules: `skills/android/SKILL.md` › Reading installed packages and Dispatchers in adapters. Only what is specific to this project is listed here.
 - **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory`. No Hilt annotations: binding in SPEC-018.
 - **Public API of `core-detection`:** `PackageManagerAppInventory`, `InstallSourceCollector` and `TrustedStores` (SPEC-012). Everything else is `internal` or `private`.
-- **Installer:** `getInstallSourceInfo().installingPackageName` on API 30+, `getInstallerPackageName` below.
 - **Version branches:** `PackageManagerVersionCompat.kt`, tested with `@Config(sdk = [26, 28, 30, 33, 36])` (`skills/android/testing.md` › Adapter Tests — Robolectric).
 - **Lint:** besides `tools:ignore="QueryAllPackagesPermission"` (skill › Permissions and Manifest), `@SuppressLint("QueryPermissionsNeeded")` on `installedPackagesCompat`, with a comment (ADR-016).
 - **`api`:** `core-detection` exposes `core-domain` and `kotlinx-coroutines-core` as `api` (skill › `api` or `implementation` in library modules).
@@ -196,7 +195,7 @@ Enforced by `app/src/test/.../MergedManifestTest.kt`: it reads the merged manife
 - Every user-visible string in Brazilian Portuguese in resource files; no technical terms (HCE, APDU) in the UI; use the exact texts fixed in the spec (see backlog_rules.md).
 - Score weights live in a single configuration file.
 - Tests never use real malware or real card data (synthetic TLV vectors only).
-- One branch and one PR per spec, with the spec ID in the title; ktlint, detekt and the test suite must pass.
+- One branch and one PR per spec, with the spec ID in the title. When the spec has batches (above 500 lines of code and tests), one PR per batch, with the spec ID and the `BATCH-NN` in the title; only the last batch's PR carries `Closes #N`. ktlint, detekt and the test suite must pass.
 - The shared `api-design` and `error-handling` skills (HTTP / RFC 7807) do not apply: there is no backend.
 
 ## How to use

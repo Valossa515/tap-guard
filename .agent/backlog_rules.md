@@ -95,7 +95,7 @@
 ## Definition of Done
 - Entrega código, testes e atualização da documentação do módulo.
 - Passa em ktlint, detekt e na suíte de testes.
-- Uma branch e um PR por spec, com o ID no título; o PR fecha a issue.
+- Uma branch e um PR por spec, com o ID da spec no título. Quando a spec tiver batches (acima de 500 linhas de código e testes), um PR por batch, com o ID da spec e o `BATCH-NN` no título; só o PR do último batch leva `Closes #N`.
 - Nada de lógica de score fora do `core-domain`; nada de API do Android dentro do `core-domain`.
 - Manifesto final sem `INTERNET`; nenhum dado de cartão persistido ou logado.
 - Demais itens: ver [skills/shared/dod/SKILL.md](skills/shared/dod/SKILL.md).
