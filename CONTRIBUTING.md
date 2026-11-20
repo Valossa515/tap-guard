@@ -142,8 +142,12 @@ No PowerShell, na raiz do repositório:
 
 A reinstalação substitui as skills, os scripts e os agentes, e preserva os Project Overrides do `SKILLS.md`, os documentos de contexto, os planos e as specs. Confira o `git status` antes do commit. Só podem mudar:
 
-- arquivos em `.agent/skills/`, `.agent/scripts/` e `.agent/agents/`;
+- arquivos em `.agent/skills/`, `.agent/agents/`, `.agent/prompts/`, `.agent/scripts/` e `.agent/templates/`;
+- os schemas em `.agent/specs/*.md` e os exemplos em `.agent/specs/examples/`;
+- os agentes do Copilot em `.github/agents/`;
 - a linha `sdd-version` do `.agent/SKILLS.md`.
+
+As specs do projeto (`.agent/specs/features/`, `acceptance/` e `contracts/`), os planos, os documentos de contexto e os Project Overrides não podem mudar.
 
 Se mudar qualquer outra coisa, pare e investigue antes de commitar. Depois rode `bash .agent/scripts/validate-spec.sh .agent/specs`. Como o PR não muda código, o CI pula o build.
 
