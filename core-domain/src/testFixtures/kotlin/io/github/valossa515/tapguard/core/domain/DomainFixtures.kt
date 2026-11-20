@@ -7,9 +7,10 @@ import io.github.valossa515.tapguard.core.domain.signal.Signal
 import java.time.Instant
 
 /**
- * Espelha a fábrica do [InstalledApp], com valores padrão, e só existe no `testFixtures`. Por isso o
- * `@Suppress("LongParameterList")`: é a exceção do ADR-015 estendida pelo ADR-019 a fixtures que
- * espelham a fábrica de uma data class, e não vale para outras funções de teste.
+ * Repassa à fábrica do [InstalledApp], uma data class, com valores padrão, e só existe no
+ * `testFixtures`. Por isso o `@Suppress("LongParameterList")`: é a exceção do ADR-015 estendida pelo
+ * ADR-019 a fixtures que repassam à fábrica de uma data class, com valores padrão, e não vale para
+ * outras funções de teste.
  */
 @Suppress("LongParameterList")
 fun anInstalledApp(
