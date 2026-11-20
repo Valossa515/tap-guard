@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; demais, SPEC-013 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; demais, SPEC-014 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -84,7 +84,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 
 | Tipo | Pacote | Forma |
 |------|--------|-------|
-| `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe). Sem campo de app do sistema |
+| `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe), `cardEmulationServices: Set<String>` (nomes de classe dos serviços de HCE, SPEC-013). Sem campo de app do sistema |
 | `Signal` | `signal` | Enum com `bit`: `UNTRUSTED_INSTALL_SOURCE` (S1, bit 0), `NFC_PERMISSION` (S2), `CARD_EMULATION_SERVICE` (S3), `ACCESSIBILITY_SERVICE_ENABLED` (S4), `OVERLAY_PERMISSION` (S5), `RECENTLY_INSTALLED_OR_UPDATED` (S6), `UNKNOWN_DEFAULT_PAYMENT_APP` (S7), `SMS_PERMISSION` (S8), `BANK_LOOKALIKE` (S9, bit 8). Sem peso |
 | `toBitMask()` / `signalsFromBitMask()` | `signal` (`SignalBitMask.kt`) | Conjunto ↔ máscara de `app_snapshot.signals`; máscara negativa ou com bit acima do 8 lança `IllegalArgumentException` |
 | `RiskLevel` | `risk` | `GREEN`, `YELLOW`, `RED`, em ordem crescente de gravidade; sem conversão de score (SPEC-017) |
@@ -97,16 +97,18 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `LastFourDigits` | `card` | Value class: exatamente quatro dígitos ASCII; `toString()` mascarado |
 | `CardReadResult` | `card` | `Success(applicationLabel, lastFourDigits: LastFourDigits, expiry: YearMonth)` com `toString()` mascarado, `UnsupportedCard`, `ReadInterrupted`. Sem campo para o número completo |
 
-### Detecção (SPEC-011 e SPEC-012)
+### Detecção (SPEC-011 a SPEC-013)
 
 | Classe / arquivo | Pacote | Responsibility |
 |------------------|--------|----------------|
-| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em duas etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Guarda só o `PackageManager` e o nome do próprio pacote |
-| `PackageManagerVersionCompat.kt` | `core.detection` | Funções `internal` com os ramos por versão: lista e detalhe com `PackageInfoFlags` (API 33+), instalador por `getInstallSourceInfo().installingPackageName` (API 30+), código de versão longo (API 28+). Único arquivo de produção com `@Suppress("DEPRECATION")` (ADR-016) |
+| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em três etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote), uma consulta de serviços de HCE por varredura (ação `HOST_APDU_SERVICE` com `MATCH_DISABLED_COMPONENTS`, só os que exigem `BIND_NFC_SERVICE`; ADR-018) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Guarda só o `PackageManager` e o nome do próprio pacote |
+| `PackageManagerVersionCompat.kt` | `core.detection` | Funções `internal` com os ramos por versão: lista e detalhe com `PackageInfoFlags` e consulta de serviços com `ResolveInfoFlags` (API 33+), instalador por `getInstallSourceInfo().installingPackageName` (API 30+), código de versão longo (API 28+). Único arquivo de produção com `@Suppress("DEPRECATION")` (ADR-016) |
 | `InstallSourceCollector(trustedInstallers)` | `core.detection.signal` | Sinal S1: `UNTRUSTED_INSTALL_SOURCE` quando o instalador é nulo ou está fora do conjunto (comparação exata). Parâmetro obrigatório, copiado na construção. Sem API do Android: o instalador vem do inventário (ADR-017) |
 | `TrustedStores.packageNames` | `core.detection.signal` | Lista padrão de lojas confiáveis, 11 pacotes, que não pode ser alterada: Google Play, Galaxy Store, Xiaomi GetApps (`com.xiaomi.mipicks`, `com.xiaomi.market`), OPPO App Market (`com.heytap.market`, `com.oppo.market`), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Quem usa o SDK amplia ou reduz com `+` e `-` |
+| `NfcPermissionCollector()` | `core.detection.signal` | Sinal S2: `NFC_PERMISSION` quando `requestedPermissions` contém `android.permission.NFC` (comparação exata). As permissões relacionadas não contam. Sem API do Android (ADR-018) |
+| `CardEmulationServiceCollector()` | `core.detection.signal` | Sinal S3: `CARD_EMULATION_SERVICE` quando `cardEmulationServices` não está vazio. Não depende do S2. Sem API do Android (ADR-018) |
 
-API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector` e `TrustedStores`.
+API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector` e `CardEmulationServiceCollector`.
 
 ### App (SPEC-003)
 

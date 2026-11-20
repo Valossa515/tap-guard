@@ -2,7 +2,7 @@
 
 Domínio do Tap Guard em Kotlin puro: modelos (app, sinal, score, nível), motor de score e interfaces dos coletores (`AppInventory`, `SignalCollector`, `CardReader`).
 
-> **Estado (SPEC-010):** modelos e contratos do domínio, sem implementação. O motor de score vem na SPEC-017, os coletores e o inventário da SPEC-011 à SPEC-016, o caso de uso de varredura na SPEC-018 e o leitor do cartão na SPEC-041.
+> **Estado (SPEC-010; `InstalledApp.cardEmulationServices` na SPEC-013):** modelos e contratos do domínio, sem implementação. O motor de score vem na SPEC-017, os coletores e o inventário da SPEC-011 à SPEC-016, o caso de uso de varredura na SPEC-018 e o leitor do cartão na SPEC-041.
 
 ## Pacotes
 
@@ -21,7 +21,7 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 
 ## Modelos
 
-- **`InstalledApp`:** pacote, nome, `versionCode`, instalador (nulo se desconhecido), datas de instalação e de atualização (`Instant`), permissões pedidas e nomes de classe dos serviços declarados. Não tem campo de app do sistema: o `AppInventory` não os devolve (regra 1 da seção 5).
+- **`InstalledApp`:** pacote, nome, `versionCode`, instalador (nulo se desconhecido), datas de instalação e de atualização (`Instant`), permissões pedidas, nomes de classe dos serviços declarados e, em `cardEmulationServices`, nomes de classe dos serviços de HCE (os que respondem a `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e exigem `android.permission.BIND_NFC_SERVICE`, inclusive desligados; off-host e NFC-F fora, ADR-018). Os dois conjuntos de serviços vêm de consultas diferentes ao sistema, então o segundo não é validado como parte do primeiro. Não tem campo de app do sistema: o `AppInventory` não os devolve (regra 1 da seção 5).
 - **`Signal`:** S1 a S9 com nomes descritivos e o bit de cada um na máscara de `app_snapshot.signals` (S1 no bit 0 até S9 no bit 8). Sem peso: os pesos ficam na configuração do motor (SPEC-017).
 - **`RiskLevel`:** `GREEN`, `YELLOW`, `RED`, em ordem de gravidade; os nomes são os valores gravados no banco.
 - **`RiskResult`:** score de 0 a 100, nível e sinais. O nível não é conferido contra o score (regra 2: app confiável fica verde com qualquer score).
@@ -45,7 +45,7 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 - **Plugins:** só `kotlin("jvm")` (mais ktlint, detekt e Kover). Nenhum plugin ou dependência Android ou AndroidX.
 - **Bibliotecas:** nenhuma além da stdlib do Kotlin e do JDK (`java.time`, `java.util.Collections`, disponíveis no Android desde a API 26).
 - **Testes:** JUnit 5 (com `junit-platform-launcher`, exigido pelo Gradle 9), sem mocks.
-- **Fixtures** (SPEC-012): `anInstalledApp(...)` e `aRiskResult(...)` em `src/testFixtures/.../DomainFixtures.kt`, pelo plugin `java-test-fixtures`. Os testes deste módulo as enxergam direto; os outros módulos usam `testImplementation(testFixtures(project(":core-domain")))` (hoje, o `core-detection`). Cada fixture expõe só os parâmetros que algum teste troca.
+- **Fixtures** (SPEC-012): `anInstalledApp(...)` (com `cardEmulationServices` desde a SPEC-013) e `aRiskResult(...)` em `src/testFixtures/.../DomainFixtures.kt`, pelo plugin `java-test-fixtures`. Os testes deste módulo as enxergam direto; os outros módulos usam `testImplementation(testFixtures(project(":core-domain")))` (hoje, o `core-detection`). Cada fixture expõe só os parâmetros que algum teste troca.
 - **detekt e Kover no `testFixtures`:** a tarefa `detekt` não analisa `src/testFixtures` por padrão, então o `build.gradle.kts` o acrescenta (`source.from`). O Kover exclui o source set `testFixtures` (`excludedSourceSets`), para as fixtures não contarem na cobertura. Fora de `src/test`, a regra `MagicNumber` do detekt vale: número literal numa fixture vira constante nomeada.
 - **Cobertura:** Kover, com no mínimo 80% de cobertura de linhas (RNF-08). O `./gradlew build` falha abaixo disso. Na SPEC-010: 98,8%; na SPEC-012, sem as fixtures: 98,8% (82 de 83 linhas).
 

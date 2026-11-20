@@ -99,27 +99,41 @@ Implementar no `core-detection` os coletores dos sinais S2 (declara a permissão
   - o caso parametrizado das permissões que não contam lê uma lista escrita à mão no teste.
 
 ## Tasks
-1. [ ] **Modelo e inventário** (`feat:`):
+1. [x] **Modelo e inventário** (`feat:`):
    - `cardEmulationServices` no `InstalledApp`, com cópia que não pode ser alterada, e parâmetro na `anInstalledApp`;
    - ramo de versão da consulta no `PackageManagerVersionCompat.kt`;
    - consulta e preenchimento no `PackageManagerAppInventory`;
    - `./gradlew build` verde.
-2. [ ] **Testes do modelo e do inventário** (`test:`, papel tester): `InstalledAppTest` com `cardEmulationServices`; cenários de HCE no `PackageManagerAppInventoryTest` nos cinco níveis.
-3. [ ] **Coletores** (`feat:`): coletor de S2 e coletor de S3, com KDoc (o que conta, o que não conta e por quê; ADR-018).
-4. [ ] **Testes dos coletores** (`test:`, papel tester):
+2. [x] **Testes do modelo e do inventário** (`test:`, papel tester): `InstalledAppTest` com `cardEmulationServices`; cenários de HCE no `PackageManagerAppInventoryTest` nos cinco níveis.
+3. [x] **Coletores** (`feat:`): coletor de S2 e coletor de S3, com KDoc (o que conta, o que não conta e por quê; ADR-018).
+4. [x] **Testes dos coletores** (`test:`, papel tester):
    - S2: com e sem `NFC`, permissões relacionadas (parametrizado), maiúsculas, só S2;
    - S3: com e sem serviço de HCE, serviço comum, sem `NFC`, só S3.
-5. [ ] **Documentação** (`docs:`):
+5. [x] **Documentação** (`docs:`):
    - READMEs do `core-detection` (coletores, critério do HCE, visibilidade para o SDK) e do `core-domain` (`cardEmulationServices`);
    - §8 de `docs/especificacao.md` (linha do S3 com permissão e desligados);
    - `SKILLS.md` (API pública, coletores de S2 e S3, segundo `@SuppressLint`, registro de serviço no Robolectric);
    - `project-reference.md`, `context.md`, `glossary.md`;
    - **ADR-018** em `decisions.md`.
-6. [ ] **Conferência dos critérios**, localmente e desfeita sem commit:
+6. [x] **Conferência dos critérios**, localmente e desfeita sem commit:
    - tirar o `MATCH_DISABLED_COMPONENTS` derruba os testes de desligados;
    - tirar a conferência da permissão derruba o teste do filtro sem permissão;
    - trocar a ação pela off-host derruba os testes de HCE;
    - `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
+   - 2026-11-19, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma), rodando o `PackageManagerAppInventoryTest` (110 execuções):
+     - Sem `MATCH_DISABLED_COMPONENTS` (flags `0`) → 10 falhas: `includes disabled hce services` e `includes hce service of disabled app`, cada uma nas 5 APIs (AC-012).
+     - Sem o filtro de `BIND_NFC_SERVICE` → 5 falhas: `skips hce filter without permission and permission without filter` (AC-010).
+     - Ação trocada por `OFF_HOST_APDU_SERVICE` → 35 falhas: os 7 cenários de HCE nas 5 APIs, entre eles `fills card emulation services with hce service and keeps it in services` e `skips off host and nfcf services` (AC-011).
+     - `./gradlew clean build` verde em 2 min 53 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-017, AC-018).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows, como já previsto), `core-detection` 151 (103 de antes + 35 do inventário, 7 cenários × 5 APIs, + 13 dos coletores: 5 + 3 + 5), `core-domain` 32 (3 alterados), `core-nfc` 1, `decoy-app` 1. Total: 234.
+       - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova).
+       - Kover do `core-domain`: 84 de 85 linhas (98,8%) (AC-015).
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia. A depreciação do Gradle já aparecia na `main` (SPEC-012).
+   - **Desvios do contrato na implementação:**
+     - Na tarefa 1, o `InstalledAppTest` ganhou só o argumento `cardEmulationServices = emptySet()` para compilar (a fábrica passou a exigi-lo); as asserções vieram na tarefa 2.
+     - Os dois coletores usam `if` com blocos: na forma de uma linha, o ktlint (limite de 140) exige a expressão junto da assinatura e o detekt (`MaxLineLength` de 120) a recusa.
+     - Os cenários de HCE com exclusão (filtro sem permissão, off-host e NFC-F) também registram um serviço de HCE válido no mesmo app e esperam só ele: se a consulta não achasse nada, os testes falhariam em vez de passar.
+     - Ordem das tarefas: 1, 3 (implementação), 2, 4 (testes), 6, 5, como pedido no fluxo.
 
 ### Feito no planejamento (2026-11-19)
 - Issue #9 movida para "Em andamento" no Project 2.
