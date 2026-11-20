@@ -55,7 +55,7 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 | System | Protocol | Purpose |
 |--------|----------|---------|
 | `PackageManager` | API Android | Inventário de apps, permissões, serviços, origem da instalação, datas |
-| `AccessibilityManager` | API Android | S4 — serviços de acessibilidade ativos |
+| `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` | API Android | S4 — serviços de acessibilidade que o usuário ligou (ADR-019; substitui o `AccessibilityManager`) |
 | `CardEmulation` | API Android | S7 — app de pagamento padrão (Android 15+: papel de carteira, a confirmar na SPEC-016) |
 | `NfcAdapter` / `IsoDep` | NFC modo leitor | F2 — leitura EMV (PPSE, SELECT, GPO, READ RECORD) |
 | WorkManager | API Android | F3 — varredura periódica |
@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector` e `RecentInstallOrUpdateCollector`, SPEC-014 BATCH-01; demais, SPEC-014 BATCH-02 a SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; demais, SPEC-015 e SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -84,7 +84,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 
 | Tipo | Pacote | Forma |
 |------|--------|-------|
-| `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe), `cardEmulationServices: Set<String>` (nomes de classe dos serviços de HCE, SPEC-013). Sem campo de app do sistema |
+| `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe), `cardEmulationServices: Set<String>` (nomes de classe dos serviços de HCE, SPEC-013), `enabledAccessibilityServices: Set<String>` (nomes de classe dos serviços de acessibilidade ligados, SPEC-014). Sem campo de app do sistema |
 | `Signal` | `signal` | Enum com `bit`: `UNTRUSTED_INSTALL_SOURCE` (S1, bit 0), `NFC_PERMISSION` (S2), `CARD_EMULATION_SERVICE` (S3), `ACCESSIBILITY_SERVICE_ENABLED` (S4), `OVERLAY_PERMISSION` (S5), `RECENTLY_INSTALLED_OR_UPDATED` (S6), `UNKNOWN_DEFAULT_PAYMENT_APP` (S7), `SMS_PERMISSION` (S8), `BANK_LOOKALIKE` (S9, bit 8). Sem peso |
 | `toBitMask()` / `signalsFromBitMask()` | `signal` (`SignalBitMask.kt`) | Conjunto ↔ máscara de `app_snapshot.signals`; máscara negativa ou com bit acima do 8 lança `IllegalArgumentException` |
 | `RiskLevel` | `risk` | `GREEN`, `YELLOW`, `RED`, em ordem crescente de gravidade; sem conversão de score (SPEC-017) |
@@ -101,7 +101,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 
 | Classe / arquivo | Pacote | Responsibility |
 |------------------|--------|----------------|
-| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager`, em três etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote), uma consulta de serviços de HCE por varredura (ação `HOST_APDU_SERVICE` com `MATCH_DISABLED_COMPONENTS`, só os que exigem `BIND_NFC_SERVICE`; ADR-018) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Guarda só o `PackageManager` e o nome do próprio pacote |
+| `PackageManagerAppInventory(context, ioDispatcher)` | `core.detection.inventory` | `AppInventory` sobre o `PackageManager` e o `Settings.Secure`, em quatro etapas: lista leve (sem apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e sem o próprio pacote), uma consulta de serviços de HCE por varredura (ação `HOST_APDU_SERVICE` com `MATCH_DISABLED_COMPONENTS`, só os que exigem `BIND_NFC_SERVICE`; ADR-018), uma leitura de `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` (separada por `ComponentName.unflattenFromString`, agrupada por pacote; ADR-019) e detalhe por app (permissões, serviços inclusive desligados, instalador). `ensureActive()` a cada app; app desinstalado no meio é pulado; outros erros do sistema são propagados. Guarda só o `PackageManager`, o `ContentResolver` e o nome do próprio pacote |
 | `PackageManagerVersionCompat.kt` | `core.detection` | Funções `internal` com os ramos por versão: lista e detalhe com `PackageInfoFlags` e consulta de serviços com `ResolveInfoFlags` (API 33+), instalador por `getInstallSourceInfo().installingPackageName` (API 30+), código de versão longo (API 28+). Único arquivo de produção com `@Suppress("DEPRECATION")` (ADR-016) |
 | `InstallSourceCollector(trustedInstallers)` | `core.detection.signal` | Sinal S1: `UNTRUSTED_INSTALL_SOURCE` quando o instalador é nulo ou está fora do conjunto (comparação exata). Parâmetro obrigatório, copiado na construção. Sem API do Android: o instalador vem do inventário (ADR-017) |
 | `TrustedStores.packageNames` | `core.detection.signal` | Lista padrão de lojas confiáveis, 11 pacotes, que não pode ser alterada: Google Play, Galaxy Store, Xiaomi GetApps (`com.xiaomi.mipicks`, `com.xiaomi.market`), OPPO App Market (`com.heytap.market`, `com.oppo.market`), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Quem usa o SDK amplia ou reduz com `+` e `-` |
@@ -109,9 +109,10 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `CardEmulationServiceCollector()` | `core.detection.signal` | Sinal S3: `CARD_EMULATION_SERVICE` quando `cardEmulationServices` não está vazio. Não depende do S2. Sem API do Android (ADR-018) |
 | `OverlayPermissionCollector()` | `core.detection.signal` | Sinal S5: `OVERLAY_PERMISSION` quando `requestedPermissions` contém `android.permission.SYSTEM_ALERT_WINDOW` (comparação exata). Vale a permissão declarada, não a concedida. Sem API do Android (ADR-019) |
 | `SmsPermissionCollector()` | `core.detection.signal` | Sinal S8: `SMS_PERMISSION` quando `requestedPermissions` contém `android.permission.READ_SMS` ou `android.permission.RECEIVE_SMS` (comparação exata). As outras permissões de SMS não contam. Sem API do Android (ADR-019) |
+| `EnabledAccessibilityServiceCollector()` | `core.detection.signal` | Sinal S4: `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio. Serviço só declarado não conta. Sem API do Android (ADR-019) |
 | `RecentInstallOrUpdateCollector(clock)` | `core.detection.signal` | Sinal S6: `RECENTLY_INSTALLED_OR_UPDATED` quando o mais recente entre `firstInstallTime` e `lastUpdateTime` não é anterior ao agora do `Clock` menos 7 dias. Limite inclusivo; futuro conta. `Clock` obrigatório no construtor; sem API do Android (ADR-019) |
 
-API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector` e `RecentInstallOrUpdateCollector`.
+API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`.
 
 ### App (SPEC-003)
 

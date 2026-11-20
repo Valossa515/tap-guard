@@ -252,7 +252,7 @@
 
 ## ADR-019 — Sinais S4, S5, S6 e S8: fonte do S4, janela do S6 e exceção da fixture
 - **Date:** 2026-11-20
-- **Status:** Aceita (S5, S6 e S8 implementados no BATCH-01 da SPEC-014; S4 planejado para o BATCH-02)
+- **Status:** Aceita (implementada na SPEC-014: S5, S6 e S8 no BATCH-01; S4 no BATCH-02)
 - **Context:**
   - A SPEC-014 entrega os sinais S4 (serviço de acessibilidade ativo), S5 (pede sobreposição de tela), S6 (instalado ou atualizado nos últimos 7 dias) e S8 (pede leitura ou recebimento de SMS). É a primeira spec com batches: BATCH-01 com S5, S6 e S8, que usam dados que o `InstalledApp` já tinha; BATCH-02 com S4, que precisa de campo novo e de mudança no inventário.
   - A §8 citava `AccessibilityManager.getEnabledAccessibilityServiceList` como fonte do S4. Ele só devolve os serviços conectados ao sistema, e no Robolectric exige reflexão (`setComponentName`, método oculto) para dizer de que app é o serviço.
@@ -271,8 +271,8 @@
   - **Legível sem permissão da API 26 à 36:** até a API 30, o `SettingsProvider.enforceSettingReadable` só barra instant apps (tags 8.0.0_r1, 9.0.0_r1, 10.0.0_r1 e [11.0.0_r1](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-11.0.0_r1/packages/SettingsProvider/src/com/android/providers/settings/SettingsProvider.java)). Da API 31 em diante, o `checkReadableAnnotation` exige `@Readable`, e a chave tem `@Readable` sem `maxTargetSdk` nas tags 12.0.0_r1 a 16.0.0_r1 e na [`main`](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/provider/Settings.java). Vale para targetSdk 36 e acima. O texto é global, sem filtro de pacotes: o SDK não precisa de `<queries>` para o S4.
   - **S4 no inventário, coletor puro (opção A):** o inventário lê a chave uma vez por varredura, separa por `:`, pula entradas vazias, passa cada uma por `ComponentName.unflattenFromString` (formato completo e curto `pkg/.Cls`, o que o sistema grava com `flattenToShortString`), pula as nulas e agrupa os nomes de classe por pacote no campo novo `InstalledApp.enabledAccessibilityServices`. É a mesma separação do `AccessibilityManagerService.readColonDelimitedStringToSet`. Pacotes fora da lista de apps de usuário são ignorados; chave nula ou vazia quer dizer nenhum serviço ligado. A `SecurityException` (se a chave deixar de ser legível) propaga, sem `try`.
   - **S4 não cruza com `services`** (confirmado pelo usuário): um serviço ligado conta mesmo que a classe não esteja entre os declarados. É o critério mais largo do ADR-018.
-  - **Quatro coletores, um por sinal**, públicos, `class`, no `core.detection.signal`, sem API do Android: `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e (BATCH-02) `EnabledAccessibilityServiceCollector`.
-  - **Exceção do ADR-015 estendida à fixture `anInstalledApp`:** com `firstInstallTime` e `lastUpdateTime`, ela passa a 7 parâmetros, e o detekt (`LongParameterList`) já dispara com 6. Ela recebe `@Suppress("LongParameterList")` com KDoc: repassa à fábrica do `InstalledApp`, uma data class, com valores padrão, e só existe no `testFixtures`. A exceção vale **só** para fixtures que repassam à fábrica de uma data class, com valores padrão, não para qualquer função de teste (emenda 1.2 do contrato, aprovada pelo usuário).
+  - **Quatro coletores, um por sinal**, públicos, `class`, no `core.detection.signal`, sem API do Android: `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`.
+  - **Exceção do ADR-015 estendida à fixture `anInstalledApp`:** com `firstInstallTime` e `lastUpdateTime`, ela passa a 7 parâmetros (8 com `enabledAccessibilityServices`, no BATCH-02), e o detekt (`LongParameterList`) já dispara com 6. Ela recebe `@Suppress("LongParameterList")` com KDoc: repassa à fábrica do `InstalledApp`, uma data class, com valores padrão, e só existe no `testFixtures`. A exceção vale **só** para fixtures que repassam à fábrica de uma data class, com valores padrão, não para qualquer função de teste (emenda 1.2 do contrato, aprovada pelo usuário).
   - **Banco:** sem mudança. S4, S5, S6 e S8 vão nos bits 3, 4, 5 e 7 de `signals` pela SPEC-018; o `1.json` não muda.
 - **Alternatives:**
   - S5 pela concessão no `AppOpsManager` (rejeitada: a §5 pede a permissão declarada; custo de `uid` e de uma chamada por app);
@@ -285,6 +285,8 @@
 - **Consequences:**
   - O S6 dispara em toda atualização automática da loja; um app de loja confiável fica limitado a 29 pela regra 3, a não ser que tenha S7 ou S9.
   - O `Clock` do grafo (`Clock.systemUTC()`) entra com a ligação no Hilt, na SPEC-018.
+  - O inventário passa a quatro etapas (lista leve, HCE, chave de acessibilidade, detalhe) e guarda o `ContentResolver`; o construtor não muda.
+  - **Testes no Robolectric 4.18:** a chave é gravada com `Settings.Secure.putString`, que basta nas cinco APIs e volta a `null` em cada teste. O teste escreve a chave como literal, então trocar a chave na produção derruba os testes. O Robolectric não aplica o `@Readable`.
 - **Limitações e riscos:**
   - Falha do provedor de configurações: o S4 some nessa varredura sem erro, igual a "nenhum serviço ligado".
   - Relógio do aparelho atrasado: S6 em todos os apps e mudança de nível nos exemplos acima.

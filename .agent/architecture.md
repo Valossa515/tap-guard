@@ -62,7 +62,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 | S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | `queryIntentServices` com `android.nfc.cardemulation.action.HOST_APDU_SERVICE` |
-| S4 acessibilidade | `AccessibilityManager.getEnabledAccessibilityServiceList` |
+| S4 acessibilidade | `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, lida pelo inventário uma vez por varredura (ADR-019) |
 | S5 sobreposição | `SYSTEM_ALERT_WINDOW` em `requestedPermissions` |
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |
 | S7 pagamento padrão | `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` para cada serviço HCE. Android 15+: papel de carteira, confirmar na SPEC-016. Isolado em um coletor, degrada sem erro |
@@ -96,7 +96,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 
 | System | Protocol | Purpose |
 |--------|----------|---------|
-| APIs do Android (`PackageManager`, `AccessibilityManager`, `CardEmulation`) | Chamadas locais | Coleta de sinais |
+| APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) | Chamadas locais | Coleta de sinais |
 | `NfcAdapter` / `IsoDep` | NFC modo leitor (ISO-DEP) | Teste do cartão |
 | WorkManager | Agendador do sistema | Vigia periódica |
 | Room / DataStore | Armazenamento local | Histórico e preferências |

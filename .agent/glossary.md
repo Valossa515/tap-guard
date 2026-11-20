@@ -5,7 +5,7 @@
 ## Entities
 | Term | Definition | Source |
 |------|-----------|--------|
-| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas, serviços declarados e serviços de HCE (`cardEmulationServices`) | §7, SPEC-010, SPEC-013 |
+| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas, serviços declarados, serviços de HCE (`cardEmulationServices`) e serviços de acessibilidade ligados (`enabledAccessibilityServices`) | §7, SPEC-010, SPEC-013, SPEC-014 |
 | **Signal** | Característica estática de um app que indica perfil de golpe (S1–S9); enum com o bit de cada sinal na máscara | §5, §7, SPEC-010 |
 | **RiskLevel** | Nível de risco: `GREEN`, `YELLOW`, `RED`, em ordem de gravidade | §5, SPEC-010 |
 | **RiskResult** | Resultado do `RiskScorer`: score (0 a 100), nível e sinais de um app | §7, SPEC-010 |
@@ -50,6 +50,7 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **Golpe de retransmissão (relay) de cartão por NFC:** app malicioso lê o cartão da vítima por aproximação e retransmite os comandos pela internet para o celular de um comparsa, que emula o cartão.
 - **HCE (Host Card Emulation):** emulação de cartão pelo celular. Termo técnico: não aparece na interface.
 - **Serviço de HCE:** serviço que responde à ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e exige a permissão `android.permission.BIND_NFC_SERVICE`, inclusive desligado. Fica em `InstalledApp.cardEmulationServices` e gera S3. Off-host e NFC-F não são serviços de HCE para o Tap Guard (ADR-018).
+- **Serviço de acessibilidade ligado:** serviço de acessibilidade que o usuário ligou nas configurações, listado em `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, inclusive um que caiu e ainda vai reconectar. Fica em `InstalledApp.enabledAccessibilityServices` e gera S4. Serviço só declarado não conta (ADR-019).
 - **Janela de recência:** os 7 dias (168 horas corridas, sem fuso) antes do agora do `Clock`, com o limite incluído. Um app cuja instalação ou atualização mais recente cai nela, ou no futuro, gera S6 (ADR-019).
 - **APDU:** comando trocado com o cartão. Termo técnico: não aparece na interface.
 - **EMV:** padrão dos cartões de pagamento lidos no F2.

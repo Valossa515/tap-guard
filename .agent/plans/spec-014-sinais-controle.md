@@ -131,21 +131,34 @@ O sistema separa o texto do mesmo jeito: `AccessibilityManagerService.readColonD
    - **ADR-019** em `decisions.md`, com as decisões dos quatro sinais e o S4 marcado para o BATCH-02.
 
 ### BATCH-02: S4 (PR "SPEC-014 BATCH-02 …", `Closes #10`)
-5. [ ] **Modelo, inventário e coletor** (`feat:`):
+5. [x] **Modelo, inventário e coletor** (`feat:`):
    - `enabledAccessibilityServices` no `InstalledApp`, com cópia que não pode ser alterada, e parâmetro na `anInstalledApp`;
    - leitura e separação do `Settings.Secure` no `PackageManagerAppInventory`;
    - coletor de S4, com KDoc;
    - `./gradlew build` verde.
-6. [ ] **Testes** (`test:`, papel tester):
+6. [x] **Testes** (`test:`, papel tester):
    - `InstalledAppTest` com o campo novo;
    - inventário nos cinco níveis: formatos completo e curto, chave nula e vazia, entradas malformadas, pacotes que não se misturam (sistema, próprio app, não instalado);
    - coletor: com e sem serviço ligado, serviço só declarado, só S4.
-7. [ ] **Conferência dos critérios**, local e desfeita sem commit:
+7. [x] **Conferência dos critérios**, local e desfeita sem commit:
    - tirar o filtro das entradas nulas derruba o teste das malformadas;
    - trocar a chave lida derruba os testes de serviço ligado;
    - dar a cada app os serviços de todos os pacotes (sem agrupar) derruba o teste dos pacotes;
    - `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-8. [ ] **Documentação** (`docs:`):
+   - 2026-11-20, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma), rodando o `PackageManagerAppInventoryTest` (130 execuções):
+     - `mapNotNull` trocado por `map` com `!!` → 5 falhas: `ignores malformed entries and keeps the valid one` nas 5 APIs (AC-017).
+     - cada app recebendo os serviços de todos os pacotes → 10 falhas: `keeps enabled services per package and ignores system own and missing packages` e `ignores malformed entries and keeps the valid one` (a entrada `/OnlyClass`, de pacote vazio, iria para o app), nas 5 APIs (AC-018).
+     - chave trocada por `Settings.Secure.ACCESSIBILITY_ENABLED` → 15 falhas: os três cenários com serviço ligado, nas 5 APIs (AC-015).
+     - `./gradlew clean build` verde em 2 min 19 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-021, AC-022).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows; só rodam no CI), `core-detection` 201 (177 de antes + 20 do inventário, 4 cenários × 5 APIs, + 4 do coletor), `core-domain` 32 (3 alterados), `core-nfc` 1, `decoy-app` 1. Total: 284.
+       - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova).
+       - Kover do `core-domain`: 86 de 87 linhas (98,9%).
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc` (a leitura do `Settings.Secure` não gera aviso); o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+   - **Desvios do contrato no BATCH-02:**
+     - Na tarefa 5, o `InstalledAppTest` ganhou só o argumento `enabledAccessibilityServices = emptySet()` para compilar (a fábrica passou a exigi-lo); as asserções vieram na tarefa 6, como na SPEC-013.
+     - O teste "sem serviço ligado" do coletor guarda o app numa variável: na forma de uma linha, o detekt (`MaxLineLength` de 120) recusaria.
+     - Na documentação, além dos arquivos do contrato, `.agent/architecture.md` também citava o `AccessibilityManager` como fonte do S4 (duas linhas) e foi corrigido, para não contradizer o ADR-019.
+8. [x] **Documentação** (`docs:`):
    - READMEs do `core-detection` (inventário em quatro etapas, coletor de S4, sem `<queries>` para o S4) e do `core-domain` (campo novo);
    - §8 de `docs/especificacao.md` (linhas "Inventário" e "S4 acessibilidade");
    - `SKILLS.md` (Settings no Robolectric), `project-reference.md`, `context.md`, `glossary.md`;
