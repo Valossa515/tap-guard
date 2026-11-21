@@ -267,13 +267,24 @@ O incerto aqui não era a API do Android (o S9 não usa nenhuma), mas o comporta
 ## Tasks
 
 ### BATCH-01: listas (PR "SPEC-015 BATCH-01 …", `Refs #11`)
-1. [ ] **Listas** (`feat:`): `KnownWallets` (6 pacotes), `KnownBankApp` (com `require` de nome e pacote não em branco) e `KnownBanks` (29 entradas), cada entrada com nome e fonte em comentário, KDoc com o critério de corte, o que fica fora e como ampliar pelo SDK. `./gradlew build` verde.
-2. [ ] **Testes das listas** (`test:`, papel tester):
+1. [x] **Listas** (`feat:`): `KnownWallets` (6 pacotes), `KnownBankApp` (com `require` de nome e pacote não em branco) e `KnownBanks` (29 entradas), cada entrada com nome e fonte em comentário, KDoc com o critério de corte, o que fica fora e como ampliar pelo SDK. `./gradlew build` verde.
+2. [x] **Testes das listas** (`test:`, papel tester):
    - listas escritas à mão (`ExpectedKnownWallets`, `ExpectedKnownBankApps`); conteúdo exato das duas listas;
    - cast para `MutableSet` lança `UnsupportedOperationException`;
    - `KnownBankApp` com nome ou pacote vazio ou só com espaços lança `IllegalArgumentException`; preenchidos criam sem erro.
-3. [ ] **Conferência dos critérios**, local e desfeita sem commit: tirar uma carteira e um app de banco da produção derruba os testes de conteúdo; `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-4. [ ] **Documentação** (`docs:`):
+3. [x] **Conferência dos critérios**, local e desfeita sem commit: tirar uma carteira e um app de banco da produção derruba os testes de conteúdo; `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
+   - 2026-11-21, local (Windows), cada alteração desfeita sem commit (árvore limpa depois de cada uma), rodando só a classe de teste afetada:
+     - `com.itau` tirado de `KnownWallets` → 1 falha: `KnownWalletsTest > default list has exactly the expected wallets` (AC-001).
+     - `KnownBankApp("Neon", "br.com.neon")` tirado de `KnownBanks` → 1 falha: `KnownBanksTest > default list has exactly the expected bank apps` (AC-002).
+     - `KnownBankApp("Banco PAN", "br.com.bancopan.cartoes")` posto em `KnownBanks` → 1 falha: o mesmo teste (AC-002).
+     - `isNotBlank()` trocado por `isNotEmpty()` no `KnownBankApp` → 2 falhas: `blank display name is rejected` e `blank package name is rejected` (AC-004).
+     - `./gradlew clean build` verde em 2 min 58 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-021, AC-022).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows; só rodam no CI), `core-detection` 210 (201 de antes + 9 novos: 2 + 2 + 5), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Total: 293.
+       - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova).
+       - `koverVerify` do `core-domain` passa (o módulo não mudou).
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+   - **Desvios do contrato no BATCH-01:** nenhum nos arquivos. Na tarefa 1, seis comentários de fonte passavam de 120 caracteres (limite do ktlint e do detekt) e foram quebrados em duas linhas antes do primeiro build.
+4. [x] **Documentação** (`docs:`):
    - `core-detection/README.md` (listas e como ampliar);
    - §5 de `docs/especificacao.md` (listas de carteiras e bancos com pacotes, critério de corte);
    - `SKILLS.md` (API pública, listas), `project-reference.md`, `context.md` (decisão em aberto "lista inicial de bancos e carteiras" resolvida), `glossary.md` (carteira conhecida, banco conhecido), `backlog_rules.md`;

@@ -293,9 +293,68 @@
   - O Robolectric não aplica o `@Readable`: a legibilidade vem das fontes do AOSP; conferência em aparelho na SPEC-022.
   - Serviço ligado que o app não declara mais gera S4 (falso positivo raro, aceito).
 
+## ADR-020 — Listas de apoio (carteiras e bancos) e sinal S9: critério, formato e comparação de nomes
+- **Date:** 2026-11-21
+- **Status:** Aceita (SPEC-015: listas implementadas no BATCH-01; comparação de nomes no BATCH-02 e coletor de S9 no BATCH-03, planejados)
+- **Context:**
+  - A SPEC-015 (#11) entrega as listas de carteiras conhecidas (S7) e de bancos conhecidos (S9), e o coletor de S9 ("nome parecido com o de um banco conhecido, mas pacote diferente do oficial"). A §5 citava as listas sem pacotes, e a §13 deixava em aberto "quantos entram na versão 1.0".
+  - O Pix por aproximação faz apps de banco virarem o app de pagamento por aproximação padrão. Sem eles na lista de carteiras, o S7 acusaria o app legítimo do banco (#47 e comentário na #11).
+  - A lista de lojas (`TrustedStores`, ADR-017) fixou o formato que as listas desta spec seguem.
+  - Três batches: listas (BATCH-01), comparação de nomes (BATCH-02) e coletor (BATCH-03). Com dois, o segundo passaria de 500 linhas (emenda 1.1 da spec).
+- **Decision:**
+  - **Formato do `TrustedStores`:** um `object` público por tipo, num arquivo próprio, em `core.detection.signal`; conjunto que não pode ser alterado nem por cast (`Collections.unmodifiableSet(linkedSetOf(...))`); um comentário por entrada com o nome e a fonte. Quem usa o SDK monta o próprio conjunto com `+` ou `-`.
+  - **`KnownWallets.packageNames: Set<String>`, 6 pacotes** (decisão do usuário: só apps com fonte de que fazem pagamento por aproximação). O S7 compara o pacote do serviço padrão, então a lista não precisa de tipo próprio. O consumidor é o coletor de S7 (SPEC-016).
+    - Carteira do Google `com.google.android.apps.walletnfcrel` e Samsung Wallet `com.samsung.android.spay` (Google Play; §5);
+    - Nubank `com.nu.production`: "é possível definir o Nubank como carteira padrão do dispositivo" ([TechTudo, 07/04/2026](https://www.techtudo.com.br/noticias/2026/04/como-funciona-o-pix-por-aproximacao-no-nubank-veja-a-novidade-edapps.ghtml));
+    - Itaú `com.itau`: Pix por aproximação "dentro do seu aplicativo", só Android ([Mobile Time, 27/01/2026](https://www.mobiletime.com.br/noticias/27/01/2026/itau-pix-aplicativo/));
+    - Banco do Brasil `br.com.bb.android`: o cliente escolhe o "Serviço Pix por Aproximação" em "NFC e pagamentos sem contato" ([TechTudo, 03/08/2026](https://www.techtudo.com.br/listas/2026/08/9-bancos-que-ja-permitem-pagar-por-aproximacao-usando-pix-veja-quais-edapps.ghtml); [BPMoney](https://bpmoney.com.br/mercado/pix-por-aproximacao-9-bancos-como-usar/));
+    - Inter `br.com.intermedium`: pelo Super App 26.1.1 ou mais recente (mesmas fontes).
+    - **Ficam fora:** Mercado Pago (o próprio banco diz que o Pix por aproximação "só pode ser realizado pela Carteira do Google"), PicPay, Bradesco, Caixa, Santander e C6, que fazem pela Carteira do Google (TechTudo e BPMoney, 03/08/2026). O PagBank "Tap On" é maquininha no celular (lê cartões), não carteira.
+    - Itaú e Inter: as fontes dizem que pagam pelo app, mas não que viram o padrão. A entrada não custa nada se nunca forem o padrão.
+  - **`KnownBankApp(displayName, packageName)`:** `data class` pública do `core-detection`, sem coleção. Uma entrada é um app ou um apelido de app, não uma instituição: o Itaú tem três entradas, e o BB duas para o mesmo pacote. Nome ou pacote em branco lança `IllegalArgumentException`, com mensagem fixa que não repete o valor: quem usa o SDK escreve as entradas à mão, e um nome em branco nunca casaria, sem aviso. Não valida o formato do pacote (a comparação é exata). O `core-domain` não conhece o tipo.
+  - **`KnownBanks.apps: Set<KnownBankApp>`, 29 entradas e 27 pacotes.**
+    - **Critério de corte** (decisão do usuário): as 14 instituições com mais clientes no ranking do Banco Central (dez/2025), todas acima de 25 milhões: Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon ([Melhores Cartões, 24/01/2026](https://www.melhorescartoes.com.br/bancos-com-mais-clientes-brasil.html), com os dados do [BCB](https://www3.bcb.gov.br/ranking/historico.do); [Forbes Brasil, 22/01/2026](https://forbes.com.br/forbes-money/2026/01/nubank-ultrapassa-112-milhoes-de-clientes-e-se-torna-a-segunda-maior-instituicao-financeira-do-brasil/)). Entram também os apps oficiais dessas instituições com o nome da marca no título, achados na busca da Google Play com o desenvolvedor do banco (Empresas, Cartões, Personnalité, CAIXA Tem, next, BTG Pactual Investimentos).
+    - **Fonte de cada pacote:** a página da Play (`play.google.com/store/apps/details?id=<pacote>`), consultada em 2026-11-21. Cinco palpites voltaram 404 e não entraram: `com.itau.iti`, `com.itau.personnalite`, `com.itaucard`, `com.bradesco.cartoes`, `com.santander.empresas`.
+    - **Nomes:** tirados do título da Play (a parte antes de `:`) ou do nome do desenvolvedor, sem os prefixos e sufixos que a comparação já tira (decisão do usuário). Apelidos com o mesmo pacote: "BB" e "Banco do Brasil"; "Santander Brasil" (título da Play) e "Santander"; "BTG Pactual Banking" e "BTG Pactual". Sem o apelido, o imitador "Santander" escaparia de "Santander Brasil" (distância 6). O rótulo real no aparelho (`loadLabel`) fica para a SPEC-022.
+    - **Ficaram para depois, com o pacote já conferido na Play:** Banco Pan `br.com.bancopan.cartoes`, Sicoob `br.com.sicoobnet`, Sicredi `br.com.sicredimobi.smart` e "Sicredi X" `br.com.sicredi.app`, Banrisul `br.com.banrisul`, Safra `br.livetouch.safra.net`, BV `com.votorantim.bvpd`. As posições 15 a 18 do ranking não estão nas fontes. O Will Bank (19º) teve a liquidação decretada. O Banco Original não foi achado na busca.
+  - **Comparação de nomes do S9** (decisão do usuário: nome inteiro, sem "contém"; conferida num protótipo em Java com a lista de 29 entradas e 80 rótulos). Implementação no BATCH-02 (`BankNameMatcher`, `internal`) e no BATCH-03 (`BankLookalikeCollector`).
+    1. **Pacote na lista não gera S9:** se o pacote do app é o de qualquer entrada da lista, o coletor devolve vazio, com comparação exata. Usar todos os pacotes, e não só o do banco que casou, evita marcar um app oficial cujo nome lembra outro app do mesmo banco ("Itaú Empresas" casa com "Itaú" depois de tirar o sufixo).
+    2. **Esqueleto do nome**, o mesmo para o rótulo e para os nomes da lista:
+       - corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele;
+       - NFKC, minúsculas invariantes (`lowercase()`), NFD e remoção das marcas combinantes (`CharCategory.NON_SPACING_MARK`, sem regex);
+       - letras parecidas trocadas: `0→o`, `1`, `l` e `!` por `i`, `3→e`, `4` e `@` por `a`, `5` e `$` por `s`, `7→t`, cirílico e grego que imitam letras latinas, `rn→m`, `vv→w`;
+       - fica só com `a-z` e `0-9` (espaços, pontuação, emojis e caracteres invisíveis saem).
+    3. **Variantes:** o esqueleto; sem um prefixo (`banco`, `meu`, `app`); sem sufixos, repetidamente (`token`, `empresas`, `cartoes`, pedidos pelo usuário; `empresa`, `cartao`, `pj`, `app`, `mobile`, `oficial`, `digital`, `seguranca`). Funciona sobre o esqueleto colado ("ItauToken"). Um prefixo ou sufixo só sai se sobrar algo.
+    4. **Casa** quando alguma variante fica a uma distância de Damerau-Levenshtein (versão OSA: inserção, remoção, troca e transposição de letras vizinhas) dentro do limite do nome da lista: até 5 letras, 0 (só igual); de 6 a 9 letras, até 1; 10 letras ou mais, até 2. Nomes curtos não têm tolerância porque uma letra a mais ou a menos já forma outra palavra ("Baixa" não casa com "Caixa").
+    5. **Esqueleto vazio nunca casa**; um nome da lista com esqueleto vazio é ignorado.
+    6. No protótipo, nomes da lista só casam entre si quando são do mesmo banco (Itaú Empresas e Itaú, Bradesco Cartões e Bradesco, entre outros), e os pacotes deles estão na lista. Um teste do BATCH-02 protege isso.
+  - **Coletor de S9 (BATCH-03):** `BankLookalikeCollector(knownBankApps: Set<KnownBankApp>)`, parâmetro obrigatório e sem padrão, conjunto copiado, como o S1. Lista vazia nunca gera S9. Devolve `{BANK_LOOKALIKE}` ou vazio. Sem `android.*` (`java.text.Normalizer` é do JDK). A variante `lookalike` do app isca pode passar `KnownBanks.apps + KnownBankApp("Banco Fictício", …)`; como o teste ponta a ponta injeta o banco fictício fica para a SPEC-021 ou a SPEC-022.
+- **Comportamentos aceitos** (falsos positivos e imitações que escapam, com testes que os documentam):
+  - **Nome curto igual de outro desenvolvedor gera S9:** "Inter" (um app de clube) e "NEXT" (uma loja de roupas).
+  - **O corte no separador também gera S9** (pedido do usuário): "Next - Launcher" e "Caixa – Organizador", de outro desenvolvedor, viram "Next" e "Caixa". O mesmo vale para "Neon | Wallpapers" e "Inter: Notícias do clube". O corte existe para pegar o imitador que copia o título da Play ("Nubank: conta, cartão e mais").
+  - **Palavras fora da lista fechada escapam:** "Atualização Nubank", "Nubank Wallpapers", "Inter&Co" e "Neon Pay" não geram S9.
+  - **Custo de um falso positivo:** um app de loja confiável com S9 perde o teto de 29 (regra 3) e pode ficar amarelo, mas não vermelho, porque o vermelho exige S1 (regra 4). A pessoa pode marcá-lo como confiável (regra 2).
+- **Limitações:**
+  - **Nome de pacote emprestado** (a mesma do S1, ADR-017): num aparelho sem o Nubank, um app de golpe pode usar `com.nu.production` e o nome "Nubank" e não recebe S9. Instalado à mão, ele recebe S1 e, com NFC e HCE, fica vermelho mesmo sem o S9. O S9 deixa de ajudar só quando o app vem de uma loja confiável. Defesa planejada na issue #65 (certificado de assinatura por pacote), junto com a #57.
+  - **Rótulos não conferidos:** um imitador com o rótulo real de um app oficial que difira do nome da marca escapa. Conferência na SPEC-022.
+  - **Listas embutidas** (RNF-01, sem internet): um banco que lançar o Pix por aproximação no próprio app recebe S7 até entrar em `KnownWallets`; um app oficial novo de um banco da lista pode receber S9 até entrar em `KnownBanks`.
+- **Apps de clonagem (SPEC-017):** o banco copiado por Smart Switch, Mi Mover ou Clone Phone recebe S1 e, com S2 e S3, fica vermelho (ADR-017). Esta spec entrega `KnownBanks.apps`, de onde sai o conjunto de pacotes de banco (`Set<String>`, para o `KnownBankApp` não entrar no `core-domain`). A regra fica para a SPEC-017. Recomendação registrada na #13: a forma estreita (teto só com pacote de banco **e** instalador de clonagem conhecido), que não reabre a brecha do S1 e exige uma lista pública de apps de clonagem no formato destas listas.
+- **Alternatives:**
+  - todos os pacotes de banco na lista de carteiras (rejeitada pelo usuário: poria na lista apps sem fonte de que pagam por NFC);
+  - incluir Pan, Sicoob, Sicredi, BV, Banrisul e Safra já na 1.0 (rejeitada pelo usuário: sem fonte da posição no ranking);
+  - comparação por "contém o nome do banco" (rejeitada pelo usuário: acusaria "Caixa de Ferramentas" e outros);
+  - tipo com conjuntos de nomes e de pacotes por instituição (rejeitada: fábrica com cópia de coleções e teste de lista mais difícil de ler);
+  - nomes `KnownBank` e `KnownBanks.entries` (rejeitados na revisão do architect: uma entrada é um app, e `entries` é a propriedade dos `enum` do Kotlin);
+  - regex para tirar acentos (rejeitada: depende do motor de regex da JVM e do Android) e Levenshtein sem transposição (rejeitada: "Nubnak" daria 2 e escaparia).
+- **Consequences:**
+  - A §5 da especificação, o glossário e o `backlog_rules.md` passam a listar os pacotes. A pendência "lista inicial de bancos e carteiras" da §13 fica resolvida.
+  - Os testes das listas comparam com listas escritas à mão (`ExpectedKnownWallets`, `ExpectedKnownBankApps`): tirar ou pôr uma entrada na produção derruba um teste.
+  - A API pública do `core-detection` ganha `KnownWallets`, `KnownBankApp` e `KnownBanks` (BATCH-01) e `BankLookalikeCollector` (BATCH-03).
+  - Banco: sem mudança. O S9 vai no bit 8 de `signals` pela SPEC-018; o `1.json` não muda.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
-- Lista inicial de bancos e carteiras na 1.0.
+- Lista inicial de bancos e carteiras na 1.0: decidida no ADR-020 (SPEC-015), com 6 carteiras e 29 apps de 14 instituições.
 - Play Store já na 1.0 ou depois de validar com usuários.
 - API de pagamento padrão no Android 15+ (SPEC-016).

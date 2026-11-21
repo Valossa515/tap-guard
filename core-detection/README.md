@@ -2,9 +2,9 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-014):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) e coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014). Os demais coletores entram na SPEC-015 e na SPEC-016, e o `ScanDevice` e a ligação no Hilt, na SPEC-018.
+> **Estado (SPEC-015 BATCH-01):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) e listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01). A comparação de nomes e o coletor de S9 entram nos BATCH-02 e BATCH-03 da SPEC-015, o coletor de S7 na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`. O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp` e `KnownBanks`. O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
@@ -106,6 +106,36 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - O limite é inclusivo, e um horário no futuro conta. Com o relógio do aparelho atrasado, todos os apps ganham S6. Sozinho ele vale 10 e o app fica verde, mas somado a outros sinais pode mudar o nível.
 - Motivos, exemplos e limitações no ADR-019.
 
+## Listas de apoio (carteiras e bancos)
+
+Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no mesmo formato do `TrustedStores`: `object` público, conjunto que não pode ser alterado (nem por cast) e um comentário por entrada com o nome e a fonte. Motivos, critério e fontes no ADR-020.
+
+- **`KnownWallets.packageNames`** (6 pacotes): apps que podem ser o app de pagamento por aproximação padrão sem gerar S7. Quem a usa é o coletor de S7 (SPEC-016).
+
+| App | Pacote |
+|-----|--------|
+| Carteira do Google | `com.google.android.apps.walletnfcrel` |
+| Samsung Wallet | `com.samsung.android.spay` |
+| Nubank | `com.nu.production` |
+| Itaú | `com.itau` |
+| Banco do Brasil | `br.com.bb.android` |
+| Inter | `br.com.intermedium` |
+
+- **Ficam fora de `KnownWallets`:** entram só apps com fonte de que fazem o pagamento por aproximação, as duas carteiras e os bancos com Pix por aproximação no próprio app. Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6 fazem o Pix por aproximação pela Carteira do Google e ficam fora.
+- **`KnownBanks.apps`** (29 entradas, 27 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem vai usá-la é o coletor de S9 (BATCH-03).
+  - Cada entrada é um `KnownBankApp(displayName, packageName)`: um app ou um apelido de app. Um pacote pode ter mais de um nome ("BB" e "Banco do Brasil"; "Santander Brasil" e "Santander"; "BTG Pactual Banking" e "BTG Pactual"), e uma instituição, mais de um app (Itaú, Itaú Empresas e Personnalité).
+  - `displayName` é o nome da marca, tirado do título da Play ou do desenvolvedor, não o rótulo do aparelho, que é conferido no teste ponta a ponta (SPEC-022). Nome ou pacote em branco lança `IllegalArgumentException`.
+  - Ficaram para depois, com o pacote já conferido: Banco Pan, Sicoob, Sicredi, Banrisul, Safra e BV.
+- **Para o SDK:** quem usa a biblioteca monta o próprio conjunto a partir das listas padrão:
+
+```kotlin
+KnownWallets.packageNames + "com.banco.app"                           // amplia
+KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")               // amplia
+KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
+```
+
+- **Limitação** (ADR-017 e ADR-020): o nome de pacote é único no aparelho, não no mundo. Num aparelho sem o app original, outro app pode usar o mesmo pacote. A defesa (certificado de assinatura por pacote) está na issue #65.
+
 ## Dependências
 
 - **Módulos:** `core-domain` como `api`, porque `AppInventory` e `InstalledApp` aparecem na API pública.
@@ -140,6 +170,9 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
   - `SmsPermissionCollectorUnrelatedPermissionTest`: as cinco permissões de SMS que não contam, parametrizado sobre uma lista escrita à mão;
   - `EnabledAccessibilityServiceCollectorTest`: serviço ligado, sem serviço ligado, serviço só declarado, só S4;
   - `RecentInstallOrUpdateCollectorTest`, com `Clock.fixed`: instalação recente, as duas datas antigas, só a atualização recente, exatamente 7 dias, 7 dias e 1 ms, futuro na instalação e só na atualização, o mesmo app contra dois relógios, só S6.
+- Listas de apoio, também em JUnit 4 sem Robolectric:
+  - `KnownWalletsTest` e `KnownBanksTest`: lista padrão igual à escrita à mão no teste (`ExpectedKnownWallets.kt`, `ExpectedKnownBankApps.kt`) e que não pode ser alterada por cast;
+  - `KnownBankAppTest`: nome e pacote preenchidos criam a entrada; nome ou pacote vazio ou só com espaços é recusado.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

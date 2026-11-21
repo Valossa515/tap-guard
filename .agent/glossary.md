@@ -57,8 +57,8 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **PPSE:** ambiente de pagamento por aproximação selecionado no início da leitura EMV.
 - **TLV:** formato dos dados devolvidos pelo cartão; o parser TLV extrai nome da aplicação, número e validade.
 - **Loja confiável:** instalador cujo pacote está na lista `TrustedStores` (SPEC-012): Google Play, Galaxy Store, Xiaomi GetApps (dois pacotes), OPPO App Market (dois pacotes), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Instalador nulo ou fora da lista gera S1. Pacotes e motivos no ADR-017.
-- **Carteira conhecida:** Google Wallet, Samsung Wallet e apps oficiais dos grandes bancos e carteiras digitais do Brasil (pacotes a levantar na SPEC-015).
-- **Banco conhecido (S9):** par nome de exibição + pacote oficial, embutido no app.
+- **Carteira conhecida:** app cujo pacote está em `KnownWallets` (SPEC-015): Carteira do Google, Samsung Wallet e os apps de banco que fazem Pix por aproximação no próprio app (Nubank, Itaú, Banco do Brasil e Inter). Pode ser o app de pagamento padrão sem gerar S7. Pacotes e critério no ADR-020.
+- **Banco conhecido (S9):** entrada `KnownBankApp` de `KnownBanks` (SPEC-015): nome de exibição e pacote oficial de um app, ou de um apelido de app, das 14 instituições com mais clientes no ranking do Banco Central. Um pacote pode ter mais de um nome, e uma instituição, mais de um app. Lista e critério no ADR-020.
 - **App de pagamento padrão:** app que o sistema usa para pagamento por aproximação (categoria de pagamento; no Android 15+, papel de carteira).
 - **App confiável:** app que o usuário marcou como confiável; fica sempre verde, sai dos alertas e aparece em lista própria, com opção de desfazer.
 - **App isca (`decoy-app`):** app próprio, inofensivo, com o perfil de um app de golpe, usado como alvo de testes.
