@@ -42,15 +42,15 @@ internal class BankNameMatcher(
 
 /**
  * Esqueleto de um nome, o mesmo para o rótulo do app e para os nomes da lista:
- * 1. corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele;
- * 2. NFKC (largura cheia, ligaduras) e minúsculas invariantes;
+ * 1. NFKC (largura cheia, ligaduras), antes do corte, para `：` e `｜` de largura cheia também cortarem;
+ * 2. corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele; minúsculas invariantes;
  * 3. NFD e remoção das marcas combinantes (acentos), pelo tipo do caractere, sem regex;
- * 4. letras parecidas trocadas: `0→o`; `1`, `!` e `l` por `i`; `3→e`; `4` e `@` por `a`; `5` e `$`
- *    por `s`; `7→t`; cirílico e grego que imitam letras latinas; `rn→m`; `vv→w`;
+ * 4. letras parecidas trocadas (lista parcial, ADR-020): `0→o`; `1`, `!` e `l` por `i`; `3→e`; `4` e `@` por
+ *    `a`; `5` e `$` por `s`; `7→t`; cirílico, grego, maiúsculas pequenas e outras latinas; `rn→m`; `vv→w`;
  * 5. fica só com `a-z` e `0-9` (espaços, pontuação, emojis e caracteres invisíveis saem).
  */
 internal fun bankNameSkeleton(label: String): String {
-    val folded = Normalizer.normalize(cutAtFirstSeparator(label), Normalizer.Form.NFKC).lowercase()
+    val folded = cutAtFirstSeparator(Normalizer.normalize(label, Normalizer.Form.NFKC)).lowercase()
     val unaccented =
         Normalizer
             .normalize(folded, Normalizer.Form.NFD)
@@ -103,6 +103,11 @@ private val LOOKALIKE_LETTERS: Map<Char, Char> =
         "\u043A\u043C\u043D\u0442\u0432" to "kmhtb",
         // Grego (α ο ρ ι κ ν τ); ν e τ são as minúsculas de Ν e Τ, que imitam N e T.
         "\u03B1\u03BF\u03C1\u03B9\u03BA\u03BD\u03C4" to "aopiknt",
+        // Latinas e armênia sem decomposição: ı ɑ ɪ ɩ օ.
+        "\u0131\u0251\u026A\u0269\u0585" to "iaiio",
+        // Maiúsculas pequenas: ʙ ᴄ ᴅ ᴇ ɢ ʜ ᴋ ʟ ᴍ ɴ ᴏ ᴘ ʀ ᴛ ᴜ ᴠ ᴡ ʏ ᴢ (ʟ vira i, como o l).
+        "\u0299\u1D04\u1D05\u1D07\u0262\u029C\u1D0B\u029F\u1D0D\u0274" to "bcdeghkimn",
+        "\u1D0F\u1D18\u0280\u1D1B\u1D1C\u1D20\u1D21\u028F\u1D22" to "oprtuvwyz",
     ).flatMap { (from, to) -> from.zip(to) }.toMap()
 
 /*

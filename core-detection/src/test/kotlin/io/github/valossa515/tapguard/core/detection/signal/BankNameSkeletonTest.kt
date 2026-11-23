@@ -45,6 +45,13 @@ class BankNameSkeletonTest(
                 ),
                 // Grego: α ο ρ ι κ ν τ.
                 arrayOf("\u03B1\u03BF\u03C1\u03B9\u03BA\u03BD\u03C4", "aopiknt"),
+                // Latinas e armênia sem decomposição: ı ɑ ɪ ɩ օ.
+                arrayOf("\u0131\u0251\u026A\u0269\u0585", "iaiio"),
+                // Maiúsculas pequenas: ʙ ᴄ ᴅ ᴇ ɢ ʜ ᴋ ʟ ᴍ ɴ e ᴏ ᴘ ʀ ᴛ ᴜ ᴠ ᴡ ʏ ᴢ (ʟ vira i, como o l).
+                arrayOf("\u0299\u1D04\u1D05\u1D07\u0262\u029C\u1D0B\u029F\u1D0D\u0274", "bcdeghkimn"),
+                arrayOf("\u1D0F\u1D18\u0280\u1D1B\u1D1C\u1D20\u1D21\u028F\u1D22", "oprtuvwyz"),
+                // Dois-pontos de largura cheia: o NFKC vem antes do corte.
+                arrayOf("\uFF29\uFF34\uFF21\uFF35\uFF1Ax", "itau"),
                 arrayOf("rnercado", "mercado"),
                 arrayOf("vvave", "wave"),
                 // Espaço de largura zero.

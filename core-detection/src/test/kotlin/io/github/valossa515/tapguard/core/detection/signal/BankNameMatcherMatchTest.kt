@@ -55,6 +55,10 @@ class BankNameMatcherMatchTest(
                 "Itáú",
                 "1taú",
                 "Ltaú",
+                // "ı" sem ponto.
+                "\u0131taú",
+                // Largura cheia, com dois-pontos de largura cheia.
+                "\uFF29\uFF34\uFF21\uFF35\uFF1Ax",
                 "Itaú Token",
                 "ItauToken",
                 "Itaú | Token",
