@@ -90,12 +90,30 @@ internal fun editDistance(
 private const val SHORT_NAME_MAX_LENGTH = 5
 private const val MEDIUM_NAME_MAX_LENGTH = 9
 
-private val SEPARATORS = listOf(":", "|", " - ", " – ", " — ")
+private val SEPARATORS = listOf(":", "|", " - ", " \u2013 ", " \u2014 ")
 
-private val PREFIXES = listOf("banco", "meu", "app")
-
-private val SUFFIXES =
+/** Cada caractere da esquerda vira o da direita, na mesma posição. Depois das minúsculas. */
+private val LOOKALIKE_LETTERS: Map<Char, Char> =
     listOf(
+        // Dígitos e símbolos, e o l minúsculo, igual ao I maiúsculo em muitas fontes.
+        "01!l34@5\$7" to "oiiieaasst",
+        // Cirílico com forma de minúscula latina: а е о р с у х і ӏ ѕ ј.
+        "\u0430\u0435\u043E\u0440\u0441\u0443\u0445\u0456\u04CF\u0455\u0458" to "aeopcyxiisj",
+        // Cirílico que, em maiúscula, imita a latina (К М Н Т В): к м н т в.
+        "\u043A\u043C\u043D\u0442\u0432" to "kmhtb",
+        // Grego (α ο ρ ι κ ν τ); ν e τ são as minúsculas de Ν e Τ, que imitam N e T.
+        "\u03B1\u03BF\u03C1\u03B9\u03BA\u03BD\u03C4" to "aopiknt",
+    ).flatMap { (from, to) -> from.zip(to) }.toMap()
+
+/*
+ * Prefixos e sufixos do BR-007 no formato do esqueleto, sem vazios nem repetidos (sem isso, mobile, oficial
+ * e digital nunca sairiam: o esqueleto troca `l` por `i`). A ordem não importa: as variantes tentam todos.
+ * Vêm depois de SEPARATORS e LOOKALIKE_LETTERS, que o esqueleto usa (iniciação na ordem do texto).
+ */
+internal val BANK_NAME_PREFIXES: List<String> = skeletonsOf("banco", "meu", "app")
+
+internal val BANK_NAME_SUFFIXES: List<String> =
+    skeletonsOf(
         "token",
         "empresas",
         "empresa",
@@ -109,18 +127,7 @@ private val SUFFIXES =
         "seguranca",
     )
 
-/** Cada caractere da esquerda vira o da direita, na mesma posição. Depois das minúsculas. */
-private val LOOKALIKE_LETTERS: Map<Char, Char> =
-    listOf(
-        // Dígitos e símbolos, e o l minúsculo, igual ao I maiúsculo em muitas fontes.
-        "01!l34@5\$7" to "oiiieaasst",
-        // Cirílico com forma de minúscula latina: а е о р с у х і ӏ ѕ ј.
-        "аеорсухіӏѕј" to "aeopcyxiisj",
-        // Cirílico que, em maiúscula, imita a latina (К М Н Т В): к м н т в.
-        "кмнтв" to "kmhtb",
-        // Grego (α ο ρ ι κ ν τ); ν e τ são as minúsculas de Ν e Τ, que imitam N e T.
-        "αορικντ" to "aopiknt",
-    ).flatMap { (from, to) -> from.zip(to) }.toMap()
+private fun skeletonsOf(vararg words: String) = words.map(::bankNameSkeleton).filter { it.isNotEmpty() }.distinct()
 
 private fun cutAtFirstSeparator(label: String): String {
     val cut = SEPARATORS.map { label.indexOf(it) }.filter { it > 0 }.minOrNull()
@@ -129,10 +136,10 @@ private fun cutAtFirstSeparator(label: String): String {
 
 private fun variants(skeleton: String): Set<String> {
     val found = linkedSetOf<String>()
-    val pending = ArrayDeque(listOf(skeleton) + PREFIXES.mapNotNull { skeleton.withoutPrefix(it) })
+    val pending = ArrayDeque(listOf(skeleton) + BANK_NAME_PREFIXES.mapNotNull { skeleton.withoutPrefix(it) })
     while (pending.isNotEmpty()) {
         val variant = pending.removeFirst()
-        if (found.add(variant)) SUFFIXES.mapNotNullTo(pending) { variant.withoutSuffix(it) }
+        if (found.add(variant)) BANK_NAME_SUFFIXES.mapNotNullTo(pending) { variant.withoutSuffix(it) }
     }
     return found
 }
