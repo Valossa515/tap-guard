@@ -322,6 +322,17 @@ O incerto aqui não era a API do Android (o S9 não usa nenhuma), mas o comporta
 8. [x] **Documentação** (`docs:`): seção "Comparação de nomes do S9" no `core-detection/README.md` (coletor no BATCH-03); `SKILLS.md` (normalização `internal`); `glossary.md` (esqueleto do nome); ADR-020: normalização implementada.
    - 2026-11-23: os quatro documentos acima. No ADR-020, também a emenda 1.3 (prefixos e sufixos no formato do esqueleto) e a decisão de não trocar `|` por `i`. Emenda 1.3 da spec (BR-007), 1.1 do contrato (`BANK_NAME_PREFIXES` e `BANK_NAME_SUFFIXES` `internal`, cenário novo no `BankNameMatcherTest`) e nota na arquitetura.
 
+### Correção depois do BATCH-02 (PR "SPEC-015 fix: letras parecidas fora do mapa", `Refs #11`)
+Achada pelo usuário antes do merge do #68. Ficou num PR separado, a partir da `main` depois do merge, porque com ela o BATCH-02 passaria de 500 linhas (515). O BATCH-03 começa depois do merge deste PR.
+- **Defeito:** uma letra parecida fora do mapa era apagada, e nos nomes de até 5 letras a imitação escapava ("ıtaú" virava `tau`, "cɑixɑ" virava `cix`, "ɪnter" virava `nter`). Além disso, `：` e `｜` de largura cheia não cortavam, porque o NFKC vinha depois do corte.
+- **`fix:` `55139fa`:**
+  - `ı ɑ ɪ ɩ օ` e as maiúsculas pequenas latinas entram no mapa, em escapes `\uXXXX`; o `ʟ` vira `i`, como o `l`;
+  - NFKC antes do corte no separador;
+  - 6 casos novos (4 de esqueleto, 2 de casa). O código ganha 10 linhas e perde 5, e os testes ganham 11.
+- **`docs:`:** emenda 1.4 da spec (BR-006), 1.2 do contrato, ADR-020 (mapa parcial e ordem do NFKC), README do `core-detection`, `SKILLS.md` e plano de testes.
+- **Issue #69:** gerar o mapa a partir do `confusables.txt` do UTS #39 (fora do MVP).
+- `./gradlew build` verde, sem diff em `core-data/schemas`. `core-detection` com 300 testes (294 + 6).
+
 ### BATCH-03: coletor de S9 (PR "SPEC-015 BATCH-03 …", `Closes #11`)
 9. [ ] **Coletor** (`feat:`): `BankLookalikeCollector(knownBankApps)` com o conjunto de pacotes copiado e o `BankNameMatcher`; KDoc com o que conta, o que não conta e as limitações; parâmetro `label` na `anInstalledApp`. `./gradlew build` verde.
 10. [ ] **Testes** (`test:`, papel tester): pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote que difere por sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com banco fictício; lista vazia; conjunto alterado depois; só S9.

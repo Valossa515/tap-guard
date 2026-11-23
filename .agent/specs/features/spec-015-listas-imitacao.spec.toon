@@ -5,11 +5,12 @@
 # Emenda 1.1 (2026-11-21 revisao do architect): KnownBank vira KnownBankApp e KnownBanks.entries vira KnownBanks.apps; estimate-lines 970 pelos arquivos do contrato; o BATCH-02 da 1.0 passaria de 500 (cerca de 650) e foi dividido em normalizacao (BATCH-02) e coletor (BATCH-03), sem single-pr-reason
 # Emenda 1.2 (2026-11-23 review do BATCH-01): KnownBanks.apps tem 26 pacotes (29 entradas menos 3 apelidos) e nao 27; formato dos comentarios: um por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app)
 # Emenda 1.3 (2026-11-23 aprovada pelo usuario no BATCH-02): prefixos e sufixos do BR-007 passam pelo mesmo esqueleto do BR-006 ao carregar (sem vazios nem repetidos); sem isso mobile e oficial e digital nunca saiam porque o esqueleto troca l por i (o prototipo tinha o mesmo defeito e nenhum caso da tabela os usava); as listas carregadas ficam internal para um teste que confere que cada entrada sai; a barra vertical nao entra no mapa de letras parecidas (o prototipo a trocava por i; o BR-006 nao pede; so mudaria uma barra no inicio do rotulo)
+# Emenda 1.4 (2026-11-23 aprovada pelo usuario depois do merge do BATCH-02; PR separado): NFKC antes do corte no separador para que dois-pontos e barra de largura cheia tambem cortem; o mapa de letras parecidas ganha as latinas e a armenia sem decomposicao (U+0131 U+0251 U+026A U+0269 U+0585) e as maiusculas pequenas latinas (L pequeno vira i como o l); fora do mapa a letra era apagada e nos nomes de ate 5 letras a imitacao escapava; o mapa continua parcial e a geracao a partir do confusables.txt do UTS 39 fica na issue #69
 
 feature:
   id: FT-015
   name: SPEC-015 Listas de apoio e imitacao (S9)
-  version: 1.3
+  version: 1.4
   status: draft
   interface: library
   estimate-lines: 970
@@ -45,7 +46,7 @@ business-rules[13]{id,rule}:
   BR-003,Formato do TrustedStores (ADR-017): um object publico por tipo num arquivo proprio no pacote core.detection.signal; colecao que nao pode ser alterada nem por cast; um comentario por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app); quem usa o SDK amplia ou reduz com + ou -
   BR-004,KnownBankApp(displayName; packageName) e data class publica do core-detection sem colecao; nome ou pacote em branco lanca IllegalArgumentException; o core-domain nao conhece o tipo
   BR-005,Pacote na lista nao gera S9: se app.packageName e um dos pacotes da lista (de qualquer entrada) o coletor devolve vazio; comparacao exata com maiusculas e minusculas
-  BR-006,Esqueleto do nome (o mesmo para o rotulo e para os nomes da lista): corta no primeiro separador (dois-pontos; barra vertical; espaco-hifen-espaco; espaco-meia-risca-espaco; espaco-travessao-espaco); NFKC; minusculas invariantes (lowercase do Kotlin; Locale.ROOT); NFD sem marcas combinantes (CharCategory.NON_SPACING_MARK; sem regex); letras parecidas trocadas (0 por o; 1 e l e ! por i; 3 por e; 4 e @ por a; 5 e $ por s; 7 por t; cirilico e grego que imitam latinas; rn por m; vv por w); fica so com a-z e 0-9
+  BR-006,Esqueleto do nome (o mesmo para o rotulo e para os nomes da lista): NFKC; corta no primeiro separador (dois-pontos; barra vertical; espaco-hifen-espaco; espaco-meia-risca-espaco; espaco-travessao-espaco); minusculas invariantes (lowercase do Kotlin; Locale.ROOT); NFD sem marcas combinantes (CharCategory.NON_SPACING_MARK; sem regex); letras parecidas trocadas (0 por o; 1 e l e ! por i; 3 por e; 4 e @ por a; 5 e $ por s; 7 por t; cirilico e grego que imitam latinas; latinas e armenia sem decomposicao e maiusculas pequenas latinas; rn por m; vv por w; lista parcial com a geracao pelo confusables.txt na issue #69); fica so com a-z e 0-9
   BR-007,Variantes: o esqueleto; sem um prefixo (banco ou meu ou app); sem sufixos repetidamente (token ou empresas ou empresa ou cartoes ou cartao ou pj ou app ou mobile ou oficial ou digital ou seguranca); funciona sobre o esqueleto colado; um prefixo ou sufixo so sai se sobrar algo; prefixos e sufixos sao comparados no formato do esqueleto (passam pelo esqueleto do BR-006 ao carregar e as entradas vazias ou repetidas saem; a ordem nao importa porque as variantes tentam todos)
   BR-008,Casa quando alguma variante fica a uma distancia de Damerau-Levenshtein (OSA: insercao e remocao e troca e transposicao vizinha) dentro do limite do nome da lista: ate 5 letras 0; de 6 a 9 letras 1; 10 letras ou mais 2
   BR-009,Esqueleto vazio nunca casa (rotulo so com emoji ou pontuacao); nome da lista com esqueleto vazio e ignorado

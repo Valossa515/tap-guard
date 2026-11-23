@@ -141,9 +141,10 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
 `BankNameMatcher(displayNames)`, em `BankNameMatcher.kt` no pacote `io.github.valossa515.tapguard.core.detection.signal`, diz se o rótulo de um app casa com algum nome da lista de bancos. É `internal`: quem o usa é o coletor de S9 (BATCH-03), que junta a comparação ao pacote e ao sinal. Não usa API do Android (`java.text.Normalizer` é do JDK). Motivos e exemplos no ADR-020.
 
 1. **Esqueleto do nome** (`bankNameSkeleton`), o mesmo para o rótulo e para os nomes da lista:
+   - NFKC (largura cheia, ligaduras), antes do corte, para que `：` e `｜` de largura cheia também cortem;
    - corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele: "Nubank: conta, cartão e mais" vira "Nubank";
-   - NFKC (largura cheia, ligaduras), minúsculas invariantes, NFD e remoção dos acentos pelo tipo do caractere, sem regex;
-   - letras parecidas: `0→o`; `1`, `!` e `l` por `i`; `3→e`; `4` e `@` por `a`; `5` e `$` por `s`; `7→t`; cirílico e grego que imitam letras latinas; `rn→m`; `vv→w`;
+   - minúsculas invariantes, NFD e remoção dos acentos pelo tipo do caractere, sem regex;
+   - letras parecidas: `0→o`; `1`, `!` e `l` por `i`; `3→e`; `4` e `@` por `a`; `5` e `$` por `s`; `7→t`; cirílico e grego que imitam letras latinas; `ı ɑ ɪ ɩ օ`; maiúsculas pequenas latinas (`ʟ` vira `i`, como o `l`); `rn→m`; `vv→w`. O mapa é uma lista parcial: uma letra parecida fora dele é apagada, e nos nomes de até 5 letras a imitação escapa. A geração a partir do `confusables.txt` do UTS #39 está na issue #69;
    - fica só com `a-z` e `0-9`.
 2. **Variantes:** o esqueleto; sem um prefixo (`banco`, `meu`, `app`); e sem sufixos, repetidamente (`token`, `empresas`, `empresa`, `cartoes`, `cartao`, `pj`, `app`, `mobile`, `oficial`, `digital`, `seguranca`). Funciona com as palavras coladas ("ItauToken"), e um prefixo ou sufixo só sai se sobrar algo. Os prefixos e sufixos também passam pelo esqueleto quando o arquivo carrega (`BANK_NAME_PREFIXES` e `BANK_NAME_SUFFIXES`, `internal`): sem isso, `mobile`, `oficial` e `digital` nunca sairiam, porque o esqueleto troca `l` por `i`.
 3. **Casa** quando alguma variante fica a uma distância de Damerau-Levenshtein (versão OSA: inserção, remoção, troca e transposição de letras vizinhas, `editDistance`) dentro do limite do nome da lista:
