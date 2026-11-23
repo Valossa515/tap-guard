@@ -1,0 +1,159 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-015-listas-imitacao.contract.toon
+# SPEC-015 (issue #11) – camadas = listas e normalizacao e coletor do core-detection e fixture do core-domain e docs
+# Publicos novos (core.detection.signal): KnownWallets e KnownBankApp e KnownBanks e BankLookalikeCollector; internal novo: BankNameMatcher e bankNameSkeleton e editDistance (BankNameMatcher.kt)
+# Sem @Suppress novo (a anInstalledApp ja tem o da emenda 1.2 da SPEC-014); sem @SuppressLint; sem import android.* nas listas e no coletor e na normalizacao
+# Estimativa pelos arquivos: 968 linhas de codigo e testes (319 no BATCH-01 e 463 no BATCH-02 e 186 no BATCH-03; tabela no documento de arquitetura)
+# Cada linha diz o batch: BATCH-01 (listas) ou BATCH-02 (normalizacao) ou BATCH-03 (coletor)
+
+contract:
+  feature-ref: FT-015
+  version: 1.0
+
+layers:
+  core-detection-lists:
+    files[3]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownWallets.kt,create,BATCH-01: object KnownWallets com val packageNames: Set<String> = Collections.unmodifiableSet(linkedSetOf(...)) com os 6 pacotes do BR-001 na ordem da tabela do plano; um comentario por entrada com o nome do app e a fonte; KDoc: lista do S7 (consumidor na SPEC-016); criterio (pagamento por aproximacao com fonte); quem fica fora e por que (Pix pela Carteira do Google); ampliar ou reduzir com + ou -; limitacao do pacote emprestado (ADR-017 e #65)
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBankApp.kt,create,BATCH-01: data class KnownBankApp(val displayName: String; val packageName: String) publica; init com require(displayName.isNotBlank()) e require(packageName.isNotBlank()) e mensagens fixas que nao repetem o valor; KDoc: um app ou um apelido de app de banco; displayName e o nome da marca comparado pelo S9 (nao o rotulo do aparelho); packageName e o pacote oficial comparado exato; um pacote pode aparecer em mais de uma entrada (apelido)
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBanks.kt,create,BATCH-01: object KnownBanks com val apps: Set<KnownBankApp> = Collections.unmodifiableSet(linkedSetOf(...)) com as 29 entradas do BR-002 na ordem da tabela do plano (uma por linha); um comentario por entrada ou grupo de instituicao com o titulo da Play ou o desenvolvedor como fonte; KDoc: criterio de corte (14 maiores do BCB em dez/2025 e apps oficiais deles); quem ficou para depois com pacote conferido (Pan e Sicoob e Sicredi e Banrisul e Safra e BV); nomes da marca e conferencia na SPEC-022; ampliar com + KnownBankApp(...) ou reduzir com -; limitacao do pacote emprestado (ADR-017 e #65)
+  core-detection-matching:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcher.kt,create,BATCH-02: internal class BankNameMatcher(displayNames: Collection<String>) com fun matches(label: String): Boolean; no construtor calcula o esqueleto de cada nome e descarta os vazios; matches calcula o esqueleto do rotulo (vazio devolve false) e as variantes e devolve true quando alguma variante fica a editDistance de algum esqueleto dentro do limite dele; internal fun bankNameSkeleton(label: String): String (BR-006: corte no primeiro separador quando ha algo antes dele; Normalizer NFKC; lowercase(); Normalizer NFD e filtro de CharCategory.NON_SPACING_MARK; mapa de letras parecidas; rn por m e vv por w; so a-z e 0-9); internal fun editDistance(a: String; b: String): Int (OSA); private: separadores e mapa de letras parecidas e prefixos e sufixos (BR-007) e variants(skeleton) e tolerance(skeleton) com const val SHORT_NAME_MAX_LENGTH = 5 e MEDIUM_NAME_MAX_LENGTH = 9 (MagicNumber do detekt); KDoc com o algoritmo e os comportamentos aceitos (BR-011); sem import android.*
+  core-detection-collector:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankLookalikeCollector.kt,create,BATCH-03: class BankLookalikeCollector(knownBankApps: Set<KnownBankApp>) : SignalCollector (parametro obrigatorio e sem padrao); guarda private val packageNames: Set<String> (copia dos pacotes) e private val matcher = BankNameMatcher(nomes); collect devolve emptySet() quando app.packageName in packageNames; DETECTED quando matcher.matches(app.label); emptySet() senao; companion privado com val DETECTED = setOf(Signal.BANK_LOOKALIKE); KDoc: o que conta (nome igual ou quase igual com pacote fora da lista); pacote na lista de qualquer entrada nao gera S9; lista copiada; lista vazia nunca gera S9; lista padrao KnownBanks.apps; comportamentos aceitos e limitacao do pacote emprestado (ADR-017 e #65); sem import android.*; sem Hilt
+  core-domain-fixtures:
+    files[1]{path,action,description}:
+      core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt,modify,BATCH-03: anInstalledApp ganha label: String = "Example" depois de packageName (9 parametros) e o repassa; o @Suppress("LongParameterList") e o KDoc ja existentes cobrem o caso (ADR-015 estendido pelo ADR-019)
+  docs:
+    files[12]{path,action,description}:
+      core-detection/README.md,modify,BATCH-01: estado (SPEC-015 BATCH-01); secao Listas de apoio (KnownWallets e KnownBanks; criterio; como ampliar); API publica; BATCH-02: secao Comparacao de nomes do S9 (algoritmo; limites; comportamentos aceitos; coletor no BATCH-03); BATCH-03: coletor de S9 e API publica com as treze classes
+      core-domain/README.md,modify,BATCH-03: parametro label da anInstalledApp
+      docs/especificacao.md,modify,BATCH-01: secao 5 com as listas de carteiras e bancos (pacotes e criterio de corte; ADR-020); BATCH-03: secao 8 linha S9 imitacao (esqueleto e variantes e distancia e pacote da lista; ADR-020)
+      .agent/glossary.md,modify,BATCH-01: Carteira conhecida e Banco conhecido com os nomes das classes e o criterio; BATCH-02: Esqueleto do nome
+      .agent/backlog_rules.md,modify,BATCH-01: linha Listas embutidas com KnownWallets e KnownBanks (SPEC-015 e ADR-020)
+      .agent/SKILLS.md,modify,BATCH-01: Detection API publica com KnownWallets e KnownBankApp e KnownBanks; Signal collectors com as listas da SPEC-015; BATCH-02: normalizacao internal no BankNameMatcher; BATCH-03: S9 e API publica com BankLookalikeCollector
+      .agent/project-reference.md,modify,BATCH-01: listas no core-detection; BATCH-03: BankLookalikeCollector na linha do SignalCollector
+      .agent/context.md,modify,BATCH-01: listas criadas e a decisao em aberto da lista inicial de bancos e carteiras resolvida (ADR-020); BATCH-03: coletor de S9
+      .agent/architecture.md,modify,BATCH-03: linha S9 imitacao da tabela de coleta (rotulo normalizado contra KnownBanks; pacote de qualquer entrada da lista tira o S9)
+      .agent/decisions.md,modify,BATCH-01: ADR-020 com as listas e fontes e o criterio de corte e o que fica para depois e o formato (KnownBankApp e apelidos e validacao em branco) e o algoritmo do S9 decidido e os comportamentos aceitos (nome curto igual; corte no separador como Next - Launcher e Caixa (meia-risca) Organizador; palavras fora da lista) e a limitacao do pacote emprestado (#65) e a regra dos apps de clonagem na SPEC-017 (#13); pendencia da lista inicial resolvida; status com normalizacao no BATCH-02 e coletor no BATCH-03; BATCH-02 e BATCH-03: status
+      .agent/plans/spec-015-listas-imitacao.md,modify,BATCH-01 e BATCH-02 e BATCH-03: marcar tarefas e registrar a conferencia de cada batch
+      .agent/plans/spec-015-listas-imitacao-tests.md,create,BATCH-01: plano de testes (papel tester) das listas; BATCH-02: secao da normalizacao; BATCH-03: secao do coletor
+
+migrations[0]:
+
+dependencies:
+  uses[7]:
+    SignalCollector e Signal.BANK_LOOKALIKE e InstalledApp (core-domain; SPEC-010)
+    TrustedStores e InstallSourceCollector como modelo de lista e de coletor com conjunto copiado (core-detection; SPEC-012)
+    ExpectedTrustedStores e InstallSourceCollectorTrustedStoreTest como modelo de lista esperada e de teste parametrizado (SPEC-012)
+    anInstalledApp em core-domain/src/testFixtures (SPEC-012 e SPEC-014)
+    java.text.Normalizer e java.util.Collections (JDK; API 1) e CharCategory do Kotlin
+    libs.junit4 e libs.kotlinx.coroutines.test (testImplementation do core-detection)
+    testFixtures(project(":core-domain")) (testImplementation do core-detection)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: KnownWallets
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownWalletsTest.kt
+      type: junit4
+      batch: BATCH-01
+      helpers: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/ExpectedKnownWallets.kt com internal val EXPECTED_KNOWN_WALLETS: List<String> escrita a mao (KDoc: os testes nao leem a lista de producao para montar o esperado)
+      scenarios[2]:
+        default-list-has-exactly-the-expected-wallets
+        default-list-rejects-mutation-through-cast
+    - target: KnownBanks
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBanksTest.kt
+      type: junit4
+      batch: BATCH-01
+      helpers: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/ExpectedKnownBankApps.kt com internal val EXPECTED_KNOWN_BANK_APPS: List<KnownBankApp> escrita a mao
+      scenarios[2]:
+        default-list-has-exactly-the-expected-bank-apps
+        default-list-rejects-mutation-through-cast
+    - target: KnownBankApp
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBankAppTest.kt
+      type: junit4
+      batch: BATCH-01
+      scenarios[5]:
+        filled-name-and-package-create-the-entry
+        empty-display-name-is-rejected
+        blank-display-name-is-rejected
+        empty-package-name-is-rejected
+        blank-package-name-is-rejected
+    - target: bankNameSkeleton
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameSkeletonTest.kt
+      type: junit4-parameterized
+      batch: BATCH-02
+      parameters: pares rotulo e esqueleto esperado escritos a mao (maiusculas e espacos; acentos; cada separador; largura cheia; 0 e 1 e 3 e 4 e 5 e 7 e @ e $ e !; l; cirilico; grego; rn; vv; espaco de largura zero; separador no inicio nao corta; so emoji e pontuacao da vazio); @Parameters(name = "{0}")
+      scenarios[1]:
+        label-yields-expected-skeleton
+    - target: editDistance
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/EditDistanceTest.kt
+      type: junit4
+      batch: BATCH-02
+      scenarios[6]:
+        equal-strings-have-distance-zero
+        one-substitution-has-distance-one
+        one-insertion-or-deletion-has-distance-one
+        adjacent-transposition-has-distance-one
+        empty-string-distance-is-the-other-length
+        two-edits-have-distance-two
+    - target: BankNameMatcher (casa)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcherMatchTest.kt
+      type: junit4-parameterized
+      batch: BATCH-02
+      parameters: imitadores da tabela do plano e os falsos positivos aceitos (Inter; NEXT; Next - Launcher; Caixa (meia-risca) Organizador) separados por comentario; lista de nomes de banco escrita a mao no teste; @Parameters(name = "{0}")
+      scenarios[1]:
+        label-matches-a-bank-name
+    - target: BankNameMatcher (nao casa)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcherNoMatchTest.kt
+      type: junit4-parameterized
+      batch: BATCH-02
+      parameters: legitimos da tabela (Baixa; Caixinha; Caixa de Ferramentas; Next Launcher; Neon Light; Itau Shop; Mercado Livre; Bradesco Seguros; C6) e as imitacoes que escapam (Atualizacao Nubank; Nubank Wallpapers; Inter&Co; Neon Pay) separados por comentario; mesma lista de nomes do teste anterior
+      scenarios[1]:
+        label-matches-no-bank-name
+    - target: BankNameMatcher
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcherTest.kt
+      type: junit4
+      batch: BATCH-02
+      scenarios[9]:
+        prefix-and-suffixes-are-removed-including-glued-and-repeated
+        five-letter-name-needs-equal-skeleton
+        six-letter-name-tolerates-one-edit-but-not-two
+        nine-letter-name-tolerates-one-edit-but-not-two
+        ten-letter-name-tolerates-two-edits-but-not-three
+        label-with-empty-skeleton-never-matches
+        bank-name-with-empty-skeleton-is-ignored
+        empty-name-list-never-matches
+        known-bank-names-only-match-hand-written-same-bank-pairs
+    - target: BankLookalikeCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankLookalikeCollectorTest.kt
+      type: junit4
+      batch: BATCH-03
+      scenarios[10]:
+        official-package-yields-nothing
+        package-of-another-app-of-the-same-bank-yields-nothing
+        bank-name-with-other-package-yields-s9
+        package-differing-by-suffix-or-case-yields-s9
+        borrowed-official-package-yields-nothing
+        unrelated-name-yields-nothing
+        extended-list-flags-fictitious-bank-imitator
+        empty-list-never-yields-s9
+        later-change-to-given-set-does-not-affect-collector
+        yields-only-s9-for-app-with-other-risk-traits
+  integration-tests:
+  verification[8]{criterion,how}:
+    AC-001 e AC-002,BATCH-01 local e desfeito sem commit: tirar uma carteira e um app de banco da producao derruba os testes de conteudo
+    AC-005,BATCH-02 local e desfeito sem commit: tirar o mapa de letras parecidas derruba os casos de cirilico e de 0 por o
+    AC-008,BATCH-02 local e desfeito sem commit: dar tolerancia 1 aos nomes de ate 5 letras derruba o caso Baixa
+    AC-010,BATCH-02 local e desfeito sem commit: trocar a igualdade por contem derruba Caixa de Ferramentas
+    AC-011,BATCH-02 local e desfeito sem commit: tirar o corte no separador derruba Next - Launcher (o falso positivo documentado deixa de acontecer)
+    AC-015,BATCH-03 local e desfeito sem commit: tirar o passo do pacote derruba official-package-yields-nothing
+    AC-016,BATCH-03 local e desfeito sem commit: comparar o pacote sem maiusculas derruba package-differing-by-suffix-or-case-yields-s9
+    AC-020 e AC-021 e AC-022 e AC-023,Cada batch: ./gradlew build com codigo 0 sem aviso novo; core-data/schemas sem diff; LibraryManifestTest e MergedManifestTest passam; CI da PR verde
+  excluded[4]{target,reason}:
+    Rotulos reais dos apps de banco,Dependem do aparelho (loadLabel); conferencia na SPEC-022
+    Uso de KnownWallets pelo S7,O consumidor e o coletor de S7 da SPEC-016
+    Ausencia de import android.* e de Hilt nas listas e na normalizacao e no coletor,Inspecao no review (AC-020)
+    Desempenho com 300 apps,Calculo em memoria sobre cerca de 30 nomes curtos; o limite de 5 s da varredura e medido na SPEC-022

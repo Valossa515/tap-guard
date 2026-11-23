@@ -1,0 +1,69 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-015-listas-imitacao.spec.toon
+# SPEC-015 (issue #11) – interface library: outputs.*.status e o resultado devolvido ou a excecao lancada ou a falha do build
+# Decisoes do usuario em 2026-11-21 (tabela do plano): corte nos 14 maiores do BCB; carteiras so com NFC confirmado; S9 pelo nome inteiro; nomes da marca conferidos na SPEC-022
+# Emenda 1.1 (2026-11-21 revisao do architect): KnownBank vira KnownBankApp e KnownBanks.entries vira KnownBanks.apps; estimate-lines 970 pelos arquivos do contrato; o BATCH-02 da 1.0 passaria de 500 (cerca de 650) e foi dividido em normalizacao (BATCH-02) e coletor (BATCH-03), sem single-pr-reason
+# Emenda 1.2 (2026-11-23 review do BATCH-01): KnownBanks.apps tem 26 pacotes (29 entradas menos 3 apelidos) e nao 27; formato dos comentarios: um por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app)
+
+feature:
+  id: FT-015
+  name: SPEC-015 Listas de apoio e imitacao (S9)
+  version: 1.2
+  status: draft
+  interface: library
+  estimate-lines: 970
+
+requirement:
+  summary: Duas listas publicas no core-detection no formato do TrustedStores e um coletor. KnownWallets guarda os pacotes que podem ser o app de pagamento por aproximacao padrao sem gerar S7 (consumidor na SPEC-016). KnownBanks guarda nome de exibicao e pacote oficial dos apps dos maiores bancos e fintechs do Brasil. O coletor de S9 devolve BANK_LOOKALIKE quando o rotulo normalizado do app casa com um nome da lista de bancos e o pacote do app nao e nenhum dos pacotes da lista. Nada chama o Android.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: SignalCollector.collect(app) no coletor de S9; leitura de KnownWallets.packageNames e KnownBanks.apps
+
+inputs[5]{name,type,required,constraints}:
+  app,InstalledApp,true,o coletor de S9 so le label e packageName
+  label,String,true,rotulo do loadLabel como o inventario devolve (SPEC-011); sem rotulo o Android devolve o nome do pacote
+  knownBankApps,Set<KnownBankApp>,true,parametro obrigatorio do construtor do coletor de S9 sem valor padrao; copiado; a lista padrao e KnownBanks.apps
+  displayName,String,true,nome de exibicao de um app de banco na lista; nao pode ficar em branco
+  packageName,String,true,pacote oficial de um app de banco na lista; nao pode ficar em branco; comparacao exata com maiusculas
+
+outputs:
+  success:
+    description: As listas expoem conjuntos que nao podem ser alterados; o coletor devolve um conjunto vazio ou so com BANK_LOOKALIKE
+    status: Success
+    body[3]{name,type,value}:
+      KnownWallets.packageNames,Set<String>,6 pacotes com fonte por entrada
+      KnownBanks.apps,Set<KnownBankApp>,29 entradas (26 pacotes) com fonte por instituicao
+      sinais do coletor de S9,Set<Signal>,vazio ou {BANK_LOOKALIKE}; nunca outro sinal
+  errors[3]{code,status,when}:
+    BLANK_BANK_APP_FIELD,IllegalArgumentException,KnownBankApp criado com displayName ou packageName em branco
+    SCHEMA_CHANGED,BuildFailure,o build regenera core-data/schemas com diff (passo Schema do Room commitado do CI)
+    LIBRARY_PERMISSION_ADDED,BuildFailure,o manifesto mesclado do core-detection passa a declarar permissao (LibraryManifestTest) ou o do app ganha permissao fora da lista (MergedManifestTest)
+
+business-rules[13]{id,rule}:
+  BR-001,KnownWallets.packageNames tem 6 pacotes: com.google.android.apps.walletnfcrel (Carteira do Google) e com.samsung.android.spay (Samsung Wallet) e os apps de banco com Pix por aproximacao no proprio app: com.nu.production (Nubank) e com.itau (Itau) e br.com.bb.android (BB) e br.com.intermedium (Inter); fontes no plano; Mercado Pago e PicPay e Bradesco e Caixa e Santander e C6 ficam fora (fazem pela Carteira do Google)
+  BR-002,KnownBanks.apps tem 29 entradas (26 pacotes): os 14 primeiros do ranking de clientes do BCB (dez/2025) e os apps oficiais deles com o nome da marca no titulo achados na Play; uma entrada por par nome e pacote; um pacote pode ter apelido (BB e Banco do Brasil; Santander Brasil e Santander; BTG Pactual Banking e BTG Pactual); tabela no plano
+  BR-003,Formato do TrustedStores (ADR-017): um object publico por tipo num arquivo proprio no pacote core.detection.signal; colecao que nao pode ser alterada nem por cast; um comentario por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app); quem usa o SDK amplia ou reduz com + ou -
+  BR-004,KnownBankApp(displayName; packageName) e data class publica do core-detection sem colecao; nome ou pacote em branco lanca IllegalArgumentException; o core-domain nao conhece o tipo
+  BR-005,Pacote na lista nao gera S9: se app.packageName e um dos pacotes da lista (de qualquer entrada) o coletor devolve vazio; comparacao exata com maiusculas e minusculas
+  BR-006,Esqueleto do nome (o mesmo para o rotulo e para os nomes da lista): corta no primeiro separador (dois-pontos; barra vertical; espaco-hifen-espaco; espaco-meia-risca-espaco; espaco-travessao-espaco); NFKC; minusculas invariantes (lowercase do Kotlin; Locale.ROOT); NFD sem marcas combinantes (CharCategory.NON_SPACING_MARK; sem regex); letras parecidas trocadas (0 por o; 1 e l e ! por i; 3 por e; 4 e @ por a; 5 e $ por s; 7 por t; cirilico e grego que imitam latinas; rn por m; vv por w); fica so com a-z e 0-9
+  BR-007,Variantes: o esqueleto; sem um prefixo (banco ou meu ou app); sem sufixos repetidamente (token ou empresas ou empresa ou cartoes ou cartao ou pj ou app ou mobile ou oficial ou digital ou seguranca); funciona sobre o esqueleto colado; um prefixo ou sufixo so sai se sobrar algo
+  BR-008,Casa quando alguma variante fica a uma distancia de Damerau-Levenshtein (OSA: insercao e remocao e troca e transposicao vizinha) dentro do limite do nome da lista: ate 5 letras 0; de 6 a 9 letras 1; 10 letras ou mais 2
+  BR-009,Esqueleto vazio nunca casa (rotulo so com emoji ou pontuacao); nome da lista com esqueleto vazio e ignorado
+  BR-010,Coletor de S9: lista obrigatoria no construtor sem padrao e copiada; lista vazia nunca gera S9; devolve {BANK_LOOKALIKE} ou vazio; sem import android.* (java.text.Normalizer e do JDK); sem PackageManager; sem dispatcher; sem anotacoes do Hilt
+  BR-011,Comportamentos aceitos (decisao nome inteiro): nome curto igual de outro desenvolvedor gera S9 (Inter; NEXT); o corte no separador tambem gera S9 (Next - Launcher; Caixa (meia-risca) Organizador); palavras fora da lista fechada escapam (Atualizacao Nubank; Nubank Wallpapers; Inter&Co; Neon Pay); um falso positivo leva no maximo a amarelo (regras 3 e 4)
+  BR-012,Limitacao do pacote emprestado (ADR-017): app com o pacote oficial de um banco ausente no aparelho nao recebe S9; o S1 continua cobrindo o app instalado a mao; defesa pelo certificado de assinatura na issue #65
+  BR-013,Fora: coletor de S7 (SPEC-016); regra dos apps de clonagem e pacotes de banco no ScoringContext (SPEC-017; comentario na #13); Hilt e ScanDevice (SPEC-018); banco ficticio do app isca (SPEC-021 e SPEC-022); conferencia dos rotulos em aparelho (SPEC-022); InstalledApp e ScoringContext sem mudanca; core-data e app_snapshot sem mudanca (S9 no bit 8 de signals pela SPEC-018)
+
+assumptions[8]:
+  Decisoes do usuario em 2026-11-21 (tabela do plano)
+  Pacotes vistos em paginas da Play (play.google.com/store/apps/details?id=... com hl=pt_BR e gl=BR) em 2026-11-21; cinco palpites voltaram 404 e ficaram fora
+  Nomes da lista tirados do titulo da Play (parte antes de dois-pontos) ou do desenvolvedor; o rotulo real no aparelho (loadLabel) nao foi conferido e fica para a SPEC-022
+  O servico de pagamento de um app de banco fica no proprio pacote do app; a SPEC-016 confirma
+  Ranking de clientes do BCB de dez/2025 pelas paginas Melhores Cartoes (24/01/2026) e Forbes Brasil (22/01/2026); posicoes 15 a 18 sem fonte
+  Algoritmo conferido num prototipo em Java (JDK 21) com a lista de 29 entradas e 80 rotulos; a tabela de exemplos do plano e a saida do prototipo
+  Estimativa de 970 linhas de codigo e testes pelos arquivos do contrato (790 no plano antes da revisao) sem os artefatos do SDD e sem a documentacao; acima de 500 e por isso tres batches
+  outputs.*.status e o resultado devolvido ou a excecao lancada ou a falha do build (feature.interface library)
+
+batches[3]{id,scope,estimate}:
+  BATCH-01,KnownWallets e KnownBankApp e KnownBanks com listas esperadas e testes; documentacao das listas e ADR-020; Refs #11,320 lines
+  BATCH-02,Normalizacao do nome (BankNameMatcher internal: esqueleto e variantes e distancia e limites) e testes; documentacao do algoritmo no README e no ADR-020; Refs #11,465 lines
+  BATCH-03,Coletor de S9 (BankLookalikeCollector) com o parametro label da fixture e testes; secao 8 e documentacao; Closes #11,185 lines

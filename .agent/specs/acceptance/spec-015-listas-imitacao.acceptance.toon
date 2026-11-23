@@ -1,0 +1,34 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-015-listas-imitacao.acceptance.toon
+# SPEC-015 (issue #11) – listas e coletor com JUnit 4 sem Robolectric; casos parametrizados leem listas escritas a mao no teste
+# Emenda 1.1 (2026-11-21 revisao do architect): tres batches; nomes KnownBankApp e KnownBanks.apps; AC-005 a AC-014 testam o BankNameMatcher (internal) e AC-015 a AC-019 o coletor
+# BATCH-01: AC-001 a AC-004 e AC-020 a AC-023; BATCH-02: AC-005 a AC-014 e AC-020 a AC-023; BATCH-03: AC-015 a AC-023
+
+acceptance:
+  feature-ref: FT-015
+  version: 1.1
+
+criteria[23]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Lista de carteiras,Lista de 6 pacotes escrita a mao no teste,Comparar com KnownWallets.packageNames,Os conjuntos sao iguais; tirar ou por uma entrada na producao derruba o teste,must-have,BR-001
+  AC-002,Lista de bancos,Lista de 29 pares nome e pacote escrita a mao no teste,Comparar com KnownBanks.apps,Os conjuntos sao iguais; tirar ou por uma entrada na producao derruba o teste,must-have,BR-002
+  AC-003,Listas nao podem ser alteradas,KnownWallets.packageNames e KnownBanks.apps,Cast para MutableSet e add,Lanca UnsupportedOperationException nas duas,must-have,BR-003
+  AC-004,Nome ou pacote em branco,KnownBankApp com displayName vazio; so com espacos; packageName vazio; so com espacos,Criar o KnownBankApp,Lanca IllegalArgumentException em cada caso; nome e pacote preenchidos criam sem erro,must-have,BR-004
+  AC-005,Esqueleto do nome,Rotulos com maiusculas; acentos; espacos; separadores; largura cheia; digitos e simbolos; l; cirilico; grego; rn; vv; espaco de largura zero (lista literal no teste com o esqueleto esperado de cada um),Calcular o esqueleto,Cada rotulo da o esqueleto esperado,must-have,BR-006
+  AC-006,Distancia OSA,Pares com troca e insercao e remocao e transposicao vizinha e iguais,Calcular a distancia,Troca e insercao e remocao e transposicao valem 1; iguais valem 0; Nubnak e nubank valem 1,must-have,BR-008
+  AC-007,Prefixos e sufixos,Itau Token; ItauToken; Banco Itau; Meu Bradesco; Bradesco App; Itau Cartoes Empresas; PicPay Seguranca contra a lista do teste,Comparar o nome,Todos casam,must-have,BR-007
+  AC-008,Limite por tamanho,Baixa e Calxa contra Caixa (5 letras); Nubnak e Nubamk contra Nubank (6); Santandr contra Santander (9); Banco Brasil contra Banco do Brasil (13),Comparar o nome,Baixa nao casa; Calxa casa pela troca de l; os demais casam dentro do limite,must-have,BR-008
+  AC-009,Imitadores casam,Rotulos imitadores da tabela do plano (lista literal no teste; um caso parametrizado por rotulo),Comparar o nome,Cada um casa,must-have,BR-006
+  AC-010,Legitimos nao casam,Baixa; Caixinha; Caixa de Ferramentas; Next Launcher; Neon Light; Itau Shop; Mercado Livre; Bradesco Seguros; C6 (lista literal no teste),Comparar o nome,Nenhum casa,must-have,BR-008
+  AC-011,Falsos positivos aceitos,Inter e NEXT de outros desenvolvedores; Next - Launcher; Caixa (meia-risca) Organizador,Comparar o nome,Todos casam; o teste documenta o comportamento,must-have,BR-011
+  AC-012,Imitacoes que escapam,Atualizacao Nubank; Nubank Wallpapers; Inter&Co; Neon Pay,Comparar o nome,Nenhum casa; o teste documenta o comportamento,should-have,BR-011
+  AC-013,Nomes da lista nao se confundem entre instituicoes,KnownBanks.apps e os pares de apps do mesmo banco escritos a mao no teste,Comparar cada nome com os das outras entradas de pacote diferente,So os pares escritos a mao casam,must-have,BR-008
+  AC-014,Esqueleto vazio,Rotulo so com emoji e pontuacao; lista com um nome cujo esqueleto e vazio,Comparar o nome,Nao casa; o nome vazio da lista e ignorado,must-have,BR-009
+  AC-015,Pacote na lista nao gera S9,App Nubank com com.nu.production; app Itau Empresas com com.itau.empresas,collect(app) no coletor de S9 com a lista do teste,Devolve conjunto vazio nos dois casos,must-have,BR-005
+  AC-016,Nome igual com pacote diferente gera S9,App Nubank com com.fake.app; com com.nu.production.fake; com COM.NU.PRODUCTION,collect(app) no coletor de S9,Devolve {BANK_LOOKALIKE} nos tres casos,must-have,BR-005
+  AC-017,Pacote emprestado,App Nubank com com.nu.production num aparelho sem o Nubank,collect(app) no coletor de S9,Devolve conjunto vazio; o teste e o KDoc documentam a limitacao (ADR-017 e #65),should-have,BR-012
+  AC-018,Lista do construtor,Lista do teste mais um banco ficticio; lista vazia; conjunto mutavel alterado depois de criar o coletor,collect(app) com o rotulo do banco ficticio e com Nubank,O banco ficticio gera S9 com a lista ampliada; a lista vazia nunca gera S9; alterar o conjunto depois nao muda o coletor,must-have,BR-010
+  AC-019,So S9,App com rotulo imitador e NFC e servico de HCE e instalador nulo,collect(app) no coletor de S9,Devolve exatamente {BANK_LOOKALIKE},must-have,BR-010
+  AC-020,Sem API do Android,Codigo das listas e do coletor e da normalizacao,Inspecionar imports e o git diff,Nenhum import android.*; sem PackageManager; sem dispatcher; sem anotacoes do Hilt,must-have,BR-010
+  AC-021,Sem permissao nova e schema igual,Build de cada batch,./gradlew build e git status,LibraryManifestTest e MergedManifestTest passam (LIBRARY_PERMISSION_ADDED nao acontece); core-data/schemas sem diff (SCHEMA_CHANGED nao acontece),must-have,BR-013
+  AC-022,ktlint e detekt e lint e testes passam,Codigo de cada batch,./gradlew build,Termina com codigo 0 sem aviso novo do compilador nem do lint,must-have,BR-010
+  AC-023,Documentacao e CI,PR de cada batch,Revisar core-detection/README.md e SKILLS.md e decisions.md e docs/especificacao.md e os demais do contrato; jobs Regras do projeto e Build e testes,Listas e coletor do batch documentados; ADR-020 com listas e fontes e corte e algoritmo e falsos positivos aceitos (inclusive o do separador) e limitacoes; secoes 5 e 8 atualizadas; CI verde,must-have,BR-003

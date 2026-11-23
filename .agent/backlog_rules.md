@@ -50,7 +50,7 @@
   - App de banco da loja oficial com NFC e HCE: 35, limitado a 29, verde.
   - Jogo instalado por APK sem NFC: 30, amarelo.
   - App de fora da loja com acessibilidade e SMS, sem NFC: 65, limitado a 59, amarelo.
-- Listas embutidas: lojas confiáveis (Google Play, Galaxy Store, Xiaomi GetApps, OPPO App Market, vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore — `TrustedStores`, SPEC-012, ADR-017); carteiras conhecidas (Google Wallet, Samsung Wallet e apps oficiais de grandes bancos e carteiras do Brasil — SPEC-015); bancos conhecidos para S9 (nome + pacote oficial).
+- Listas embutidas: lojas confiáveis (Google Play, Galaxy Store, Xiaomi GetApps, OPPO App Market, vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore — `TrustedStores`, SPEC-012, ADR-017); carteiras conhecidas (Carteira do Google, Samsung Wallet, Nubank, Itaú, Banco do Brasil e Inter — `KnownWallets`, 6 pacotes, SPEC-015, ADR-020); bancos conhecidos para S9 (nome de exibição + pacote oficial de 29 apps das 14 instituições com mais clientes no ranking do Banco Central — `KnownBanks`, SPEC-015, ADR-020).
 
 ### Varredura (F1)
 - Lista apps que não são do sistema; roda ao abrir o app e por "Verificar agora".

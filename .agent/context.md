@@ -13,6 +13,7 @@
 - **Sinal S1 (SPEC-012):** `InstallSourceCollector` no `core-detection` compara o instalador com a lista de lojas confiáveis (`TrustedStores`, 11 pacotes) e gera S1 quando ele é nulo ou está fora. Sem API do Android; quem usa o SDK passa a própria lista. Fixtures do domínio em `testFixtures` do `core-domain` (ADR-017).
 - **Sinais S2 e S3 (SPEC-013):** `NfcPermissionCollector` gera S2 com `android.permission.NFC`, e `CardEmulationServiceCollector` gera S3 com serviço de HCE. O inventário acha os serviços de HCE com uma consulta `queryIntentServices` por varredura (ação `HOST_APDU_SERVICE`, inclusive desligados, só os que exigem `BIND_NFC_SERVICE`) e os guarda em `InstalledApp.cardEmulationServices`. Off-host e NFC-F não contam (ADR-018).
 - **Sinais S4, S5, S6 e S8 (SPEC-014):** `OverlayPermissionCollector` gera S5 com `SYSTEM_ALERT_WINDOW` declarada, `SmsPermissionCollector` gera S8 com `READ_SMS` ou `RECEIVE_SMS`, e `RecentInstallOrUpdateCollector` gera S6 quando a instalação ou a atualização mais recente cai nos últimos 7 dias (limite inclusivo, futuro conta), pelo `Clock` recebido no construtor. `EnabledAccessibilityServiceCollector` gera S4 com serviço de acessibilidade ligado: o inventário lê `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` uma vez por varredura e guarda os serviços de cada app em `InstalledApp.enabledAccessibilityServices` (ADR-019).
+- **Listas de apoio (SPEC-015, BATCH-01):** `KnownWallets` (6 pacotes de carteiras que podem ser o app de pagamento padrão sem S7, inclusive os apps de banco com Pix por aproximação no próprio app) e `KnownBanks` (29 entradas `KnownBankApp`, nome de exibição e pacote oficial, das 14 instituições com mais clientes no ranking do Banco Central), no formato do `TrustedStores`. A comparação de nomes do S9 vem no BATCH-02 e o coletor no BATCH-03 (ADR-020).
 - **Runtime version:** Android 8.0 (API 26) ou superior; compileSdk 37 e targetSdk 36 (separados desde a SPEC-003, ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain, daemon do Gradle e CI).
 
 ## Problem
@@ -65,6 +66,6 @@ Ver `project-reference.md` §8. Versões: só em `gradle/libs.versions.toml`. J�
 ## Open Decisions (especificação, seção 13)
 - Nome de exibição do app em português. (O identificador do pacote foi decidido na SPEC-001: ADR-011.)
 - Licença do código.
-- Lista inicial de bancos e carteiras na versão 1.0 (pacotes de carteiras a levantar na SPEC-015).
+- Lista inicial de bancos e carteiras na versão 1.0: decidida no ADR-020 (SPEC-015), com 6 carteiras e 29 apps de 14 instituições.
 - Publicar na Play Store já na 1.0 ou só depois de validar com usuários.
 - API do pagamento padrão no Android 15+ (papel de carteira): confirmar na SPEC-016.
