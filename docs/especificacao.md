@@ -242,7 +242,7 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |
 | S7 pagamento padrão | `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT`, para cada serviço HCE encontrado. No Android 15+ o pagamento padrão passou a ser o app com o papel de carteira: confirmar a API na SPEC-016 |
 | S8 SMS | `READ_SMS` ou `RECEIVE_SMS` em `requestedPermissions` |
-| S9 imitação | Comparar o nome de exibição normalizado com a lista de bancos e o pacote com o oficial |
+| S9 imitação | Nenhuma API: `label` (do `loadLabel`) e `packageName` que o inventário já leu. O rótulo vira um esqueleto (NFKC, corte no primeiro separador, minúsculas, sem acentos, letras parecidas trocadas, só `a-z0-9`) e é comparado, com e sem os prefixos e sufixos da lista fechada, aos nomes de `KnownBanks.apps` pela distância OSA: até 5 letras, só igual; de 6 a 9, 1 edição; 10 ou mais, 2. O pacote de qualquer entrada da lista tira o S9, com comparação exata. `BankLookalikeCollector` (SPEC-015, ADR-020) |
 
 **Leitura do cartão (F2)**
 

@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; demais, SPEC-015 e SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; `BankLookalikeCollector`, SPEC-015; S7, SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -115,7 +115,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `EnabledAccessibilityServiceCollector()` | `core.detection.signal` | Sinal S4: `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio. Serviço só declarado não conta. Sem API do Android (ADR-019) |
 | `RecentInstallOrUpdateCollector(clock)` | `core.detection.signal` | Sinal S6: `RECENTLY_INSTALLED_OR_UPDATED` quando o mais recente entre `firstInstallTime` e `lastUpdateTime` não é anterior ao agora do `Clock` menos 7 dias. Limite inclusivo; futuro conta. `Clock` obrigatório no construtor; sem API do Android (ADR-019) |
 
-API pública do `core-detection`: `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp` e `KnownBanks`.
+API pública do `core-detection` (treze classes): `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks` e `BankLookalikeCollector`.
 
 ### App (SPEC-003)
 

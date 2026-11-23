@@ -295,7 +295,7 @@
 
 ## ADR-020 — Listas de apoio (carteiras e bancos) e sinal S9: critério, formato e comparação de nomes
 - **Date:** 2026-11-21
-- **Status:** Aceita (SPEC-015: listas implementadas no BATCH-01; comparação de nomes implementada no BATCH-02, em `BankNameMatcher.kt`, `internal`, com a emenda 1.3 da spec, e corrigida num PR separado com a emenda 1.4 (letras parecidas fora do mapa e NFKC antes do corte); coletor de S9 no BATCH-03, planejado)
+- **Status:** Aceita (SPEC-015: listas implementadas no BATCH-01; comparação de nomes implementada no BATCH-02, em `BankNameMatcher.kt`, `internal`, com a emenda 1.3 da spec, e corrigida num PR separado com a emenda 1.4 (letras parecidas fora do mapa e NFKC antes do corte); coletor de S9 implementado no BATCH-03, em `BankLookalikeCollector`)
 - **Context:**
   - A SPEC-015 (#11) entrega as listas de carteiras conhecidas (S7) e de bancos conhecidos (S9), e o coletor de S9 ("nome parecido com o de um banco conhecido, mas pacote diferente do oficial"). A §5 citava as listas sem pacotes, e a §13 deixava em aberto "quantos entram na versão 1.0".
   - O Pix por aproximação faz apps de banco virarem o app de pagamento por aproximação padrão. Sem eles na lista de carteiras, o S7 acusaria o app legítimo do banco (#47 e comentário na #11).

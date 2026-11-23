@@ -67,7 +67,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |
 | S7 pagamento padrão | `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` para cada serviço HCE. Android 15+: papel de carteira, confirmar na SPEC-016. Isolado em um coletor, degrada sem erro |
 | S8 SMS | `READ_SMS` ou `RECEIVE_SMS` em `requestedPermissions` |
-| S9 imitação | Nome de exibição normalizado contra a lista de bancos; pacote contra o oficial |
+| S9 imitação | `BankLookalikeCollector(knownBankApps)`: esqueleto do rótulo e variantes sem prefixos e sufixos contra os nomes de `KnownBanks.apps` (distância OSA até 0, 1 ou 2 pelo tamanho do nome); o pacote de qualquer entrada da lista tira o S9 (ADR-020) |
 
 ## Card Reading (planned, F2)
 

@@ -334,10 +334,21 @@ Achada pelo usuário antes do merge do #68. Ficou num PR separado, a partir da `
 - `./gradlew build` verde, sem diff em `core-data/schemas`. `core-detection` com 300 testes (294 + 6).
 
 ### BATCH-03: coletor de S9 (PR "SPEC-015 BATCH-03 …", `Closes #11`)
-9. [ ] **Coletor** (`feat:`): `BankLookalikeCollector(knownBankApps)` com o conjunto de pacotes copiado e o `BankNameMatcher`; KDoc com o que conta, o que não conta e as limitações; parâmetro `label` na `anInstalledApp`. `./gradlew build` verde.
-10. [ ] **Testes** (`test:`, papel tester): pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote que difere por sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com banco fictício; lista vazia; conjunto alterado depois; só S9.
-11. [ ] **Conferência dos critérios**, local e desfeita sem commit: tirar o passo do pacote derruba o caso do pacote oficial; comparar o pacote sem maiúsculas derruba o caso de maiúsculas; `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-12. [ ] **Documentação** (`docs:`): READMEs do `core-detection` (coletor de S9, API pública com treze classes) e do `core-domain` (parâmetro da fixture); §8 de `docs/especificacao.md` (linha S9); `.agent/architecture.md` (linha S9); `SKILLS.md`, `project-reference.md`, `context.md`; ADR-020: S9 implementado.
+9. [x] **Coletor** (`feat:`): `BankLookalikeCollector(knownBankApps)` com o conjunto de pacotes copiado e o `BankNameMatcher`; KDoc com o que conta, o que não conta e as limitações; parâmetro `label` na `anInstalledApp`. `./gradlew build` verde.
+   - 2026-11-23, `feat:` `8149a08`, a partir da `main` em `0c8171c` (depois do merge do #70). Todas as chamadas da `anInstalledApp` usam argumentos nomeados, então o `label` em segundo lugar não desloca nenhuma.
+10. [x] **Testes** (`test:`, papel tester): pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote que difere por sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com banco fictício; lista vazia; conjunto alterado depois; só S9.
+   - 2026-11-23, `test:` `5c67012`: 10 cenários, lista pequena escrita à mão (Nubank, Itaú, Itaú Empresas) e um banco fictício.
+   - **Tamanho:** 188 linhas de código e testes (coletor 49, fixture +2/−1, teste 137), contra 186 estimadas.
+11. [x] **Conferência dos critérios**, local e desfeita sem commit: tirar o passo do pacote derruba o caso do pacote oficial; comparar o pacote sem maiúsculas derruba o caso de maiúsculas; `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
+   - 2026-11-23, local (Windows), cada alteração desfeita com `git checkout`:
+     - sem o passo do pacote → 5 falhas: `official package yields nothing`, `package of another app of the same bank yields nothing`, `borrowed official package yields nothing`, `extended list flags fictitious bank imitator` e `later change to given set does not affect collector` (AC-015);
+     - pacote comparado sem maiúsculas (`lowercase()` dos dois lados) → 1 falha: `package differing by suffix or case yields s9` (AC-016).
+   - `./gradlew clean build` verde em 2 min 49 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-021, AC-022).
+     - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows; só rodam no CI), `core-detection` 310 (300 de antes + 10 novos), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Total: 393.
+     - `LibraryManifestTest` e `MergedManifestTest` passam; `koverVerify` do `core-domain` passa (a fixture fica fora do Kover).
+     - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+12. [x] **Documentação** (`docs:`): READMEs do `core-detection` (coletor de S9, API pública com treze classes) e do `core-domain` (parâmetro da fixture); §8 de `docs/especificacao.md` (linha S9); `.agent/architecture.md` (linha S9); `SKILLS.md`, `project-reference.md`, `context.md`; ADR-020: S9 implementado.
+   - 2026-11-23: os documentos acima. No `project-reference.md`, o `BankLookalikeCollector` na linha do `SignalCollector` e a API pública com treze classes; no `context.md`, o coletor de S9 (falta só o de S7, SPEC-016); plano de testes com a seção BATCH-03.
 
 ## Tamanho: cerca de 970 linhas, em três batches
 
@@ -375,14 +386,14 @@ Nenhuma. O S9 vai no bit 8 de `app_snapshot.signals` pela SPEC-018; o `1.json` n
 - **Regra dos apps de clonagem:** fica para a SPEC-017, com as duas formas descritas acima (comentário na #13).
 
 ## Acceptance criteria
-- [ ] Listas em arquivo único por tipo, públicas, sem alteração possível nem por cast, com fonte por entrada (critério da #11; AC-001 a AC-003)
-- [ ] `KnownWallets` com as 6 carteiras e `KnownBanks` com as 29 entradas, conferidas por listas escritas à mão; `KnownBankApp` recusa nome ou pacote em branco (AC-001, AC-002, AC-004)
-- [ ] Nome igual ou quase igual com pacote diferente gera S9: maiúsculas, acentos, espaços, separadores, sufixos e prefixos da lista, letras parecidas e distância dentro do limite (critério da #11; AC-005 a AC-009, AC-016)
-- [ ] Pacote oficial não gera S9, inclusive o de outro app do mesmo banco (critério da #11; AC-015, AC-017)
-- [ ] Nomes curtos só casam iguais; legítimos da tabela não geram S9; falsos positivos aceitos e imitações que escapam documentados; nenhum nome da lista casa com o de outra instituição; esqueleto vazio nunca casa (AC-008, AC-010 a AC-014)
-- [ ] Lista obrigatória no coletor, copiada, ampliável pelo SDK; lista vazia nunca gera S9; o coletor só devolve S9 ou nada (AC-018, AC-019)
-- [ ] Sem `android.*` nas listas, na normalização e no coletor; sem permissão nova; schema do Room sem diff (AC-020, AC-021)
-- [ ] ktlint, detekt, lint e testes passam em cada batch (critério da #11; AC-022)
+- [x] Listas em arquivo único por tipo, públicas, sem alteração possível nem por cast, com fonte por entrada (critério da #11; AC-001 a AC-003)
+- [x] `KnownWallets` com as 6 carteiras e `KnownBanks` com as 29 entradas, conferidas por listas escritas à mão; `KnownBankApp` recusa nome ou pacote em branco (AC-001, AC-002, AC-004)
+- [x] Nome igual ou quase igual com pacote diferente gera S9: maiúsculas, acentos, espaços, separadores, sufixos e prefixos da lista, letras parecidas e distância dentro do limite (critério da #11; AC-005 a AC-009, AC-016)
+- [x] Pacote oficial não gera S9, inclusive o de outro app do mesmo banco (critério da #11; AC-015, AC-017)
+- [x] Nomes curtos só casam iguais; legítimos da tabela não geram S9; falsos positivos aceitos e imitações que escapam documentados; nenhum nome da lista casa com o de outra instituição; esqueleto vazio nunca casa (AC-008, AC-010 a AC-014)
+- [x] Lista obrigatória no coletor, copiada, ampliável pelo SDK; lista vazia nunca gera S9; o coletor só devolve S9 ou nada (AC-018, AC-019)
+- [x] Sem `android.*` nas listas, na normalização e no coletor; sem permissão nova; schema do Room sem diff (AC-020, AC-021)
+- [x] ktlint, detekt, lint e testes passam em cada batch (critério da #11; AC-022)
 - [ ] Documentação de cada batch, com o ADR-020 e as §5 e §8, e CI de cada PR verde (critério da #11; AC-023)
 
 ## Fontes
