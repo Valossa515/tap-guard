@@ -115,6 +115,17 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      # O Robolectric baixa as imagens do Android (android-all-instrumented) do Maven
+      # Central na hora do teste, fora do cache do Gradle. Uma falha de rede nesse
+      # download derruba os testes. O cache evita baixar de novo a cada build.
+      - name: Cache das imagens do Robolectric
+        if: steps.changes.outputs.code == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: robolectric-${{ runner.os }}-
+
       - name: Build e testes
         if: steps.changes.outputs.code == 'true'
         run: ./gradlew build --no-daemon
