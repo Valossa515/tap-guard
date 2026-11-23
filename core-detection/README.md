@@ -108,7 +108,7 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 
 ## Listas de apoio (carteiras e bancos)
 
-Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no mesmo formato do `TrustedStores`: `object` público, conjunto que não pode ser alterado (nem por cast) e um comentário por entrada com o nome e a fonte. Motivos, critério e fontes no ADR-020.
+Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no mesmo formato do `TrustedStores`: `object` público, conjunto que não pode ser alterado (nem por cast) e um comentário por entrada com o nome e a fonte (em `KnownBanks`, um por instituição, com o título de cada app). Motivos, critério e fontes no ADR-020.
 
 - **`KnownWallets.packageNames`** (6 pacotes): apps que podem ser o app de pagamento por aproximação padrão sem gerar S7. Quem a usa é o coletor de S7 (SPEC-016).
 
@@ -122,7 +122,7 @@ Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no 
 | Inter | `br.com.intermedium` |
 
 - **Ficam fora de `KnownWallets`:** entram só apps com fonte de que fazem o pagamento por aproximação, as duas carteiras e os bancos com Pix por aproximação no próprio app. Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6 fazem o Pix por aproximação pela Carteira do Google e ficam fora.
-- **`KnownBanks.apps`** (29 entradas, 27 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem vai usá-la é o coletor de S9 (BATCH-03).
+- **`KnownBanks.apps`** (29 entradas, 26 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem vai usá-la é o coletor de S9 (BATCH-03).
   - Cada entrada é um `KnownBankApp(displayName, packageName)`: um app ou um apelido de app. Um pacote pode ter mais de um nome ("BB" e "Banco do Brasil"; "Santander Brasil" e "Santander"; "BTG Pactual Banking" e "BTG Pactual"), e uma instituição, mais de um app (Itaú, Itaú Empresas e Personnalité).
   - `displayName` é o nome da marca, tirado do título da Play ou do desenvolvedor, não o rótulo do aparelho, que é conferido no teste ponta a ponta (SPEC-022). Nome ou pacote em branco lança `IllegalArgumentException`.
   - Ficaram para depois, com o pacote já conferido: Banco Pan, Sicoob, Sicredi, Banrisul, Safra e BV.

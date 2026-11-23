@@ -7,7 +7,7 @@
 Três listas públicas e um coletor, Kotlin puro, em `core.detection.signal`, e a comparação de nomes num arquivo `internal`:
 - `KnownWallets.packageNames: Set<String>`: 6 pacotes (BR-001), lista do S7 (consumidor na SPEC-016);
 - `KnownBankApp(displayName, packageName)`: `data class` pública, com nome e pacote obrigatórios e não em branco;
-- `KnownBanks.apps: Set<KnownBankApp>`: 29 entradas e 27 pacotes (BR-002);
+- `KnownBanks.apps: Set<KnownBankApp>`: 29 entradas e 26 pacotes (BR-002);
 - `BankNameMatcher` (`internal`): esqueleto do nome, variantes, distância OSA e limites por tamanho;
 - `BankLookalikeCollector(knownBankApps: Set<KnownBankApp>)`: `{BANK_LOOKALIKE}` quando o rótulo casa e o pacote não é nenhum dos da lista.
 

@@ -3,11 +3,12 @@
 # SPEC-015 (issue #11) – interface library: outputs.*.status e o resultado devolvido ou a excecao lancada ou a falha do build
 # Decisoes do usuario em 2026-11-21 (tabela do plano): corte nos 14 maiores do BCB; carteiras so com NFC confirmado; S9 pelo nome inteiro; nomes da marca conferidos na SPEC-022
 # Emenda 1.1 (2026-11-21 revisao do architect): KnownBank vira KnownBankApp e KnownBanks.entries vira KnownBanks.apps; estimate-lines 970 pelos arquivos do contrato; o BATCH-02 da 1.0 passaria de 500 (cerca de 650) e foi dividido em normalizacao (BATCH-02) e coletor (BATCH-03), sem single-pr-reason
+# Emenda 1.2 (2026-11-23 review do BATCH-01): KnownBanks.apps tem 26 pacotes (29 entradas menos 3 apelidos) e nao 27; formato dos comentarios: um por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app)
 
 feature:
   id: FT-015
   name: SPEC-015 Listas de apoio e imitacao (S9)
-  version: 1.1
+  version: 1.2
   status: draft
   interface: library
   estimate-lines: 970
@@ -30,7 +31,7 @@ outputs:
     status: Success
     body[3]{name,type,value}:
       KnownWallets.packageNames,Set<String>,6 pacotes com fonte por entrada
-      KnownBanks.apps,Set<KnownBankApp>,29 entradas (27 pacotes) com fonte por entrada
+      KnownBanks.apps,Set<KnownBankApp>,29 entradas (26 pacotes) com fonte por instituicao
       sinais do coletor de S9,Set<Signal>,vazio ou {BANK_LOOKALIKE}; nunca outro sinal
   errors[3]{code,status,when}:
     BLANK_BANK_APP_FIELD,IllegalArgumentException,KnownBankApp criado com displayName ou packageName em branco
@@ -39,8 +40,8 @@ outputs:
 
 business-rules[13]{id,rule}:
   BR-001,KnownWallets.packageNames tem 6 pacotes: com.google.android.apps.walletnfcrel (Carteira do Google) e com.samsung.android.spay (Samsung Wallet) e os apps de banco com Pix por aproximacao no proprio app: com.nu.production (Nubank) e com.itau (Itau) e br.com.bb.android (BB) e br.com.intermedium (Inter); fontes no plano; Mercado Pago e PicPay e Bradesco e Caixa e Santander e C6 ficam fora (fazem pela Carteira do Google)
-  BR-002,KnownBanks.apps tem 29 entradas (27 pacotes): os 14 primeiros do ranking de clientes do BCB (dez/2025) e os apps oficiais deles com o nome da marca no titulo achados na Play; uma entrada por par nome e pacote; um pacote pode ter apelido (BB e Banco do Brasil; Santander Brasil e Santander; BTG Pactual Banking e BTG Pactual); tabela no plano
-  BR-003,Formato do TrustedStores (ADR-017): um object publico por tipo num arquivo proprio no pacote core.detection.signal; colecao que nao pode ser alterada nem por cast; um comentario por entrada com nome e fonte; quem usa o SDK amplia ou reduz com + ou -
+  BR-002,KnownBanks.apps tem 29 entradas (26 pacotes): os 14 primeiros do ranking de clientes do BCB (dez/2025) e os apps oficiais deles com o nome da marca no titulo achados na Play; uma entrada por par nome e pacote; um pacote pode ter apelido (BB e Banco do Brasil; Santander Brasil e Santander; BTG Pactual Banking e BTG Pactual); tabela no plano
+  BR-003,Formato do TrustedStores (ADR-017): um object publico por tipo num arquivo proprio no pacote core.detection.signal; colecao que nao pode ser alterada nem por cast; um comentario por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app); quem usa o SDK amplia ou reduz com + ou -
   BR-004,KnownBankApp(displayName; packageName) e data class publica do core-detection sem colecao; nome ou pacote em branco lanca IllegalArgumentException; o core-domain nao conhece o tipo
   BR-005,Pacote na lista nao gera S9: se app.packageName e um dos pacotes da lista (de qualquer entrada) o coletor devolve vazio; comparacao exata com maiusculas e minusculas
   BR-006,Esqueleto do nome (o mesmo para o rotulo e para os nomes da lista): corta no primeiro separador (dois-pontos; barra vertical; espaco-hifen-espaco; espaco-meia-risca-espaco; espaco-travessao-espaco); NFKC; minusculas invariantes (lowercase do Kotlin; Locale.ROOT); NFD sem marcas combinantes (CharCategory.NON_SPACING_MARK; sem regex); letras parecidas trocadas (0 por o; 1 e l e ! por i; 3 por e; 4 e @ por a; 5 e $ por s; 7 por t; cirilico e grego que imitam latinas; rn por m; vv por w); fica so com a-z e 0-9

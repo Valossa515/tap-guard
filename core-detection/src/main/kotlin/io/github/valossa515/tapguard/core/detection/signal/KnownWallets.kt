@@ -24,7 +24,8 @@ object KnownWallets {
             linkedSetOf(
                 // Carteira do Google. Fontes: Google Play ("Carteira do Google"); especificação, seção 5.
                 "com.google.android.apps.walletnfcrel",
-                // Samsung Wallet. Fontes: Google Play ("Samsung Wallet (Samsung Pay)"); seção 5; TechTudo.
+                // Samsung Wallet. Fontes: Google Play ("Samsung Wallet (Samsung Pay)"); seção 5;
+                // TechTudo e BPMoney (03/08/2026).
                 "com.samsung.android.spay",
                 // Nubank, carteira padrão com Pix por aproximação. Fontes: Google Play; TechTudo (07/04/2026).
                 "com.nu.production",

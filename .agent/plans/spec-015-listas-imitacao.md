@@ -59,7 +59,7 @@ Todos os pacotes abaixo foram vistos numa página da Play (`play.google.com/stor
 Seguem o `TrustedStores` (ADR-017, comentário da #11):
 - um `object` público por tipo, num arquivo próprio, no pacote `core.detection.signal`;
 - a coleção pública não pode ser alterada, nem por cast (`Collections.unmodifiableSet(linkedSetOf(...))`);
-- um comentário por entrada com o nome e a fonte;
+- um comentário por entrada com o nome e a fonte (em `KnownBanks`, um por instituição, com o título de cada app);
 - quem usa o SDK monta o próprio conjunto a partir da lista padrão (`+` ou `-`) e o passa ao coletor.
 
 **Carteiras não precisam de tipo próprio.** O S7 compara o pacote do serviço padrão, então `KnownWallets.packageNames: Set<String>`, igual ao `TrustedStores`.
@@ -83,7 +83,7 @@ Seguem o `TrustedStores` (ADR-017, comentário da #11):
 
 Ficam fora, por ora: Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6, que fazem Pix por aproximação pela Carteira do Google. Se um deles lançar no próprio app, o S7 acusa o app até a lista ser atualizada (risco registrado abaixo).
 
-## Lista de bancos (`KnownBanks.apps`, 29 entradas, 27 pacotes)
+## Lista de bancos (`KnownBanks.apps`, 29 entradas, 26 pacotes)
 
 Critério de corte: os 14 primeiros do ranking de clientes do BCB (dez/2025), mais os apps oficiais dessas instituições com o nome da marca no título, achados na busca da Play com o desenvolvedor do banco. O nome é o do título da Play antes de `:` (ou do desenvolvedor, quando indicado), escrito sem os prefixos e sufixos que o algoritmo já tira.
 
