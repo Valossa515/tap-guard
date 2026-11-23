@@ -295,7 +295,7 @@
 
 ## ADR-020 — Listas de apoio (carteiras e bancos) e sinal S9: critério, formato e comparação de nomes
 - **Date:** 2026-11-21
-- **Status:** Aceita (SPEC-015: listas implementadas no BATCH-01; comparação de nomes no BATCH-02 e coletor de S9 no BATCH-03, planejados)
+- **Status:** Aceita (SPEC-015: listas implementadas no BATCH-01; comparação de nomes implementada no BATCH-02, em `BankNameMatcher.kt`, `internal`, com a emenda 1.3 da spec; coletor de S9 no BATCH-03, planejado)
 - **Context:**
   - A SPEC-015 (#11) entrega as listas de carteiras conhecidas (S7) e de bancos conhecidos (S9), e o coletor de S9 ("nome parecido com o de um banco conhecido, mas pacote diferente do oficial"). A §5 citava as listas sem pacotes, e a §13 deixava em aberto "quantos entram na versão 1.0".
   - O Pix por aproximação faz apps de banco virarem o app de pagamento por aproximação padrão. Sem eles na lista de carteiras, o S7 acusaria o app legítimo do banco (#47 e comentário na #11).
@@ -322,12 +322,13 @@
     2. **Esqueleto do nome**, o mesmo para o rótulo e para os nomes da lista:
        - corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele;
        - NFKC, minúsculas invariantes (`lowercase()`), NFD e remoção das marcas combinantes (`CharCategory.NON_SPACING_MARK`, sem regex);
-       - letras parecidas trocadas: `0→o`, `1`, `l` e `!` por `i`, `3→e`, `4` e `@` por `a`, `5` e `$` por `s`, `7→t`, cirílico e grego que imitam letras latinas, `rn→m`, `vv→w`;
+       - letras parecidas trocadas: `0→o`, `1`, `l` e `!` por `i`, `3→e`, `4` e `@` por `a`, `5` e `$` por `s`, `7→t`, cirílico e grego que imitam letras latinas, `rn→m`, `vv→w`. A barra vertical `|` **não** vira `i` (emenda 1.3): o protótipo a trocava, mas a especificação não pede, e a barra já é separador. A troca só mudaria um rótulo que começa com `|`, e nenhum caso da tabela muda;
        - fica só com `a-z` e `0-9` (espaços, pontuação, emojis e caracteres invisíveis saem).
     3. **Variantes:** o esqueleto; sem um prefixo (`banco`, `meu`, `app`); sem sufixos, repetidamente (`token`, `empresas`, `cartoes`, pedidos pelo usuário; `empresa`, `cartao`, `pj`, `app`, `mobile`, `oficial`, `digital`, `seguranca`). Funciona sobre o esqueleto colado ("ItauToken"). Um prefixo ou sufixo só sai se sobrar algo.
+       - **Emenda 1.3 (BATCH-02, 2026-11-23):** os prefixos e sufixos também passam pelo esqueleto quando o arquivo carrega, e as entradas vazias ou repetidas saem. Sem isso, `mobile`, `oficial` e `digital` nunca sairiam, porque o esqueleto já trocou `l` por `i` (`itauoficiai` não termina em `oficial`). O protótipo tinha o mesmo defeito, e nenhum caso da tabela usava esses sufixos. A ordem das listas não importa, porque as variantes tentam todos. As listas carregadas (`BANK_NAME_PREFIXES`, `BANK_NAME_SUFFIXES`) são `internal`, para um teste que confere que cada entrada sai.
     4. **Casa** quando alguma variante fica a uma distância de Damerau-Levenshtein (versão OSA: inserção, remoção, troca e transposição de letras vizinhas) dentro do limite do nome da lista: até 5 letras, 0 (só igual); de 6 a 9 letras, até 1; 10 letras ou mais, até 2. Nomes curtos não têm tolerância porque uma letra a mais ou a menos já forma outra palavra ("Baixa" não casa com "Caixa").
     5. **Esqueleto vazio nunca casa**; um nome da lista com esqueleto vazio é ignorado.
-    6. No protótipo, nomes da lista só casam entre si quando são do mesmo banco (Itaú Empresas e Itaú, Bradesco Cartões e Bradesco, entre outros), e os pacotes deles estão na lista. Um teste do BATCH-02 protege isso.
+    6. No protótipo, nomes da lista só casam entre si quando são do mesmo banco (Itaú Empresas e Itaú, Bradesco Cartões e Bradesco, entre outros), e os pacotes deles estão na lista. Um teste do BATCH-02 protege isso (`known bank names only match hand-written same-bank pairs`, que lê `KnownBanks.apps` de propósito); com as 29 entradas finais, são 6 pares.
   - **Coletor de S9 (BATCH-03):** `BankLookalikeCollector(knownBankApps: Set<KnownBankApp>)`, parâmetro obrigatório e sem padrão, conjunto copiado, como o S1. Lista vazia nunca gera S9. Devolve `{BANK_LOOKALIKE}` ou vazio. Sem `android.*` (`java.text.Normalizer` é do JDK). A variante `lookalike` do app isca pode passar `KnownBanks.apps + KnownBankApp("Banco Fictício", …)`; como o teste ponta a ponta injeta o banco fictício fica para a SPEC-021 ou a SPEC-022.
 - **Comportamentos aceitos** (falsos positivos e imitações que escapam, com testes que os documentam):
   - **Nome curto igual de outro desenvolvedor gera S9:** "Inter" (um app de clube) e "NEXT" (uma loja de roupas).

@@ -1,8 +1,8 @@
 # Plan: SPEC-015 Listas de apoio e imitação (S9)
 
 > Issue #11 · Etapa 1 (Núcleo de detecção) · Depende de SPEC-011 (#7, fechada) · Especificação RF-102, §5 (S9 e listas de apoio), §8 (linha S9) e §11 (variante `lookalike`) · ADR-017 (formato da lista de lojas e limitações) · Issue #47 (Pix por aproximação)
-> Spec: `.agent/specs/features/spec-015-listas-imitacao.spec.toon` (FT-015 v1.1, `interface: library`, `estimate-lines: 970`, três batches) · Aceite: `.agent/specs/acceptance/spec-015-listas-imitacao.acceptance.toon` (v1.1)
-> Arquitetura: `.agent/plans/spec-015-listas-imitacao-architecture.md` · Contrato: `.agent/specs/contracts/spec-015-listas-imitacao.contract.toon` (v1.0)
+> Spec: `.agent/specs/features/spec-015-listas-imitacao.spec.toon` (FT-015 v1.3, `interface: library`, `estimate-lines: 970`, três batches) · Aceite: `.agent/specs/acceptance/spec-015-listas-imitacao.acceptance.toon` (v1.1)
+> Arquitetura: `.agent/plans/spec-015-listas-imitacao-architecture.md` · Contrato: `.agent/specs/contracts/spec-015-listas-imitacao.contract.toon` (v1.1)
 > Branches: `spec-015-listas-imitacao` (BATCH-01), `spec-015-listas-imitacao-batch-02` e `spec-015-listas-imitacao-batch-03`, cada uma a partir da `main` depois do merge do batch anterior · um PR por batch; só o do BATCH-03 leva `Closes #11`
 > Planejado em 2026-11-21. A #11 foi movida para "Em andamento" no Project 2 antes do planejamento. Plano aprovado pelo usuário em 2026-11-21, com os acréscimos da seção "Pedidos do usuário na aprovação".
 > Nomes finais pela revisão do architect: `KnownWallets`, `KnownBankApp`, `KnownBanks.apps`, `BankNameMatcher` (`internal`) e `BankLookalikeCollector`. O texto abaixo já usa esses nomes.
@@ -291,20 +291,36 @@ O incerto aqui não era a API do Android (o S9 não usa nenhuma), mas o comporta
    - **ADR-020** em `decisions.md`: listas, critério de corte, fontes, o que fica para depois, formato (`KnownBankApp`, apelidos, validação), algoritmo do S9, comportamentos aceitos (inclusive o corte no separador), limitação do pacote emprestado (#65) e regra dos apps de clonagem na SPEC-017 (#13); normalização e coletor marcados para os batches seguintes.
 
 ### BATCH-02: comparação de nomes (PR "SPEC-015 BATCH-02 …", `Refs #11`)
-5. [ ] **Normalização** (`feat:`): `BankNameMatcher.kt` com `internal class BankNameMatcher`, `internal fun bankNameSkeleton` e `internal fun editDistance`; separadores, mapa de letras parecidas, prefixos, sufixos, variantes e limites `private`, com os limites em `const val`. KDoc com o algoritmo e os comportamentos aceitos. `./gradlew build` verde.
-6. [ ] **Testes** (`test:`, papel tester):
+5. [x] **Normalização** (`feat:`): `BankNameMatcher.kt` com `internal class BankNameMatcher`, `internal fun bankNameSkeleton` e `internal fun editDistance`; separadores, mapa de letras parecidas, prefixos, sufixos, variantes e limites `private`, com os limites em `const val`. KDoc com o algoritmo e os comportamentos aceitos. `./gradlew build` verde.
+   - 2026-11-23, `feat:` `f0ab741`. O protótipo rodado com as 29 entradas finais dá o mesmo resultado da tabela nos 80 rótulos e os mesmos 6 pares do mesmo banco.
+   - **Defeito achado nos testes da tarefa 6 e corrigido no `fix:` `8549662`** (decisão do usuário, emenda 1.3 da spec e 1.1 do contrato): os sufixos `mobile`, `oficial` e `digital` nunca saíam, porque as variantes partem do esqueleto, que já trocou `l` por `i`. O protótipo tinha o mesmo defeito, e nenhum caso da tabela usava esses sufixos. Prefixos e sufixos passam pelo `bankNameSkeleton` ao carregar o arquivo, sem vazios nem repetidos, e viram `internal` (`BANK_NAME_PREFIXES`, `BANK_NAME_SUFFIXES`) para o teste que confere cada entrada. A ordem não importa (as variantes tentam todos), então não há ordenação.
+   - **Desvio do protótipo, mantido:** ele também trocava `|` por `i`; o BR-006 não pede, e a troca só mudaria um rótulo que começa com `|` (ADR-020).
+6. [x] **Testes** (`test:`, papel tester):
    - esqueleto parametrizado: maiúsculas, acentos, espaços, cada separador, separador no início, NFKC, cirílico e grego, dígitos e símbolos, `l`, `rn`/`vv`, caractere invisível, rótulo vazio;
    - distância: igual, troca, inserção, remoção, transposição, vazia, duas edições;
    - "casa" parametrizado: imitadores da tabela e os falsos positivos aceitos (Inter, NEXT, Next - Launcher, Caixa – Organizador);
    - "não casa" parametrizado: legítimos da tabela e as imitações que escapam;
    - limites por tamanho (5/6, 9/10 letras), prefixos e sufixos, esqueleto vazio, lista vazia, e nenhum nome de `KnownBanks.apps` casa com o de outra instituição (só os pares do mesmo banco escritos à mão).
-7. [ ] **Conferência dos critérios**, local e desfeita sem commit:
+   - 2026-11-23, `test:` `0fff511`: os cinco arquivos do contrato, com 84 execuções (esqueleto 20, distância 6, casa 35, não casa 13, `BankNameMatcherTest` 10). Mais o cenário `every loaded prefix and suffix is removed`, pedido pelo usuário com o `fix:`, que percorre as listas carregadas.
+   - **Tamanho:** 499 linhas de código e testes (`BankNameMatcher.kt` 158; testes 57 + 39 + 86 + 39 + 120), contra 463 estimadas; abaixo de 500, então a `editDistance` ficou no batch.
+7. [x] **Conferência dos critérios**, local e desfeita sem commit:
    - tirar o mapa de letras parecidas derruba os casos de cirílico e de `0→o`;
    - dar tolerância 1 aos nomes de até 5 letras derruba o caso "Baixa";
    - trocar a igualdade por "contém" derruba "Caixa de Ferramentas";
    - tirar o corte no separador derruba "Next - Launcher";
    - `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-8. [ ] **Documentação** (`docs:`): seção "Comparação de nomes do S9" no `core-detection/README.md` (coletor no BATCH-03); `SKILLS.md` (normalização `internal`); `glossary.md` (esqueleto do nome); ADR-020: normalização implementada.
+   - 2026-11-23, local (Windows), cada alteração desfeita com `git checkout` (árvore limpa depois de cada uma), rodando as cinco classes do BATCH-02:
+     - sem o mapa (`append(it)`) → 9 falhas: esqueleto de `Nubаnk`, das 16 letras cirílicas, das 7 gregas, de `01!34@5$7`, de `Bradesc0` e de `Calxa`; casa `1taú`, `Ltaú` e `Calxa` (AC-005). **Nuance:** os casos de casa `Nubаnk`, `Bradesc0` e `Mercad0 Pag0` continuam casando sem o mapa, porque a letra que sobra (ou some) conta como uma edição, dentro do limite de nomes com 6 letras ou mais. Quem pega o mapa nesses casos é o teste de esqueleto. Nos nomes de até 5 letras (`itau`, `caixa`), o mapa é o que faz casar.
+     - tolerância 1 até 5 letras → 2 falhas: não casa `Baixa` e `five letter name needs equal skeleton` (AC-008).
+     - "contém" (`|| bankSkeleton in variant`) → 12 falhas: não casa `Caixa de Ferramentas`, `Next Launcher`, `Neon Light`, `Itaú Shop`, `Bradesco Seguros`, `Atualização Nubank`, `Nubank Wallpapers`, `Inter&Co` e `Neon Pay`; e os cenários de prefixos e sufixos, de 5 letras e de pares entre instituições (AC-010).
+     - sem o corte no separador → 10 falhas: casa `Next - Launcher`, `Caixa – Organizador` e os três títulos da Play copiados; esqueleto dos cinco casos com separador (AC-011).
+     - (além do plano) prefixos e sufixos sem o esqueleto (`words.toList()`) → 2 falhas: `every loaded prefix and suffix is removed` e `prefix and suffixes are removed including glued and repeated`.
+     - `./gradlew clean build` verde em 3 min 22 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-021, AC-022).
+       - Testes: `app` 32, `core-data` 17 (2 ignorados no Windows; só rodam no CI), `core-detection` 294 (210 de antes + 84 novos), `core-domain` 32, `core-nfc` 1, `decoy-app` 1. Total: 377.
+       - `LibraryManifestTest` e `MergedManifestTest` passam; `koverVerify` do `core-domain` passa.
+       - Lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+8. [x] **Documentação** (`docs:`): seção "Comparação de nomes do S9" no `core-detection/README.md` (coletor no BATCH-03); `SKILLS.md` (normalização `internal`); `glossary.md` (esqueleto do nome); ADR-020: normalização implementada.
+   - 2026-11-23: os quatro documentos acima. No ADR-020, também a emenda 1.3 (prefixos e sufixos no formato do esqueleto) e a decisão de não trocar `|` por `i`. Emenda 1.3 da spec (BR-007), 1.1 do contrato (`BANK_NAME_PREFIXES` e `BANK_NAME_SUFFIXES` `internal`, cenário novo no `BankNameMatcherTest`) e nota na arquitetura.
 
 ### BATCH-03: coletor de S9 (PR "SPEC-015 BATCH-03 …", `Closes #11`)
 9. [ ] **Coletor** (`feat:`): `BankLookalikeCollector(knownBankApps)` com o conjunto de pacotes copiado e o `BankNameMatcher`; KDoc com o que conta, o que não conta e as limitações; parâmetro `label` na `anInstalledApp`. `./gradlew build` verde.
