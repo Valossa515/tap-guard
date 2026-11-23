@@ -127,3 +127,11 @@
 - "Contém" no lugar da igualdade → falha `Caixa de Ferramentas`.
 - Sem o corte no separador → falha `Next - Launcher`.
 - (Além do plano) Prefixos e sufixos sem passar pelo esqueleto → falham os cenários 1 e 10 (o defeito corrigido no `fix:` da tarefa 5).
+
+### Correção depois do BATCH-02 (PR separado, emenda 1.4 da spec)
+- `BankNameSkeletonTest`, 4 casos novos (24 execuções):
+  - `ıɑɪɩօ` → `iaiio`;
+  - as maiúsculas pequenas, em dois casos: `ʙᴄᴅᴇɢʜᴋʟᴍɴ` → `bcdeghkimn` (`ʟ` vira `i`) e `ᴏᴘʀᴛᴜᴠᴡʏᴢ` → `oprtuvwyz`;
+  - `ＩＴＡＵ：x` → `itau` (NFKC antes do corte).
+- `BankNameMatcherMatchTest`, 2 casos novos (37 execuções): `ıtaú` e `ＩＴＡＵ：x` casam.
+- No código anterior à correção, os 6 casos falham; com ela, passam.
