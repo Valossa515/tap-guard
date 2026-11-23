@@ -8,10 +8,10 @@ import java.text.Normalizer
  *
  * O rótulo casa quando alguma variante do esqueleto dele ([bankNameSkeleton]) fica a uma distância
  * [editDistance] de algum esqueleto da lista dentro do limite desse nome:
- * - variantes: o esqueleto; sem um prefixo (`banco`, `meu`, `app`); e sem sufixos, repetidamente
- *   (`token`, `empresas`, `empresa`, `cartoes`, `cartao`, `pj`, `app`, `mobile`, `oficial`,
- *   `digital`, `seguranca`). Funciona sobre o esqueleto colado ("ItauToken"); um prefixo ou sufixo só
- *   sai se sobrar algo;
+ * - variantes, com prefixos e sufixos comparados no formato do esqueleto: o esqueleto; sem um prefixo
+ *   (`banco`, `meu`, `app`); e sem sufixos, repetidamente (`token`, `empresas`, `empresa`, `cartoes`,
+ *   `cartao`, `pj`, `app`, `mobile`, `oficial`, `digital`, `seguranca`). Funciona sobre o esqueleto
+ *   colado ("ItauToken"); um prefixo ou sufixo só sai se sobrar algo;
  * - limite pelo tamanho do esqueleto do nome da lista: até 5 letras, 0 (só igual, porque uma letra a
  *   mais ou a menos já forma outra palavra: "Baixa" não casa com "Caixa"); de 6 a 9, até 1; 10 ou
  *   mais, até 2.
