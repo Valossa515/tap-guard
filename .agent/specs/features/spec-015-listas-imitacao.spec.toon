@@ -4,11 +4,12 @@
 # Decisoes do usuario em 2026-11-21 (tabela do plano): corte nos 14 maiores do BCB; carteiras so com NFC confirmado; S9 pelo nome inteiro; nomes da marca conferidos na SPEC-022
 # Emenda 1.1 (2026-11-21 revisao do architect): KnownBank vira KnownBankApp e KnownBanks.entries vira KnownBanks.apps; estimate-lines 970 pelos arquivos do contrato; o BATCH-02 da 1.0 passaria de 500 (cerca de 650) e foi dividido em normalizacao (BATCH-02) e coletor (BATCH-03), sem single-pr-reason
 # Emenda 1.2 (2026-11-23 review do BATCH-01): KnownBanks.apps tem 26 pacotes (29 entradas menos 3 apelidos) e nao 27; formato dos comentarios: um por entrada com nome e fonte (em KnownBanks um por instituicao com o titulo de cada app)
+# Emenda 1.3 (2026-11-23 aprovada pelo usuario no BATCH-02): prefixos e sufixos do BR-007 passam pelo mesmo esqueleto do BR-006 ao carregar (sem vazios nem repetidos); sem isso mobile e oficial e digital nunca saiam porque o esqueleto troca l por i (o prototipo tinha o mesmo defeito e nenhum caso da tabela os usava); as listas carregadas ficam internal para um teste que confere que cada entrada sai; a barra vertical nao entra no mapa de letras parecidas (o prototipo a trocava por i; o BR-006 nao pede; so mudaria uma barra no inicio do rotulo)
 
 feature:
   id: FT-015
   name: SPEC-015 Listas de apoio e imitacao (S9)
-  version: 1.2
+  version: 1.3
   status: draft
   interface: library
   estimate-lines: 970
@@ -45,7 +46,7 @@ business-rules[13]{id,rule}:
   BR-004,KnownBankApp(displayName; packageName) e data class publica do core-detection sem colecao; nome ou pacote em branco lanca IllegalArgumentException; o core-domain nao conhece o tipo
   BR-005,Pacote na lista nao gera S9: se app.packageName e um dos pacotes da lista (de qualquer entrada) o coletor devolve vazio; comparacao exata com maiusculas e minusculas
   BR-006,Esqueleto do nome (o mesmo para o rotulo e para os nomes da lista): corta no primeiro separador (dois-pontos; barra vertical; espaco-hifen-espaco; espaco-meia-risca-espaco; espaco-travessao-espaco); NFKC; minusculas invariantes (lowercase do Kotlin; Locale.ROOT); NFD sem marcas combinantes (CharCategory.NON_SPACING_MARK; sem regex); letras parecidas trocadas (0 por o; 1 e l e ! por i; 3 por e; 4 e @ por a; 5 e $ por s; 7 por t; cirilico e grego que imitam latinas; rn por m; vv por w); fica so com a-z e 0-9
-  BR-007,Variantes: o esqueleto; sem um prefixo (banco ou meu ou app); sem sufixos repetidamente (token ou empresas ou empresa ou cartoes ou cartao ou pj ou app ou mobile ou oficial ou digital ou seguranca); funciona sobre o esqueleto colado; um prefixo ou sufixo so sai se sobrar algo
+  BR-007,Variantes: o esqueleto; sem um prefixo (banco ou meu ou app); sem sufixos repetidamente (token ou empresas ou empresa ou cartoes ou cartao ou pj ou app ou mobile ou oficial ou digital ou seguranca); funciona sobre o esqueleto colado; um prefixo ou sufixo so sai se sobrar algo; prefixos e sufixos sao comparados no formato do esqueleto (passam pelo esqueleto do BR-006 ao carregar e as entradas vazias ou repetidas saem; a ordem nao importa porque as variantes tentam todos)
   BR-008,Casa quando alguma variante fica a uma distancia de Damerau-Levenshtein (OSA: insercao e remocao e troca e transposicao vizinha) dentro do limite do nome da lista: ate 5 letras 0; de 6 a 9 letras 1; 10 letras ou mais 2
   BR-009,Esqueleto vazio nunca casa (rotulo so com emoji ou pontuacao); nome da lista com esqueleto vazio e ignorado
   BR-010,Coletor de S9: lista obrigatoria no construtor sem padrao e copiada; lista vazia nunca gera S9; devolve {BANK_LOOKALIKE} ou vazio; sem import android.* (java.text.Normalizer e do JDK); sem PackageManager; sem dispatcher; sem anotacoes do Hilt

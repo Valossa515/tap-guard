@@ -2,7 +2,7 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-015 BATCH-01):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) e listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01). A comparação de nomes e o coletor de S9 entram nos BATCH-02 e BATCH-03 da SPEC-015, o coletor de S7 na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
+> **Estado (SPEC-015 BATCH-02):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01) e a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02). O coletor de S9 entra no BATCH-03 da SPEC-015, o coletor de S7 na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
 
 **API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp` e `KnownBanks`. O resto é `internal` ou `private`.
 
@@ -136,6 +136,33 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
 
 - **Limitação** (ADR-017 e ADR-020): o nome de pacote é único no aparelho, não no mundo. Num aparelho sem o app original, outro app pode usar o mesmo pacote. A defesa (certificado de assinatura por pacote) está na issue #65.
 
+## Comparação de nomes do S9
+
+`BankNameMatcher(displayNames)`, em `BankNameMatcher.kt` no pacote `io.github.valossa515.tapguard.core.detection.signal`, diz se o rótulo de um app casa com algum nome da lista de bancos. É `internal`: quem o usa é o coletor de S9 (BATCH-03), que junta a comparação ao pacote e ao sinal. Não usa API do Android (`java.text.Normalizer` é do JDK). Motivos e exemplos no ADR-020.
+
+1. **Esqueleto do nome** (`bankNameSkeleton`), o mesmo para o rótulo e para os nomes da lista:
+   - corta no primeiro separador (`:`, `|`, ` - `, ` – `, ` — `), se houver algo antes dele: "Nubank: conta, cartão e mais" vira "Nubank";
+   - NFKC (largura cheia, ligaduras), minúsculas invariantes, NFD e remoção dos acentos pelo tipo do caractere, sem regex;
+   - letras parecidas: `0→o`; `1`, `!` e `l` por `i`; `3→e`; `4` e `@` por `a`; `5` e `$` por `s`; `7→t`; cirílico e grego que imitam letras latinas; `rn→m`; `vv→w`;
+   - fica só com `a-z` e `0-9`.
+2. **Variantes:** o esqueleto; sem um prefixo (`banco`, `meu`, `app`); e sem sufixos, repetidamente (`token`, `empresas`, `empresa`, `cartoes`, `cartao`, `pj`, `app`, `mobile`, `oficial`, `digital`, `seguranca`). Funciona com as palavras coladas ("ItauToken"), e um prefixo ou sufixo só sai se sobrar algo. Os prefixos e sufixos também passam pelo esqueleto quando o arquivo carrega (`BANK_NAME_PREFIXES` e `BANK_NAME_SUFFIXES`, `internal`): sem isso, `mobile`, `oficial` e `digital` nunca sairiam, porque o esqueleto troca `l` por `i`.
+3. **Casa** quando alguma variante fica a uma distância de Damerau-Levenshtein (versão OSA: inserção, remoção, troca e transposição de letras vizinhas, `editDistance`) dentro do limite do nome da lista:
+
+| Esqueleto do nome da lista | Limite | Exemplos |
+|---|---|---|
+| até 5 letras | 0 (só igual) | `itau`, `caixa`, `bb`, `inter`, `neon`, `next`, `99pay` |
+| de 6 a 9 letras | 1 | `nubank`, `bradesco`, `santander`, `picpay` |
+| 10 letras ou mais | 2 | `bancodobrasii`, `mercadopago` |
+
+4. **Esqueleto vazio** (rótulo só com emoji ou pontuação) nunca casa; um nome da lista com esqueleto vazio é ignorado.
+
+- **Comportamentos aceitos:**
+  - nome curto igual de outro desenvolvedor casa ("Inter" de um clube, "NEXT" de uma loja);
+  - o corte no separador também casa um app legítimo que comece com o nome de um banco ("Next - Launcher", "Caixa – Organizador");
+  - palavras fora da lista fechada escapam ("Atualização Nubank", "Nubank Wallpapers", "Inter&Co", "Neon Pay");
+  - "Baixa" não casa com "Caixa", nem "Caixa de Ferramentas" (nome inteiro, sem "contém").
+- O pacote oficial, que tira o app do S9, é tratado pelo coletor (BATCH-03).
+
 ## Dependências
 
 - **Módulos:** `core-domain` como `api`, porque `AppInventory` e `InstalledApp` aparecem na API pública.
@@ -173,6 +200,11 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
 - Listas de apoio, também em JUnit 4 sem Robolectric:
   - `KnownWalletsTest` e `KnownBanksTest`: lista padrão igual à escrita à mão no teste (`ExpectedKnownWallets.kt`, `ExpectedKnownBankApps.kt`) e que não pode ser alterada por cast;
   - `KnownBankAppTest`: nome e pacote preenchidos criam a entrada; nome ou pacote vazio ou só com espaços é recusado.
+- Comparação de nomes do S9, também em JUnit 4 sem Robolectric:
+  - `BankNameSkeletonTest`: o esqueleto esperado de cada rótulo (maiúsculas, acentos, cada separador, separador no início, largura cheia, dígitos e símbolos, `l`, cirílico, grego, `rn`, `vv`, espaço de largura zero, só emoji), parametrizado. Letras que não se distinguem na tela vão em escape `\uXXXX`;
+  - `EditDistanceTest`: igual, troca, inserção e remoção, transposição, cadeia vazia, duas edições;
+  - `BankNameMatcherMatchTest` e `BankNameMatcherNoMatchTest`: os imitadores e os legítimos da tabela do plano, com os falsos positivos aceitos e as imitações que escapam em seções comentadas, parametrizados sobre uma lista de 13 nomes escrita à mão (`HAND_WRITTEN_BANK_NAMES`);
+  - `BankNameMatcherTest`: prefixos e sufixos (cada entrada carregada sai), limites 5/6 e 9/10, esqueleto vazio, lista vazia e nomes de `KnownBanks.apps` que só casam entre apps do mesmo banco. Este é o único teste da comparação que lê a lista de produção, de propósito: uma entrada nova que colida com outra instituição o derruba.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

@@ -1,14 +1,15 @@
 # TOON v3.0 – Architecture Contract
 # .agent/specs/contracts/spec-015-listas-imitacao.contract.toon
 # SPEC-015 (issue #11) – camadas = listas e normalizacao e coletor do core-detection e fixture do core-domain e docs
-# Publicos novos (core.detection.signal): KnownWallets e KnownBankApp e KnownBanks e BankLookalikeCollector; internal novo: BankNameMatcher e bankNameSkeleton e editDistance (BankNameMatcher.kt)
+# Publicos novos (core.detection.signal): KnownWallets e KnownBankApp e KnownBanks e BankLookalikeCollector; internal novo: BankNameMatcher e bankNameSkeleton e editDistance e BANK_NAME_PREFIXES e BANK_NAME_SUFFIXES (BankNameMatcher.kt)
 # Sem @Suppress novo (a anInstalledApp ja tem o da emenda 1.2 da SPEC-014); sem @SuppressLint; sem import android.* nas listas e no coletor e na normalizacao
 # Estimativa pelos arquivos: 968 linhas de codigo e testes (319 no BATCH-01 e 463 no BATCH-02 e 186 no BATCH-03; tabela no documento de arquitetura)
 # Cada linha diz o batch: BATCH-01 (listas) ou BATCH-02 (normalizacao) ou BATCH-03 (coletor)
+# Emenda 1.1 (2026-11-23 aprovada pelo usuario no BATCH-02; spec 1.3): prefixos e sufixos passam pelo bankNameSkeleton ao carregar e viram internal val BANK_NAME_PREFIXES e BANK_NAME_SUFFIXES (sem vazios nem repetidos) para o cenario every-loaded-prefix-and-suffix-is-removed; sem isso mobile e oficial e digital nunca saiam; a barra vertical nao entra no mapa de letras parecidas; o BATCH-02 ficou com 499 linhas pelos arquivos (estimativa 463)
 
 contract:
   feature-ref: FT-015
-  version: 1.0
+  version: 1.1
 
 layers:
   core-detection-lists:
@@ -18,7 +19,7 @@ layers:
       core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBanks.kt,create,BATCH-01: object KnownBanks com val apps: Set<KnownBankApp> = Collections.unmodifiableSet(linkedSetOf(...)) com as 29 entradas do BR-002 na ordem da tabela do plano (uma por linha); um comentario por entrada ou grupo de instituicao com o titulo da Play ou o desenvolvedor como fonte; KDoc: criterio de corte (14 maiores do BCB em dez/2025 e apps oficiais deles); quem ficou para depois com pacote conferido (Pan e Sicoob e Sicredi e Banrisul e Safra e BV); nomes da marca e conferencia na SPEC-022; ampliar com + KnownBankApp(...) ou reduzir com -; limitacao do pacote emprestado (ADR-017 e #65)
   core-detection-matching:
     files[1]{path,action,description}:
-      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcher.kt,create,BATCH-02: internal class BankNameMatcher(displayNames: Collection<String>) com fun matches(label: String): Boolean; no construtor calcula o esqueleto de cada nome e descarta os vazios; matches calcula o esqueleto do rotulo (vazio devolve false) e as variantes e devolve true quando alguma variante fica a editDistance de algum esqueleto dentro do limite dele; internal fun bankNameSkeleton(label: String): String (BR-006: corte no primeiro separador quando ha algo antes dele; Normalizer NFKC; lowercase(); Normalizer NFD e filtro de CharCategory.NON_SPACING_MARK; mapa de letras parecidas; rn por m e vv por w; so a-z e 0-9); internal fun editDistance(a: String; b: String): Int (OSA); private: separadores e mapa de letras parecidas e prefixos e sufixos (BR-007) e variants(skeleton) e tolerance(skeleton) com const val SHORT_NAME_MAX_LENGTH = 5 e MEDIUM_NAME_MAX_LENGTH = 9 (MagicNumber do detekt); KDoc com o algoritmo e os comportamentos aceitos (BR-011); sem import android.*
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcher.kt,create,BATCH-02: internal class BankNameMatcher(displayNames: Collection<String>) com fun matches(label: String): Boolean; no construtor calcula o esqueleto de cada nome e descarta os vazios; matches calcula o esqueleto do rotulo (vazio devolve false) e as variantes e devolve true quando alguma variante fica a editDistance de algum esqueleto dentro do limite dele; internal fun bankNameSkeleton(label: String): String (BR-006: corte no primeiro separador quando ha algo antes dele; Normalizer NFKC; lowercase(); Normalizer NFD e filtro de CharCategory.NON_SPACING_MARK; mapa de letras parecidas; rn por m e vv por w; so a-z e 0-9); internal fun editDistance(a: String; b: String): Int (OSA); internal val BANK_NAME_PREFIXES e BANK_NAME_SUFFIXES (BR-007 ja passados pelo bankNameSkeleton ao carregar; sem vazios nem repetidos; declarados depois dos separadores e do mapa; emenda 1.1); private: separadores e mapa de letras parecidas e variants(skeleton) e tolerance(skeleton) com const val SHORT_NAME_MAX_LENGTH = 5 e MEDIUM_NAME_MAX_LENGTH = 9 (MagicNumber do detekt); KDoc com o algoritmo e os comportamentos aceitos (BR-011); sem import android.*
   core-detection-collector:
     files[1]{path,action,description}:
       core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankLookalikeCollector.kt,create,BATCH-03: class BankLookalikeCollector(knownBankApps: Set<KnownBankApp>) : SignalCollector (parametro obrigatorio e sem padrao); guarda private val packageNames: Set<String> (copia dos pacotes) e private val matcher = BankNameMatcher(nomes); collect devolve emptySet() quando app.packageName in packageNames; DETECTED quando matcher.matches(app.label); emptySet() senao; companion privado com val DETECTED = setOf(Signal.BANK_LOOKALIKE); KDoc: o que conta (nome igual ou quase igual com pacote fora da lista); pacote na lista de qualquer entrada nao gera S9; lista copiada; lista vazia nunca gera S9; lista padrao KnownBanks.apps; comportamentos aceitos e limitacao do pacote emprestado (ADR-017 e #65); sem import android.*; sem Hilt
@@ -117,8 +118,9 @@ test-strategy:
       file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/BankNameMatcherTest.kt
       type: junit4
       batch: BATCH-02
-      scenarios[9]:
+      scenarios[10]:
         prefix-and-suffixes-are-removed-including-glued-and-repeated
+        every-loaded-prefix-and-suffix-is-removed
         five-letter-name-needs-equal-skeleton
         six-letter-name-tolerates-one-edit-but-not-two
         nine-letter-name-tolerates-one-edit-but-not-two
