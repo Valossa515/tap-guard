@@ -3,7 +3,7 @@
 > Fonte: `test-strategy` de `.agent/specs/contracts/spec-015-listas-imitacao.contract.toon` (versão 1.0) e critérios de `.agent/specs/acceptance/spec-015-listas-imitacao.acceptance.toon` (versão 1.1) · 2026-11-21
 > **BATCH-01** (esta seção): 3 alvos e 9 cenários (2 + 2 + 5), um método de teste por cenário. Execuções novas: 9 no `core-detection`, todas na JVM.
 > **BATCH-02** (seção "BATCH-02: comparação de nomes", 2026-11-23): 5 alvos e 19 cenários (1 + 6 + 1 + 1 + 10), 84 execuções novas (os três parametrizados viram uma por caso: 20 + 35 + 13).
-> **BATCH-03** (coletor): seção a acrescentar neste arquivo.
+> **BATCH-03** (seção "BATCH-03: coletor de S9", 2026-11-23): 1 alvo e 10 cenários, um método por cenário; 10 execuções novas no `core-detection`.
 
 ## Scope (BATCH-01)
 - **`KnownWallets`:** a lista tem exatamente os 6 pacotes do BR-001 e não pode ser alterada nem por cast (AC-001, AC-003).
@@ -135,3 +135,37 @@
   - `ＩＴＡＵ：x` → `itau` (NFKC antes do corte).
 - `BankNameMatcherMatchTest`, 2 casos novos (37 execuções): `ıtaú` e `ＩＴＡＵ：x` casam.
 - No código anterior à correção, os 6 casos falham; com ela, passam.
+
+## BATCH-03: coletor de S9
+
+### Scope
+- **`BankLookalikeCollector`:** pacote da lista não gera S9, inclusive o de outro app do mesmo banco (AC-015); nome de banco com pacote diferente gera S9, também com sufixo ou maiúsculas no pacote (AC-016); pacote emprestado documentado (AC-017); lista ampliada, vazia e copiada (AC-018); só S9 (AC-019).
+- **Onde roda:** JUnit 4 na JVM com `runTest` (o `collect` é `suspend`), sem Robolectric e sem `@Config(sdk)`.
+- **Fora:** a comparação de nomes em si (BATCH-02, testada nos cinco arquivos acima); rótulos reais (SPEC-022); ausência de `android.*` e de Hilt (review, AC-020).
+
+### Padrões seguidos (pattern analysis)
+- `InstallSourceCollectorTest` (SPEC-012): coletor com conjunto obrigatório, `later change to given set does not affect collector`, `yields only s1 for app with other risk traits`, constantes no `private companion object`.
+- `CardEmulationServiceCollectorTest` e `NfcPermissionCollectorTest`: `assertEquals(emptySet<Signal>(), ...)` e o conjunto do sinal numa constante.
+
+### Test data
+- **`TEST_BANK_APPS`:** lista pequena escrita à mão, como diz a arquitetura: Nubank (`com.nu.production`), Itaú (`com.itau`) e Itaú Empresas (`com.itau.empresas`). Os testes não leem `KnownBanks`.
+- **Banco fictício:** `KnownBankApp("Banco Fictício", "com.example.bancoficticio")`, que mostra a extensão pelo SDK, o mesmo mecanismo da variante `lookalike` do app isca.
+- **`app(packageName, label)`:** auxiliar no `companion` que chama a `anInstalledApp` com os dois campos (a fixture ganhou `label` nesta spec).
+
+### `BankLookalikeCollector` — `BankLookalikeCollectorTest.kt` (JUnit 4)
+| # | Scenario | Expected result | AC |
+|---|----------|-----------------|----|
+| 1 | official-package-yields-nothing | "Nubank" com `com.nu.production` → vazio | AC-015 |
+| 2 | package-of-another-app-of-the-same-bank-yields-nothing | "Itaú Empresas" com `com.itau.empresas` (o nome casa com "Itaú") → vazio | AC-015 |
+| 3 | bank-name-with-other-package-yields-s9 | "Nubank" com `com.fake.app` → `{BANK_LOOKALIKE}` | AC-016 |
+| 4 | package-differing-by-suffix-or-case-yields-s9 | "Nubank" com `com.nu.production.fake` e com `COM.NU.PRODUCTION` → `{BANK_LOOKALIKE}` | AC-016 |
+| 5 | borrowed-official-package-yields-nothing | "Nubank" com `com.nu.production`, instalador nulo e serviço de HCE (app de golpe num aparelho sem o Nubank) → vazio; KDoc do teste cita a limitação (ADR-017, ADR-020, #65) | AC-017 |
+| 6 | unrelated-name-yields-nothing | "Calculadora" com `com.fake.app` → vazio | AC-018 |
+| 7 | extended-list-flags-fictitious-bank-imitator | lista do teste + banco fictício: "Banco Ficticio" com `com.fake.app` → S9; o pacote do fictício → vazio; "Nubank" com `com.fake.app` continua S9 | AC-018 |
+| 8 | empty-list-never-yields-s9 | lista vazia: "Nubank" com `com.fake.app` → vazio | AC-018 |
+| 9 | later-change-to-given-set-does-not-affect-collector | conjunto mutável esvaziado depois de criar o coletor: "Nubank" com `com.fake.app` continua S9, e com `com.nu.production` continua vazio | AC-018 |
+| 10 | yields-only-s9-for-app-with-other-risk-traits | rótulo imitador, `NFC`, serviço de HCE e instalador nulo → exatamente `{BANK_LOOKALIKE}` | AC-019 |
+
+### Conferência (tarefa 11, local e desfeita sem commit)
+- Tirar o passo do pacote → falha `official package yields nothing`.
+- Comparar o pacote sem maiúsculas → falha `package differing by suffix or case yields s9`.

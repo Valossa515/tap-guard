@@ -2,9 +2,9 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-015 BATCH-02):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01) e a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02). O coletor de S9 entra no BATCH-03 da SPEC-015, o coletor de S7 na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
+> **Estado (SPEC-015 BATCH-03):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) e o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03). O coletor de S7 entra na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp` e `KnownBanks`. O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks` e `BankLookalikeCollector` (treze classes). O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
@@ -122,7 +122,7 @@ Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no 
 | Inter | `br.com.intermedium` |
 
 - **Ficam fora de `KnownWallets`:** entram só apps com fonte de que fazem o pagamento por aproximação, as duas carteiras e os bancos com Pix por aproximação no próprio app. Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6 fazem o Pix por aproximação pela Carteira do Google e ficam fora.
-- **`KnownBanks.apps`** (29 entradas, 26 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem vai usá-la é o coletor de S9 (BATCH-03).
+- **`KnownBanks.apps`** (29 entradas, 26 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem a usa é o coletor de S9 (abaixo).
   - Cada entrada é um `KnownBankApp(displayName, packageName)`: um app ou um apelido de app. Um pacote pode ter mais de um nome ("BB" e "Banco do Brasil"; "Santander Brasil" e "Santander"; "BTG Pactual Banking" e "BTG Pactual"), e uma instituição, mais de um app (Itaú, Itaú Empresas e Personnalité).
   - `displayName` é o nome da marca, tirado do título da Play ou do desenvolvedor, não o rótulo do aparelho, que é conferido no teste ponta a ponta (SPEC-022). Nome ou pacote em branco lança `IllegalArgumentException`.
   - Ficaram para depois, com o pacote já conferido: Banco Pan, Sicoob, Sicredi, Banrisul, Safra e BV.
@@ -138,7 +138,7 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
 
 ## Comparação de nomes do S9
 
-`BankNameMatcher(displayNames)`, em `BankNameMatcher.kt` no pacote `io.github.valossa515.tapguard.core.detection.signal`, diz se o rótulo de um app casa com algum nome da lista de bancos. É `internal`: quem o usa é o coletor de S9 (BATCH-03), que junta a comparação ao pacote e ao sinal. Não usa API do Android (`java.text.Normalizer` é do JDK). Motivos e exemplos no ADR-020.
+`BankNameMatcher(displayNames)`, em `BankNameMatcher.kt` no pacote `io.github.valossa515.tapguard.core.detection.signal`, diz se o rótulo de um app casa com algum nome da lista de bancos. É `internal`: quem o usa é o coletor de S9 (abaixo), que junta a comparação ao pacote e ao sinal. Não usa API do Android (`java.text.Normalizer` é do JDK). Motivos e exemplos no ADR-020.
 
 1. **Esqueleto do nome** (`bankNameSkeleton`), o mesmo para o rótulo e para os nomes da lista:
    - NFKC (largura cheia, ligaduras), antes do corte, para que `：` e `｜` de largura cheia também cortem;
@@ -162,7 +162,23 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
   - o corte no separador também casa um app legítimo que comece com o nome de um banco ("Next - Launcher", "Caixa – Organizador");
   - palavras fora da lista fechada escapam ("Atualização Nubank", "Nubank Wallpapers", "Inter&Co", "Neon Pay");
   - "Baixa" não casa com "Caixa", nem "Caixa de Ferramentas" (nome inteiro, sem "contém").
-- O pacote oficial, que tira o app do S9, é tratado pelo coletor (BATCH-03).
+- O pacote oficial, que tira o app do S9, é tratado pelo coletor (abaixo).
+
+## Coletor do sinal S9 (imitação de banco)
+
+`BankLookalikeCollector(knownBankApps)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementa `SignalCollector`. Ele não usa API do Android e não chama o `PackageManager`: lê o `label` e o `packageName` que o inventário já trouxe.
+
+- **Gera S9** (`BANK_LOOKALIKE`) quando o rótulo casa com o nome de alguma entrada da lista (comparação de nomes, acima) e o pacote do app não é o de nenhuma entrada. Fora isso, devolve um conjunto vazio. Nunca devolve outro sinal.
+- **Pacote da lista não gera S9**, de qualquer entrada e não só da que casou: "Itaú Empresas" (`com.itau.empresas`) casa com "Itaú" depois de tirar o sufixo, mas o pacote está na lista. A comparação do pacote é exata, com maiúsculas e minúsculas: `com.nu.production.fake` e `COM.NU.PRODUCTION` com o nome "Nubank" geram S9.
+- **O parâmetro é obrigatório**, sem valor padrão. O conjunto é copiado na construção, e um conjunto vazio nunca gera S9. A lista padrão é `KnownBanks.apps`:
+
+```kotlin
+BankLookalikeCollector(KnownBanks.apps)
+BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox"))   // amplia
+```
+
+- O banco fictício da variante `lookalike` do app isca entra do mesmo jeito; como o teste ponta a ponta o injeta fica para a SPEC-021 ou a SPEC-022.
+- **Limitação do pacote emprestado** (ADR-017 e ADR-020): num aparelho sem o app do banco, um app com o pacote oficial e o nome do banco não recebe S9. Instalado à mão, ele recebe S1, e com NFC e HCE fica vermelho mesmo sem o S9. A defesa pelo certificado de assinatura está na issue #65.
 
 ## Dependências
 
@@ -206,6 +222,8 @@ KnownBanks.apps - KnownBankApp("next", "br.com.bradesco.next")        // reduz
   - `EditDistanceTest`: igual, troca, inserção e remoção, transposição, cadeia vazia, duas edições;
   - `BankNameMatcherMatchTest` e `BankNameMatcherNoMatchTest`: os imitadores e os legítimos da tabela do plano, com os falsos positivos aceitos e as imitações que escapam em seções comentadas, parametrizados sobre uma lista de 13 nomes escrita à mão (`HAND_WRITTEN_BANK_NAMES`);
   - `BankNameMatcherTest`: prefixos e sufixos (cada entrada carregada sai), limites 5/6 e 9/10, esqueleto vazio, lista vazia e nomes de `KnownBanks.apps` que só casam entre apps do mesmo banco. Este é o único teste da comparação que lê a lista de produção, de propósito: uma entrada nova que colida com outra instituição o derruba.
+- Coletor de S9, também em JUnit 4 sem Robolectric, com uma lista pequena escrita à mão (Nubank, Itaú e Itaú Empresas):
+  - `BankLookalikeCollectorTest`: pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote com sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com um banco fictício; lista vazia; conjunto alterado depois; só S9.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

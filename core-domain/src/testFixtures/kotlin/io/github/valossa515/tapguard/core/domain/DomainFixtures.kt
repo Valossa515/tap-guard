@@ -15,6 +15,7 @@ import java.time.Instant
 @Suppress("LongParameterList")
 fun anInstalledApp(
     packageName: String = "com.example.app",
+    label: String = "Example",
     installerPackageName: String? = "com.android.vending",
     firstInstallTime: Instant = Instant.parse("2026-01-01T00:00:00Z"),
     lastUpdateTime: Instant = Instant.parse("2026-01-02T00:00:00Z"),
@@ -25,7 +26,7 @@ fun anInstalledApp(
 ): InstalledApp =
     InstalledApp(
         packageName = packageName,
-        label = "Example",
+        label = label,
         versionCode = 1L,
         installerPackageName = installerPackageName,
         firstInstallTime = firstInstallTime,
