@@ -5,7 +5,7 @@
 ## Entities
 | Term | Definition | Source |
 |------|-----------|--------|
-| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas, serviços declarados, serviços de HCE (`cardEmulationServices`) e serviços de acessibilidade ligados (`enabledAccessibilityServices`) | §7, SPEC-010, SPEC-013, SPEC-014 |
+| **InstalledApp** | App instalado que não é do sistema, vindo do inventário (`AppInventory`): pacote, nome, versão, instalador, datas, permissões pedidas, serviços declarados, serviços de HCE (`cardEmulationServices`), serviços de acessibilidade ligados (`enabledAccessibilityServices`) e serviços padrão de pagamento (`defaultPaymentServices`) | §7, SPEC-010, SPEC-013, SPEC-014, SPEC-016 |
 | **Signal** | Característica estática de um app que indica perfil de golpe (S1–S9); enum com o bit de cada sinal na máscara | §5, §7, SPEC-010 |
 | **RiskLevel** | Nível de risco: `GREEN`, `YELLOW`, `RED`, em ordem de gravidade | §5, SPEC-010 |
 | **RiskResult** | Resultado do `RiskScorer`: score (0 a 100), nível e sinais de um app | §7, SPEC-010 |
