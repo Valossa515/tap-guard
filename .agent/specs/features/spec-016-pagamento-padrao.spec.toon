@@ -1,0 +1,62 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-016-pagamento-padrao.spec.toon
+# SPEC-016 (issue #12) – interface library: outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build
+# Decisoes do usuario em 2026-11-24 (tabela do plano); um PR com Closes #12
+# Emenda 1.1 (2026-11-24 aprovacao do plano e revisao do architect): so servicos ligados (segunda consulta sem MATCH_DISABLED_COMPONENTS; ServiceInfo.enabled e o valor do manifesto) e exportados sao consultados (BR-009); recomendacao para a SPEC-052 detectar a troca pelo pacote (BR-011); coletor DefaultPaymentAppCollector; estimate-lines 435 pelos arquivos do contrato
+
+feature:
+  id: FT-016
+  name: SPEC-016 Pagamento padrao (S7)
+  version: 1.1
+  status: draft
+  interface: library
+  estimate-lines: 435
+
+requirement:
+  summary: Sinal S7 no core-detection. O AppInventory faz uma segunda consulta de HCE por varredura sem MATCH_DISABLED_COMPONENTS para saber quais servicos estao ligados; para cada servico ligado e exportado que tambem esta em cardEmulationServices de um app de usuario pergunta ao sistema CardEmulation.isDefaultServiceForCategory com CATEGORY_PAYMENT e guarda as classes que voltam true no campo novo InstalledApp.defaultPaymentServices. O coletor DefaultPaymentAppCollector recebe o conjunto de carteiras na construcao e devolve UNKNOWN_DEFAULT_PAYMENT_APP quando o campo nao esta vazio e o pacote nao esta no conjunto. O coletor nao chama o Android.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: SignalCollector.collect(app) e AppInventory.installedApps()
+
+inputs[4]{name,type,required,constraints}:
+  app,InstalledApp,true,o coletor de S7 so le packageName e defaultPaymentServices
+  knownWallets,Set<String>,true,parametro obrigatorio do construtor do DefaultPaymentAppCollector sem valor padrao; copiado; lista padrao KnownWallets.packageNames (SPEC-015); vazio faz todo app padrao receber S7
+  cardEmulationServices,Set<String>,true,classes de HCE de cada app de usuario como o inventario ja devolve (SPEC-013; criterio largo do ADR-018 que nao muda); so as que tambem estao ligadas e exportadas sao consultadas
+  defaultPaymentServices,Set<String>,true,campo novo do InstalledApp com as classes do app para as quais o sistema respondeu true; subconjunto de cardEmulationServices; vazio quando o app nao e o padrao ou a consulta nao pode ser feita
+
+outputs:
+  success:
+    description: O coletor devolve vazio ou so o seu sinal; o inventario devolve cada app com defaultPaymentServices preenchido
+    status: Success
+    body[2]{name,type,value}:
+      sinais do DefaultPaymentAppCollector,Set<Signal>,vazio ou {UNKNOWN_DEFAULT_PAYMENT_APP}; nunca outro sinal
+      InstalledApp.defaultPaymentServices,Set<String>,nomes de classe completos; vazio sem NFC ou sem HCE ou com o servico NFC morto ou quando o app nao e o padrao
+  errors[3]{code,status,when}:
+    NFC_PERMISSION_MISSING,SecurityException,o app hospedeiro nao declara android.permission.NFC e o servico NFC recusa a consulta; installedApps() propaga a excecao sem try
+    SCHEMA_CHANGED,BuildFailure,o build regenera core-data/schemas com diff (passo Schema do Room commitado do CI)
+    LIBRARY_PERMISSION_ADDED,BuildFailure,o manifesto mesclado do core-detection passa a declarar permissao (LibraryManifestTest) ou o do app ganha permissao fora da lista (MergedManifestTest)
+
+business-rules[12]{id,rule}:
+  BR-001,S7 quando InstalledApp.defaultPaymentServices nao esta vazio e InstalledApp.packageName nao esta em knownWallets; comparacao exata com maiusculas e minusculas; fora isso conjunto vazio
+  BR-002,knownWallets e obrigatorio e sem padrao; o conjunto e copiado (mudar o original depois nao altera o coletor); vazio faz todo app padrao receber S7; a lista padrao e KnownWallets.packageNames
+  BR-003,Fonte: CardEmulation.isDefaultServiceForCategory(ComponentName(pacote e classe) e CATEGORY_PAYMENT) para cada servico candidato (BR-009); uma vez por varredura no inventario (etapa nova depois da leitura da acessibilidade e antes do detalhe) no ioDispatcher; a chave Settings.Secure nfc_payment_default_component nao e usada (@hide sem @Readable: SecurityException para app comum da API 31 em diante)
+  BR-004,Resposta do sistema por versao (fontes do AOSP): da API 26 a 34 true so para o componente gravado na chave e registrado no sistema NFC; na API 35 e 36 com o papel de carteira ligado true para qualquer servico registrado do app dono do papel sem olhar a categoria; servico nao registrado (desligado ou nao exportado ou sem meta-data ou pacote sem NFC) nunca e o padrao
+  BR-005,Sem NFC: NfcAdapter.getDefaultAdapter devolve null e a etapa termina; com NFC e sem HCE: CardEmulation.getInstance lanca UnsupportedOperationException e a etapa termina; nos dois casos todos os apps ficam com o campo vazio sem erro e sem a segunda consulta; sem app de usuario com servico de HCE a etapa termina antes de tocar no NFC
+  BR-006,Servico NFC morto: na API 36 isDefaultServiceForCategory lanca RuntimeException com causa RemoteException e todos os apps ficam com o campo vazio nessa varredura sem erro; ate a API 35 o framework ja devolve false; a captura olha a causa para nao engolir a SecurityException; os erros do PackageManager na segunda consulta propagam como na SPEC-011
+  BR-007,SecurityException (app hospedeiro sem android.permission.NFC) e propagada sem try; o app Tap Guard declara NFC; o core-detection nao declara permissao (ADR-016) e o README pede NFC a quem usa o SDK
+  BR-008,O S7 vai para o app dono do servico padrao; servico padrao de app do sistema ou do proprio app nao gera S7 em nenhum app porque esses pacotes nao entram no inventario (regra 1 e RF-101) e os servicos deles nao sao consultados
+  BR-009,Candidatos: servicos da segunda consulta queryIntentServices(HOST_APDU_SERVICE) sem MATCH_DISABLED_COMPONENTS (o PackageManager aplica o estado atual do componente e do app) com ServiceInfo.exported e permission BIND_NFC_SERVICE e que tambem estao em cardEmulationServices de um app de usuario; ServiceInfo.enabled nao e usado (e o valor do manifesto: um servico desligado no manifesto e ligado com setComponentEnabledSetting conta e um desligado em tempo de execucao nao); servico desligado ou nao exportado ou de app desligado nunca e consultado; cardEmulationServices continua com o criterio largo do ADR-018; os candidatos ficam em valores locais de installedApps() e nao no InstalledApp
+  BR-010,InstalledApp ganha defaultPaymentServices (obrigatorio e depois de enabledAccessibilityServices) com copia que nao pode ser alterada nem por cast; anInstalledApp ganha defaultPaymentServices com padrao vazio; DefaultPaymentAppCollector publico no pacote core.detection.signal sem API do Android e sem PackageManager e sem dispatcher e sem anotacoes do Hilt
+  BR-011,Para a SPEC-052 (registrado no ADR-021 e sem codigo nesta spec): o componente exibido e guardado em lastDefaultPaymentComponent e ComponentName(pacote e classe).flattenToString() na forma completa pkg/pkg.Cls (a mesma que o sistema grava na chave); entre todos os servicos marcados na varredura o menor por String.compareTo; nenhum servico = null; recomendacao: detectar a troca pelo pacote (o atual contra o de unflattenFromString do valor guardado) e usar o flattenToString so para exibir e guardar; assim um servico novo no app dono do papel de carteira nao parece troca de app
+  BR-012,Fora: pesos e regras de ajuste (SPEC-017); Hilt e ScanDevice (SPEC-018); monitor e gravacao de lastDefaultPaymentComponent (SPEC-052); conferencia em aparelho em Android 8 e 12 e 14 e na mais recente (SPEC-022); filtro pela permissao NFC do pacote (exigiria a etapa depois do detalhe); core-data e app_snapshot sem mudanca (S7 vai no bit 6 de signals pela SPEC-018)
+
+assumptions[10]:
+  Decisoes do usuario em 2026-11-24 (tabela do plano): erros 1 e 2 viram vazio e 3 propaga; campo Set<String>; formato flattenToString o menor; fontes mais Robolectric com aparelho na SPEC-022; segunda consulta sem MATCH_DISABLED_COMPONENTS; troca detectada pelo pacote na SPEC-052
+  Fontes do AOSP lidas: CardEmulation em frameworks/base (android-8.0.0_r1 e 12.0.0_r1 e 14.0.0_r1 e 15.0.0_r1) e no modulo NFC (android-16.0.0_r1 e main); CardEmulationManager em packages/apps/Nfc (8.0.0_r1 e 12.0.0_r1 e 14.0.0_r1 e 15.0.0_r1) e em packages/modules/Nfc (16.0.0_r1); Settings.java e SettingsProvider (12.0.0_r1 e 14.0.0_r1 e 16.0.0_r1 e main); NfcAdapter e NfcManager (8.0.0_r1 e 16.0.0_r1); NfcService (14.0.0_r1); PackageParser (8.0.0_r1) e PackageInfoUtils (14.0.0_r1 e 16.0.0_r1)
+  CardEmulation nao tem getDefaultServiceForCategory publico; getPreferredPaymentService (API 36) e @SystemApi; os metodos de PreferredPaymentService (API 30) nao devolvem o componente e exigem NFC_PREFERRED_PAYMENT_INFO; RoleManager.getRoleHolders e @SystemApi
+  Nao ha fonte que diga se a flag wallet_role_enabled vem ligada em todo aparelho com Android 15; o guia de HCE diz que o Android 15+ tem o papel de carteira; o codigo trata os dois casos
+  No Robolectric 4.18 nas APIs 26 e 28 e 30 e 33 e 36: sem features getDefaultAdapter devolve null; com FEATURE_NFC e sem HCE getInstance lanca UnsupportedOperationException; com as features e ShadowNfcAdapter.setNfcHardwareExists(true) ShadowCardEmulation.setDefaultServiceForCategory define o padrao comparado por equals; o estado volta vazio em cada teste; shadows proprios com @Config(shadows) lancam RuntimeException(RemoteException) e SecurityException (experimento do plano)
+  No Robolectric 4.18 nas cinco APIs ServiceInfo.enabled e o do manifesto e o estado de setComponentEnabledSetting e de setApplicationEnabledSetting so filtra a consulta sem MATCH_DISABLED_COMPONENTS; igual ao AOSP (experimento do plano item 9)
+  O Robolectric nao simula o registro do servico no sistema NFC nem o papel de carteira nem a permissao NFC nem a diferenca entre APIs; o ShadowCardEmulation responde true para o componente definido mesmo desligado; conferencia em aparelho na SPEC-022
+  Detekt 1.23.8: catch (expected: RuntimeException) com teste da causa e catch (expected: UnsupportedOperationException) passam na producao; throw RuntimeException(...) nos testes cai em TooGenericExceptionThrown e RemoteException(...).rethrowAsRuntimeException() passa; os parametros dos shadows precisam ser usados (UnusedParameter) (experimento do plano item 10)
+  isDefaultServiceForCategory nao tem @RequiresPermission nas tags lidas; espera-se nenhum aviso do lint
+  Estimativa de 435 linhas pelos arquivos do contrato (cerca de 115 de codigo e 320 de testes) sem os artefatos do SDD e sem a documentacao; abaixo de 500 e por isso um PR sem batches (360 no plano antes da emenda 1.1)

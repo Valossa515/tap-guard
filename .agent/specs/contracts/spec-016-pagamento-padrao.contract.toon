@@ -1,0 +1,108 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-016-pagamento-padrao.contract.toon
+# SPEC-016 (issue #12) – camadas = modelo e fixture do core-domain e inventario e coletor do core-detection e shadows de teste e docs
+# Publico novo: DefaultPaymentAppCollector (core.detection.signal); campo novo InstalledApp.defaultPaymentServices; API publica do core-detection com catorze classes
+# Sem internal novo; sem @Suppress novo; sem @SuppressLint novo; sem import android.* no coletor
+# Estimativa pelos arquivos: 435 linhas de codigo e testes (115 de codigo e 320 de testes; tabela no documento de arquitetura); um PR com Closes #12
+
+contract:
+  feature-ref: FT-016
+  version: 1.0
+
+layers:
+  core-domain-model:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledApp.kt,modify,campo val defaultPaymentServices: Set<String> depois de enabledAccessibilityServices no construtor privado e no operator fun invoke (obrigatorio e sem padrao); a fabrica copia com unmodifiableCopy(); KDoc da classe: nomes de classe completos dos servicos de HCE do app que o sistema diz serem o padrao de pagamento (CardEmulation.isDefaultServiceForCategory com CATEGORY_PAYMENT); so servicos ligados e exportados sao consultados; subconjunto de cardEmulationServices; vazio sem NFC ou sem HCE ou com o servico NFC morto (ADR-021)
+      core-domain/src/testFixtures/kotlin/io/github/valossa515/tapguard/core/domain/DomainFixtures.kt,modify,anInstalledApp ganha defaultPaymentServices: Set<String> = emptySet() depois de enabledAccessibilityServices (10 parametros) e o repassa; o @Suppress("LongParameterList") e o KDoc ja existentes cobrem o caso (ADR-015 estendido pelo ADR-019)
+  core-detection-inventory:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventory.kt,modify,construtor igual; private val applicationContext: Context = context.applicationContext; installedApps() dentro do withContext(ioDispatcher): depois de accessibilityServices monta userCardEmulationServices (pacote de usuario para cardEmulationServices[pkg] sem os vazios) e val defaultPaymentServices = defaultPaymentServicesByPackage(userCardEmulationServices); readApp e toInstalledApp recebem e repassam defaultPaymentServices[pkg].orEmpty(); private fun hceServices(flags: Int): List<ServiceInfo> = queryIntentServicesCompat(Intent(HostApduService.SERVICE_INTERFACE); flags) com mapNotNull serviceInfo e filtro permission == BIND_NFC_SERVICE; cardEmulationServicesByPackage() passa a usar hceServices(MATCH_DISABLED_COMPONENTS) sem mudar o resultado; private fun defaultPaymentServicesByPackage(userCardEmulationServices: Map<String; Set<String>>): Map<String; Set<String>> devolve emptyMap() quando o mapa esta vazio (sem tocar no NFC) ou quando cardEmulationOrNull() e null (sem a segunda consulta) e senao askDefaultPaymentServices(cardEmulation; paymentCandidates(userCardEmulationServices)); no maximo dois return por funcao (ReturnCount); private fun paymentCandidates(userCardEmulationServices): List<ComponentName> = hceServices(0) (sem MATCH_DISABLED_COMPONENTS: o PackageManager aplica o estado atual do componente e do app) filtrados por exported e por name em userCardEmulationServices[packageName] e mapeados para ComponentName(packageName; name); ServiceInfo.enabled nao e lido; private fun cardEmulationOrNull(): CardEmulation? = NfcAdapter.getDefaultAdapter(applicationContext) null devolve null; CardEmulation.getInstance(adapter) com catch (expected: UnsupportedOperationException) devolve null; private fun askDefaultPaymentServices(cardEmulation; candidates): Map<String; Set<String>> = try { candidates filtrados por cardEmulation.isDefaultServiceForCategory(it; CardEmulation.CATEGORY_PAYMENT) e agrupados className por packageName em Set } catch (expected: RuntimeException) { if (expected.cause !is RemoteException) throw expected; emptyMap() }; a segunda consulta fica fora do try (erro do PackageManager propaga); KDoc da classe com cinco etapas e a etapa do pagamento padrao (segunda consulta e so ligados e exportados; sem NFC ou HCE e servico NFC morto deixam o campo vazio; SecurityException sem android.permission.NFC propaga; quem usa a biblioteca declara NFC); imports android.content.pm.ServiceInfo e android.nfc.NfcAdapter e android.nfc.cardemulation.CardEmulation e android.os.RemoteException
+  core-detection-collector:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/DefaultPaymentAppCollector.kt,create,class DefaultPaymentAppCollector(knownWallets: Set<String>) : SignalCollector (parametro obrigatorio e sem padrao); private val knownWallets: Set<String> = Collections.unmodifiableSet(LinkedHashSet(knownWallets)); collect devolve DETECTED quando app.defaultPaymentServices.isNotEmpty() e app.packageName !in knownWallets e emptySet() senao; companion privado com val DETECTED: Set<Signal> = setOf(Signal.UNKNOWN_DEFAULT_PAYMENT_APP); KDoc: S7 (e o app de pagamento padrao e nao esta na lista de carteiras); o que conta (campo nao vazio e pacote fora da lista; comparacao exata com maiusculas e minusculas); lista copiada; lista vazia faz todo app padrao receber S7; lista padrao KnownWallets.packageNames ampliada ou reduzida com + ou -; padrao de app do sistema ou do proprio app nao gera S7 em nenhum app (o inventario nao os lista); limitacao do pacote emprestado (ADR-017 e ADR-020 e #65); nao chama o Android (o inventario ja leu); sem import android.*; sem Hilt
+  core-detection-test-support:
+    files[1]{path,action,description}:
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/CardEmulationShadows.kt,create,tres shadows publicos com @Implements(CardEmulation::class) e @Implementation fun isDefaultServiceForCategory(service: ComponentName; category: String): Boolean que usa os dois parametros (UnusedParameter); DeadNfcServiceCardEmulationShadow lanca RemoteException(mensagem com service e category).rethrowAsRuntimeException() (o que o modulo NFC da API 36 faz depois da segunda falha; throw RuntimeException(...) seria recusado pelo TooGenericExceptionThrown); MissingNfcPermissionCardEmulationShadow lanca SecurityException(mensagem com service e category) (o que NfcPermissions.enforceUserPermissions faz sem android.permission.NFC); WalletRoleCardEmulationShadow devolve category == "payment" e service.packageName == HOLDER_PACKAGE com companion const val HOLDER_PACKAGE = "com.example.a.user" (papel de carteira da API 35+: todo servico do dono responde true); KDoc de cada um com o comportamento do AOSP que simula e a tag; KDoc do arquivo: entram por @Config(shadows) no metodo e nao vazam para o teste seguinte
+  docs:
+    files[13]{path,action,description}:
+      core-detection/README.md,modify,estado (SPEC-016); inventario em cinco etapas com a segunda consulta de HCE (so ligados e exportados; por que nao ServiceInfo.enabled); coletor de S7 (DefaultPaymentAppCollector; lista KnownWallets; regra); quem usa o SDK declara android.permission.NFC ou recebe SecurityException; sem <queries> a mais; testes com ShadowNfcAdapter e ShadowCardEmulation e os tres shadows proprios; API publica com catorze classes
+      core-domain/README.md,modify,campo defaultPaymentServices e parametro da anInstalledApp
+      docs/especificacao.md,modify,secao 8 linha Inventario (cinco etapas com a etapa do pagamento padrao) e linha S7 pagamento padrao (isDefaultServiceForCategory por servico ligado e exportado; papel de carteira na API 35+; chave do Settings.Secure ilegivel da API 31 em diante; ADR-021); secao 13 pendencia da API no Android 15+ resolvida
+      .agent/SKILLS.md,modify,Detection: quinta etapa do inventario e a segunda consulta; NfcAdapter e CardEmulation no Robolectric 4.18 (features e setNfcHardwareExists e setDefaultServiceForCategory; ServiceInfo.enabled e o do manifesto; shadows proprios por @Config e rethrowAsRuntimeException); API publica com catorze classes; Signal collectors: S7
+      .agent/project-reference.md,modify,linha CardEmulation (S7 por isDefaultServiceForCategory; papel de carteira confirmado nas fontes); DefaultPaymentAppCollector na linha do SignalCollector
+      .agent/context.md,modify,coletor de S7 criado; decisao em aberto da API do pagamento padrao no Android 15+ resolvida (ADR-021)
+      .agent/glossary.md,modify,App de pagamento padrao com a fonte (isDefaultServiceForCategory) e o papel de carteira (API 35+)
+      .agent/architecture.md,modify,linha S7 pagamento padrao da tabela de coleta (no inventario com a segunda consulta; coletor puro com KnownWallets; degrada sem erro menos a SecurityException)
+      .agent/conventions.md,modify,Error Handling: a falha da API de pagamento padrao degrada sem erro (sem NFC ou HCE e servico NFC morto) menos a SecurityException sem a permissao NFC que propaga
+      .agent/runbook.md,modify,linha S7 e RF-303: fonte e comportamento por versao (ADR-021) e conferencia em aparelho na SPEC-022
+      .agent/decisions.md,modify,ADR-021 (Sinal S7: fonte do pagamento padrao e papel de carteira e servicos consultados e formato para a SPEC-052): contexto (secao 8 e pendencia do Android 15+); fonte isDefaultServiceForCategory e a chave nfc_payment_default_component rejeitada (@hide sem @Readable; SecurityException da API 31 em diante sem depender do targetSdk; @Deprecated na 16); resposta por versao (chave e registro ate a 34; dono do papel na 35 e 36 com a flag wallet_role_enabled; flag sem fonte por aparelho); servicos consultados (segunda consulta sem MATCH_DISABLED_COMPONENTS porque ServiceInfo.enabled e o do manifesto; exported; cardEmulationServices segue o ADR-018); erros (vazio sem NFC ou HCE e com o servico NFC morto; SecurityException propaga; NFC desligado funciona); S7 para o dono do servico e nenhum S7 com padrao de app do sistema ou do proprio app; formato para a SPEC-052 (flattenToString completo e o menor; null) e a recomendacao de detectar a troca pelo pacote usando o flattenToString so para exibir e guardar para que um servico novo no app dono do papel de carteira nao pareca troca de app; ressalvas (null com varios significados; dono do papel sem servico proprio e PROPERTY_ALLOW_SHARED_ROLE_PRIORITY); alternativas rejeitadas (chave do Settings; getPreferredPaymentService; PreferredPaymentService da API 30; RoleManager; ServiceInfo.isEnabled; getComponentEnabledSetting por servico; candidatos no InstalledApp); consequencias (uma consulta a mais por varredura; custo que sobra; conferencia na SPEC-022); pendencia API de pagamento padrao no Android 15+ resolvida
+      .agent/plans/spec-016-pagamento-padrao.md,modify,marcar tarefas e registrar a conferencia dos criterios
+      .agent/plans/spec-016-pagamento-padrao-tests.md,create,plano de testes (papel tester) do coletor e do inventario e do modelo
+
+migrations[0]:
+
+dependencies:
+  uses[8]:
+    SignalCollector e Signal.UNKNOWN_DEFAULT_PAYMENT_APP e InstalledApp e unmodifiableCopy (core-domain; SPEC-010)
+    InstallSourceCollector e BankLookalikeCollector como modelo de coletor com conjunto copiado (core-detection; SPEC-012 e SPEC-015)
+    KnownWallets.packageNames como lista padrao citada no KDoc e no README (core-detection; SPEC-015)
+    PackageManagerAppInventory com cardEmulationServicesByPackage e queryIntentServicesCompat (core-detection; SPEC-011 e SPEC-013)
+    enabledAccessibilityServicesByPackage como modelo de etapa por varredura agrupada por pacote (core-detection; SPEC-014)
+    PackageManagerAppInventoryTest com install e installService e aPackageInfo e aService (SPEC-011 e SPEC-013)
+    anInstalledApp em core-domain/src/testFixtures (SPEC-012 e SPEC-014)
+    ShadowCardEmulation e ShadowNfcAdapter do Robolectric 4.18 (libs.robolectric ja em testImplementation do core-detection)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: DefaultPaymentAppCollector
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/DefaultPaymentAppCollectorTest.kt
+      type: junit4
+      helpers: lista escrita a mao (com.wallet.one e com.wallet.two) e ajudante privado que monta anInstalledApp com packageName e defaultPaymentServices
+      scenarios[7]:
+        default-outside-list-yields-s7
+        default-in-list-yields-nothing
+        app-that-is-not-default-yields-nothing
+        package-differing-by-case-yields-s7
+        later-change-to-given-set-does-not-affect-collector
+        empty-list-yields-s7-for-every-default-app
+        yields-only-s7-for-app-with-other-risk-traits
+    - target: InstalledApp (defaultPaymentServices)
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/inventory/InstalledAppTest.kt
+      type: junit5
+      scenarios[2]:
+        default-payment-services-are-copied
+        default-payment-services-reject-mutation-through-cast
+  integration-tests:
+    - target: PackageManagerAppInventory (pagamento padrao)
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/inventory/PackageManagerAppInventoryTest.kt
+      type: robolectric
+      config: "@Config(sdk = [26, 28, 30, 33, 36]) da classe; @Config(shadows = [...]) no metodo dos cenarios com shadow proprio"
+      helpers: enableCardEmulation(hostCardEmulation: Boolean = true) liga FEATURE_NFC e FEATURE_NFC_HOST_CARD_EMULATION (quando true) com setSystemFeature e chama ShadowNfcAdapter.setNfcHardwareExists(true) (KDoc: sem as features getDefaultAdapter devolve null; com FEATURE_NFC e sem HCE getInstance lanca UnsupportedOperationException); installHceService(packageName; name; enabled = true; exported = true) com installService(aService(...; permission = BIND_NFC_SERVICE); HOST_APDU_ACTION); setDefaultPaymentService(packageName; name) com ShadowCardEmulation.setDefaultServiceForCategory(ComponentName(packageName; name); PAYMENT_CATEGORY) (KDoc: responde true mesmo para servico desligado; o mapa volta vazio em cada teste); constante PAYMENT_CATEGORY = "payment" literal
+      scenarios[10]:
+        marks-default-payment-service-of-one-user-app
+        default-outside-queried-services-marks-no-app
+        wallet-role-marks-every-service-of-the-holder
+        disabled-not-exported-or-disabled-app-service-is-not-asked
+        service-enabled-at-runtime-is-asked
+        without-nfc-every-app-has-no-default-payment-service
+        nfc-without-hce-every-app-has-no-default-payment-service
+        dead-nfc-service-leaves-default-payment-empty-and-keeps-other-fields
+        missing-nfc-permission-propagates-security-exception
+        returns-empty-sets-without-permissions-or-services (existente; passa a conferir defaultPaymentServices vazio)
+  verification[8]{criterion,how}:
+    AC-015,Local e desfeito sem commit: capturar qualquer RuntimeException sem olhar a causa derruba missing-nfc-permission-propagates-security-exception
+    AC-013,Local e desfeito sem commit: nao capturar a UnsupportedOperationException de CardEmulation.getInstance derruba nfc-without-hce-every-app-has-no-default-payment-service
+    AC-007,Local e desfeito sem commit: perguntar com CardEmulation.CATEGORY_OTHER derruba marks-default-payment-service-of-one-user-app
+    AC-010,Local e desfeito sem commit: usar como candidatos todos os servicos de cardEmulationServices (sem a segunda consulta e sem exported) derruba disabled-not-exported-or-disabled-app-service-is-not-asked
+    AC-010 e AC-011,Local e desfeito sem commit: trocar a segunda consulta por ServiceInfo.isEnabled() dos servicos da primeira derruba service-enabled-at-runtime-is-asked e o caso do desligado em tempo de execucao de disabled-not-exported-or-disabled-app-service-is-not-asked
+    AC-004,Local e desfeito sem commit: comparar o pacote sem maiusculas no coletor derruba package-differing-by-case-yields-s7
+    AC-016,./gradlew :core-domain:koverVerify acima de 80%
+    AC-018 e AC-019 e AC-021,./gradlew build com codigo 0 sem aviso novo e sem @Suppress novo; core-data/schemas sem diff; LibraryManifestTest e MergedManifestTest passam; CI da PR verde
+  excluded[6]{target,reason}:
+    Registro do servico no sistema NFC e papel de carteira real e permissao NFC cobrada,O Robolectric nao simula o sistema NFC; fontes do AOSP no ADR-021 e conferencia em aparelho na SPEC-022 (Android 8 e 12 e 14 e a mais recente)
+    Diferenca de resposta entre as APIs 26 e 36,O ShadowCardEmulation responde igual nas cinco APIs; a diferenca e do servico NFC (fontes do AOSP)
+    Formato flattenToString e deteccao da troca pelo pacote,Sem codigo nesta spec; recomendacao no ADR-021 para a SPEC-052
+    Desempenho da etapa com 300 apps,Uma consulta a mais e poucas perguntas ao sistema NFC; o limite de 5 s e medido na SPEC-022
+    Ausencia de import android.* e de Hilt no coletor,Inspecao no review (AC-017)
+    Conteudo de KnownWallets,Coberto pelos testes da SPEC-015 (KnownWalletsTest)
