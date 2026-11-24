@@ -23,6 +23,7 @@ fun anInstalledApp(
     services: Set<String> = emptySet(),
     cardEmulationServices: Set<String> = emptySet(),
     enabledAccessibilityServices: Set<String> = emptySet(),
+    defaultPaymentServices: Set<String> = emptySet(),
 ): InstalledApp =
     InstalledApp(
         packageName = packageName,
@@ -35,6 +36,7 @@ fun anInstalledApp(
         services = services,
         cardEmulationServices = cardEmulationServices,
         enabledAccessibilityServices = enabledAccessibilityServices,
+        defaultPaymentServices = defaultPaymentServices,
     )
 
 fun aRiskResult(

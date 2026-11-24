@@ -22,6 +22,7 @@ class InstalledAppTest {
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
                 enabledAccessibilityServices = setOf(A11Y_SERVICE),
+                defaultPaymentServices = emptySet(),
             )
 
         assertEquals("com.example.app", app.packageName)
@@ -48,6 +49,7 @@ class InstalledAppTest {
                 services = services,
                 cardEmulationServices = cardEmulationServices,
                 enabledAccessibilityServices = accessibilityServices,
+                defaultPaymentServices = emptySet(),
             )
 
         permissions.add(SMS)
@@ -69,6 +71,7 @@ class InstalledAppTest {
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
                 enabledAccessibilityServices = setOf(A11Y_SERVICE),
+                defaultPaymentServices = emptySet(),
             )
         val exposedCollections =
             listOf(app.requestedPermissions, app.services, app.cardEmulationServices, app.enabledAccessibilityServices)

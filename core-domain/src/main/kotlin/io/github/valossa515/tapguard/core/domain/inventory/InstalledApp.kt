@@ -16,8 +16,13 @@ import java.time.Instant
  *
  * [enabledAccessibilityServices] guarda os nomes de classe completos dos serviços de acessibilidade
  * do app que o usuário ligou (`Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`), inclusive um que
- * caiu. Vem de outra leitura do sistema e não é validado como parte de [services] (ADR-019). As
- * coleções são cópias que não podem ser alteradas.
+ * caiu. Vem de outra leitura do sistema e não é validado como parte de [services] (ADR-019).
+ *
+ * [defaultPaymentServices] guarda os nomes de classe completos dos serviços de HCE do app que o
+ * sistema diz serem o padrão de pagamento (`CardEmulation.isDefaultServiceForCategory` com
+ * `CATEGORY_PAYMENT`). Só serviços ligados e exportados são consultados, então o conjunto é parte de
+ * [cardEmulationServices]. Fica vazio quando o app não é o padrão, no aparelho sem NFC ou sem HCE e
+ * quando o serviço NFC não responde (ADR-021). As coleções são cópias que não podem ser alteradas.
  */
 @ConsistentCopyVisibility
 data class InstalledApp private constructor(
@@ -31,6 +36,7 @@ data class InstalledApp private constructor(
     val services: Set<String>,
     val cardEmulationServices: Set<String>,
     val enabledAccessibilityServices: Set<String>,
+    val defaultPaymentServices: Set<String>,
 ) {
     companion object {
         /**
@@ -49,6 +55,7 @@ data class InstalledApp private constructor(
             services: Set<String>,
             cardEmulationServices: Set<String>,
             enabledAccessibilityServices: Set<String>,
+            defaultPaymentServices: Set<String>,
         ): InstalledApp =
             InstalledApp(
                 packageName = packageName,
@@ -61,6 +68,7 @@ data class InstalledApp private constructor(
                 services = services.unmodifiableCopy(),
                 cardEmulationServices = cardEmulationServices.unmodifiableCopy(),
                 enabledAccessibilityServices = enabledAccessibilityServices.unmodifiableCopy(),
+                defaultPaymentServices = defaultPaymentServices.unmodifiableCopy(),
             )
     }
 }
