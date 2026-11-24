@@ -355,9 +355,64 @@
   - A API pública do `core-detection` ganha `KnownWallets`, `KnownBankApp` e `KnownBanks` (BATCH-01) e `BankLookalikeCollector` (BATCH-03).
   - Banco: sem mudança. O S9 vai no bit 8 de `signals` pela SPEC-018; o `1.json` não muda.
 
+## ADR-021 — Sinal S7: fonte do pagamento padrão, papel de carteira, serviços consultados e formato para a SPEC-052
+- **Date:** 2026-11-24
+- **Status:** Aceita (implementada na SPEC-016)
+- **Context:**
+  - A SPEC-016 (#12) entrega o sinal S7 ("é o app de pagamento padrão e não está na lista de carteiras conhecidas"). A §8 citava `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` e deixava em aberto a API no Android 15+, que trocou o pagamento padrão pelo papel de carteira (pendência da §13).
+  - O S4 (ADR-019) leu uma chave do `Settings.Secure`. O pagamento padrão também fica numa chave, `nfc_payment_default_component`.
+  - A SPEC-052 (#28) vai comparar o pagamento padrão atual com `lastDefaultPaymentComponent` (SPEC-004) para o RF-303.
+- **Decision:**
+  - **Fonte: `CardEmulation.isDefaultServiceForCategory(componente, CATEGORY_PAYMENT)`**, perguntada pelo inventário para cada serviço candidato (abaixo). É a única API pública que identifica o app da API 26 à 36:
+    - `CardEmulation` não tem `getDefaultServiceForCategory` público em nenhuma versão; o método existe só no serviço NFC;
+    - `CardEmulation.getPreferredPaymentService(Context)` (API 36) é `@SystemApi` e exige `NFC_PREFERRED_PAYMENT_INFO`;
+    - os métodos `...ForPreferredPaymentService` (API 30) devolvem descrição, AIDs e rota, não o componente, e exigem `NFC_PREFERRED_PAYMENT_INFO`, fora da lista de permissões;
+    - `RoleManager.isRoleHeld(ROLE_WALLET)` só fala do próprio app; `getRoleHolders` é `@SystemApi`.
+  - **A chave `nfc_payment_default_component` não é lida.** Ela é `@hide` sem `@Readable` em `Settings.java` nas tags [android-12.0.0_r1](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-12.0.0_r1/core/java/android/provider/Settings.java), 14.0.0_r1, [16.0.0_r1](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/core/java/android/provider/Settings.java) e `main` (na 16, também `@Deprecated`). Da API 31 em diante, o cliente e o [`SettingsProvider.checkReadableAnnotation`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-16.0.0_r1/packages/SettingsProvider/src/com/android/providers/settings/SettingsProvider.java) lançam `SecurityException` para todo app que não é do sistema, sem depender do targetSdk. O Robolectric não aplica o `@Readable`: um teste com a chave passaria e o aparelho falharia.
+  - **Resposta do sistema por versão** (`CardEmulationManager.isDefaultServiceForCategory`):
+    - em todas: cobra `android.permission.NFC` (`NfcPermissions.enforceUserPermissions`, `SecurityException`) e exige o serviço registrado no sistema NFC (exportado, pacote com `NFC`, `BIND_NFC_SERVICE`, meta-data válida e ligado; ADR-018). Serviço não registrado faz o sistema refazer o cache e responde `false`;
+    - API 26 a 34 ([packages/apps/Nfc, android-8.0.0_r1](https://android.googlesource.com/platform/packages/apps/Nfc/+/refs/tags/android-8.0.0_r1/src/com/android/nfc/cardemulation/CardEmulationManager.java), 12.0.0_r1 e 14.0.0_r1): `true` só para o componente gravado na chave;
+    - API 35 ([android-15.0.0_r1](https://android.googlesource.com/platform/packages/apps/Nfc/+/refs/tags/android-15.0.0_r1/src/com/android/nfc/cardemulation/CardEmulationManager.java)) e 36 ([packages/modules/Nfc, android-16.0.0_r1](https://android.googlesource.com/platform/packages/modules/Nfc/+/refs/tags/android-16.0.0_r1/NfcNci/src/com/android/nfc/cardemulation/CardEmulationManager.java)): com a flag `android.permission.flags.wallet_role_enabled`, `true` para todo serviço registrado do app dono do papel de carteira, sem olhar a categoria; sem dono, `false`; sem a flag, como até a 34. Não achei fonte que diga se a flag vem ligada em todo aparelho com Android 15; o [guia de HCE](https://developer.android.com/develop/connectivity/nfc/hce) diz que o Android 15+ tem o papel. O código trata os dois casos.
+  - **Serviços consultados: só os ligados e exportados** (pedido do usuário; o sistema nunca registra os outros, e perguntar por eles refaz o cache do sistema NFC a cada consulta).
+    - **"Ligado" vem de uma segunda consulta `queryIntentServices` de HCE sem `MATCH_DISABLED_COMPONENTS`**, não de `ServiceInfo.enabled`. Esse campo é o valor do manifesto: `info.enabled = component.isEnabled()` no [`PackageInfoUtils`](https://android.googlesource.com/platform/frameworks/base/+/refs/tags/android-14.0.0_r1/services/core/java/com/android/server/pm/parsing/PackageInfoUtils.java) 14.0.0_r1 e 16.0.0_r1, cópia do manifesto no `PackageParser` 8.0.0_r1. O estado de `setComponentEnabledSetting` só filtra a consulta sem a flag (igual no Robolectric 4.18, nas cinco APIs). Com `isEnabled()`, um app de golpe escaparia do S7 declarando o serviço desligado e ligando-o depois (decisão do usuário, depois da pesquisa).
+    - Ficam os exportados (`exported` não muda em tempo de execução), com `BIND_NFC_SERVICE`, que também estão em `cardEmulationServices` de um app de usuário. `cardEmulationServices` continua com o critério largo do ADR-018.
+    - Os candidatos ficam em valores locais do inventário, não no `InstalledApp`. Sem app de usuário com HCE, a etapa não toca no NFC; sem NFC ou sem HCE, termina antes da segunda consulta.
+  - **Campo `InstalledApp.defaultPaymentServices: Set<String>`** (decisão do usuário), depois de `enabledAccessibilityServices`, copiado com `unmodifiableCopy()`: nomes de classe dos serviços do app para os quais o sistema respondeu `true`. É parte de `cardEmulationServices`. Plural porque na API 35+ o dono do papel pode ter vários.
+  - **Erros** (decisão do usuário):
+    - sem NFC (`NfcAdapter.getDefaultAdapter` nulo) ou sem HCE (`CardEmulation.getInstance` lança `UnsupportedOperationException`): todos os apps sem serviço padrão, sem erro;
+    - serviço NFC morto: até a API 35 o framework tenta de novo e devolve `false`; na 36, o `callServiceReturn` do módulo NFC lança `RuntimeException` com causa `RemoteException`, e o inventário deixa todos os apps vazios nessa varredura, sem erro. A captura olha a causa, para não engolir a `SecurityException`;
+    - `SecurityException` (app sem `android.permission.NFC`) propaga, sem `try`, como no S4: é erro de quem integra o SDK. O Tap Guard declara `NFC`; o `core-detection` continua sem declarar permissão (ADR-016);
+    - NFC desligado: funciona. O `NfcService` cria o `CardEmulationManager` no construtor quando o aparelho tem HCE ([android-14.0.0_r1](https://android.googlesource.com/platform/packages/apps/Nfc/+/refs/tags/android-14.0.0_r1/src/com/android/nfc/NfcService.java)).
+  - **Coletor `DefaultPaymentAppCollector(knownWallets: Set<String>)`**, público, `core.detection.signal`, sem `android.*`: S7 quando `defaultPaymentServices` não está vazio e o pacote não está no conjunto (comparação exata). Conjunto obrigatório, sem padrão, copiado; vazio dá S7 a todo app padrão; lista padrão `KnownWallets.packageNames`. O nome segue o S1 (`InstallSourceCollector`): "desconhecido" depende da lista que quem usa o SDK passa.
+  - **Para quem vai o S7:** o app dono do serviço padrão. Serviço padrão de um app do sistema ou do próprio app não gera S7 em nenhum app: esses pacotes não entram no inventário (regra 1 e RF-101), e os serviços deles não são consultados.
+  - **Formato para a SPEC-052** (decisão do usuário): o componente exibido e guardado em `lastDefaultPaymentComponent` é `ComponentName(pacote, classe).flattenToString()`, na forma completa `pkg/pkg.Cls`, a mesma que o sistema grava na chave (`setDefaultServiceForCategoryChecked`). Entre todos os serviços marcados na varredura, o menor por `String.compareTo`; nenhum = `null`.
+  - **Recomendação para a SPEC-052: detectar a troca do pagamento padrão pelo pacote.** Compara o pacote atual com o pacote do valor guardado (`ComponentName.unflattenFromString(lastDefaultPaymentComponent)?.packageName`). O `flattenToString` serve só para exibir e guardar. Assim, um serviço novo no app dono do papel de carteira (API 35+), que mudaria o menor componente, não parece uma troca de app. Segue o RF-303, que fala em "app".
+- **Ressalvas para a SPEC-052:**
+  - `null` também quer dizer: aparelho sem NFC ou sem HCE, serviço NFC morto, padrão num app do sistema (fora do inventário) ou num serviço que o sistema não registrou. Trocar de uma carteira do sistema para outra do sistema não aparece;
+  - se o dono do papel de carteira não tiver serviço de HCE próprio, a consulta não acha o padrão. O módulo NFC da API 36 tem `PROPERTY_ALLOW_SHARED_ROLE_PRIORITY` ("associated role services"), o que sugere serviços de outro pacote ligados ao dono do papel. Como a Carteira do Google se registra não foi conferido. Conferir na SPEC-022.
+- **Alternatives:**
+  - ler `nfc_payment_default_component`, como no S4 (rejeitada: `SecurityException` da API 31 em diante; velha com o papel de carteira);
+  - `getPreferredPaymentService`, `...ForPreferredPaymentService` e `RoleManager` (rejeitadas: `@SystemApi`, não identificam o app ou exigem permissão fora da lista);
+  - `ServiceInfo.isEnabled()` da primeira consulta para saber se o serviço está ligado (rejeitada pelo usuário: valor do manifesto, abre a brecha acima);
+  - `getComponentEnabledSetting` por serviço (rejeitada: N chamadas e repetiria a regra do `PackageManager`, inclusive `DISABLED_UNTIL_USED`);
+  - candidatos num campo do `InstalledApp` (rejeitada: campo sem sinal que o use);
+  - `isDefaultPaymentApp: Boolean` (rejeitada pelo usuário: a SPEC-052 perderia o componente);
+  - propagar a falha do serviço NFC, ou engolir também a `SecurityException` (rejeitadas pelo usuário);
+  - comparar o `flattenToString` inteiro na SPEC-052 (não recomendada: troca falsa na API 35+).
+- **Consequences:**
+  - O inventário passa a cinco etapas. Uma consulta de HCE a mais por varredura, e uma pergunta ao sistema NFC por serviço candidato, só com NFC e algum app de usuário com HCE.
+  - **Custo que sobra:** um serviço ligado e exportado com meta-data inválida ou de pacote sem `NFC` ainda não é registrado e faz o sistema NFC refazer o cache a cada pergunta (declaração malfeita, rara). Filtrar pela permissão `NFC` exigiria a etapa depois do detalhe. Medir na SPEC-022 (RNF-03).
+  - **Testes no Robolectric 4.18:** sem `FEATURE_NFC` e `FEATURE_NFC_HOST_CARD_EMULATION`, `getDefaultAdapter` é nulo; com `FEATURE_NFC` só, `getInstance` lança `UnsupportedOperationException`; com as duas e `ShadowNfcAdapter.setNfcHardwareExists(true)`, `ShadowCardEmulation.setDefaultServiceForCategory` define o padrão, comparado por `equals`, e responde `true` mesmo para serviço desligado (por isso campo vazio prova que o inventário não perguntou). Erros e papel de carteira usam shadows próprios por `@Config(shadows)`, com `RemoteException(...).rethrowAsRuntimeException()` (o detekt recusa `throw RuntimeException(...)` também nos testes).
+  - Banco: sem mudança. O S7 vai no bit 6 de `signals` pela SPEC-018; o `1.json` não muda.
+- **Limitações e riscos:**
+  - O Robolectric não simula o registro no sistema NFC, o papel de carteira real nem a permissão. Conferência em aparelho com Android 8, 12, 14 e a versão mais recente na SPEC-022 (critério da #12).
+  - Falha do serviço NFC até a API 35 vira `false`, igual a "não é o padrão" (mesma limitação do S4 com o `Settings.Secure`).
+  - Pacote emprestado (ADR-017 e ADR-020): num aparelho sem a carteira, um app com o pacote dela não recebe S7; instalado à mão, recebe S1. Defesa na issue #65.
+  - Listas embutidas (ADR-020): um banco que lançar o Pix por aproximação no próprio app recebe S7 até entrar em `KnownWallets`.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
 - Lista inicial de bancos e carteiras na 1.0: decidida no ADR-020 (SPEC-015), com 6 carteiras e 29 apps de 14 instituições.
 - Play Store já na 1.0 ou depois de validar com usuários.
-- API de pagamento padrão no Android 15+ (SPEC-016).
+- API de pagamento padrão no Android 15+: decidida no ADR-021 (SPEC-016). `isDefaultServiceForCategory` por serviço de HCE ligado e exportado; da API 35 em diante, o sistema responde pelo papel de carteira.

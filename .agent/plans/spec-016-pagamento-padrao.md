@@ -188,17 +188,19 @@ Funcionou nas cinco APIs, sem reflexão. Os resultados foram iguais em todas:
   - o `ShadowCardEmulation` responde `true` para o componente definido como padrão mesmo se o serviço estiver desligado (ele não simula o registro). Por isso "serviço desligado não é consultado" se prova definindo o serviço desligado como padrão e conferindo que o campo fica vazio: se o inventário perguntasse, o campo o teria.
 
 ## Tasks (um PR "SPEC-016 Pagamento padrão (S7)", `Closes #12`)
-1. [ ] **Modelo, inventário e coletor** (`feat:`):
+1. [x] **Modelo, inventário e coletor** (`feat:`, `1b46e0e`):
    - `defaultPaymentServices` no `InstalledApp`, com cópia que não pode ser alterada, e parâmetro na `anInstalledApp`;
    - etapa do pagamento padrão no `PackageManagerAppInventory`, com a segunda consulta e os três tratamentos de erro;
    - `DefaultPaymentAppCollector` com o conjunto de carteiras, com KDoc;
    - `./gradlew build` verde.
-2. [ ] **Testes** (`test:`, papel tester):
+   - **Desvio (emenda 1.1 do contrato):** com `paymentCandidates` como função própria, o detekt acusou `TooManyFunctions` (11 funções no `PackageManagerAppInventory`; limite 11). Os candidatos ficaram dentro de `defaultPaymentServicesByPackage`, com a segunda consulta ainda fora do `try`, e o parâmetro virou `userServices` (com o nome longo, a assinatura numa linha passaria de 120 colunas no detekt, e o ktlint recusa a de várias linhas). O `InstalledAppTest` ganhou só o argumento novo para compilar; as asserções vieram na tarefa 2, como na SPEC-013 e na SPEC-014.
+2. [x] **Testes** (`test:`, papel tester, `704fbf7`):
    - `InstalledAppTest` com o campo novo;
    - `CardEmulationShadows.kt` com os três shadows;
    - inventário nas cinco APIs: padrão de um app de usuário entre dois com HCE; padrão fora dos serviços consultados (app do sistema, classe sem o filtro de HCE); vários serviços do mesmo app (papel de carteira); **serviço desligado em tempo de execução, desligado no manifesto, não exportado e de app desligado não são consultados**; **serviço desligado no manifesto e ligado em tempo de execução é consultado**; sem NFC; NFC sem HCE; serviço NFC morto; sem permissão (propaga);
    - coletor: padrão fora da lista, padrão na lista, não é o padrão (com HCE), maiúsculas, conjunto vazio, conjunto copiado, só S7.
-3. [ ] **Conferência dos critérios**, local e desfeita sem commit:
+   - O `LargeClass` do detekt não acusou o `PackageManagerAppInventoryTest`: os cenários ficaram na classe atual, e o plano B aprovado (ajudantes num arquivo de suporte e `PackageManagerAppInventoryDefaultPaymentTest`) não foi preciso.
+3. [x] **Conferência dos critérios**, local e desfeita sem commit:
    - capturar qualquer `RuntimeException` (sem olhar a causa) derruba o teste da `SecurityException`;
    - não capturar a `UnsupportedOperationException` derruba o teste de NFC sem HCE;
    - perguntar com `CATEGORY_OTHER` derruba o teste do padrão;
@@ -206,10 +208,23 @@ Funcionou nas cinco APIs, sem reflexão. Os resultados foram iguais em todas:
    - **trocar a segunda consulta por `ServiceInfo.isEnabled()` da primeira derruba o teste do serviço ligado em tempo de execução e o do desligado em tempo de execução**;
    - comparar o pacote sem maiúsculas derruba o teste de maiúsculas do coletor;
    - `./gradlew build` verde sem aviso novo e sem diff em `core-data/schemas`.
-4. [ ] **Documentação** (`docs:`):
+   - 2026-11-24, local (Windows), cada alteração aplicada por script e desfeita com `git checkout` (árvore limpa depois de cada uma):
+     - capturar qualquer `RuntimeException` → 5 falhas: `missing nfc permission propagates security exception` nas 5 APIs (AC-015);
+     - sem o `catch` da `UnsupportedOperationException` → 5 falhas: `nfc without hce every app has no default payment service` (AC-013);
+     - `CATEGORY_OTHER` no lugar de `CATEGORY_PAYMENT` → 15 falhas: `marks default payment service of one user app` (AC-007), `wallet role marks every service of the holder` e `service enabled at runtime is asked`, nas 5 APIs;
+     - candidatos de `MATCH_DISABLED_COMPONENTS` sem o filtro de `exported` → 5 falhas: `disabled not exported or disabled app service is not asked` (AC-010);
+     - candidatos de `MATCH_DISABLED_COMPONENTS` filtrados por `ServiceInfo.isEnabled()` → 10 falhas: `service enabled at runtime is asked` (AC-011, "expected [ManifestDisabledService] but was []") e `disabled not exported or disabled app service is not asked` no caso do desligado em tempo de execução ("DisabledService expected [] but was [DisabledService]"), nas 5 APIs;
+     - pacote comparado sem maiúsculas no coletor → 1 falha: `package differing by case yields s7` (AC-004).
+   - `./gradlew clean build` verde em 3 min 13 s, sem aviso `w:` do Kotlin e sem diff em `core-data/schemas` (AC-018, AC-019):
+     - testes: `app` 32, `core-data` 17 (2 ignorados no Windows; só rodam no CI), `core-detection` 362 (310 de antes + 45 do inventário, 9 cenários × 5 APIs, + 7 do coletor), `core-domain` 32 (3 estendidos), `core-nfc` 1, `decoy-app` 1. Total: 445;
+     - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova);
+     - Kover do `core-domain`: 98,9%;
+     - lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
+   - **Tamanho real:** 521 linhas adicionadas e 15 removidas em código e testes (estimativa: 435). Código: 129 adicionadas (inventário 73, coletor 44, `InstalledApp` 10, fixture 2). Testes: 392 (inventário 216, coletor 100, shadows 60, `InstalledAppTest` 16). **Passa do limite de 500 por PR**: decisão do usuário pendente (ver Risks).
+4. [x] **Documentação** (`docs:`):
    - `core-detection/README.md`: inventário em cinco etapas (com a segunda consulta), coletor de S7, a permissão `NFC` para quem usa o SDK, testes com `ShadowCardEmulation` e shadows próprios;
    - `core-domain/README.md`: campo novo;
-   - `docs/especificacao.md`: §8 (linhas "Inventário" e "S7 pagamento padrão") e §13 (pendência da API no Android 15+ resolvida);
+   - `docs/especificacao.md`: §8 (linhas "Inventário" e "S7 pagamento padrão") e §13 (a seção não lista essa pendência; a linha de risco da API de pagamento padrão foi atualizada no lugar dela, emenda 1.1 do contrato);
    - `SKILLS.md`, `project-reference.md`, `context.md`, `glossary.md`, `architecture.md` (linha do S7), `conventions.md` (a falha degrada, menos a `SecurityException`), `runbook.md`;
    - **ADR-021** em `decisions.md`: fonte, chave rejeitada, papel de carteira, serviços consultados (segunda consulta e por que não `ServiceInfo.enabled`), erros, formato para a SPEC-052, **recomendação de detectar a troca pelo pacote**, ressalvas, alternativas rejeitadas; e a pendência "API de pagamento padrão no Android 15+" marcada como resolvida.
 
@@ -240,6 +255,7 @@ Nenhuma. `app_snapshot` não guarda serviços. O S7 vai no bit 6 de `signals` pe
 - **Lint:** o método não tem `@RequiresPermission` nas tags lidas; se o lint acusar algo, o builder para e pergunta.
 - **Detekt `LargeClass` (600 linhas de código) no `PackageManagerAppInventoryTest`:** hoje a classe tem cerca de 400; com os cenários novos, cerca de 545. Os shadows ficam em arquivo próprio. Se passar, o builder para e pergunta.
 - **SPEC-052:** ressalvas do formato acima (`null` com vários significados, dono do papel sem serviço próprio); a troca pelo pacote resolve a troca falsa da API 35+.
+- **Tamanho acima de 500 (aberto):** a implementação ficou com 521 linhas adicionadas (e 15 removidas) de código e testes, contra 435 estimadas e aprovadas num PR só. A diferença está nos testes do inventário (216 contra 165) e do coletor (100 contra 85). Opções para o usuário: manter um PR com `single-pr-reason` (emenda da spec), separar o coletor de S7 num segundo PR, ou enxugar os testes.
 
 ## Acceptance criteria
 - [ ] Padrão fora da lista gera S7; na lista, ou sem ser o padrão, não; comparação exata; conjunto obrigatório e copiado; só S7 (AC-001 a AC-006)

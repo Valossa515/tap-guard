@@ -65,7 +65,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 | S4 acessibilidade | `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, lida pelo inventário uma vez por varredura (ADR-019) |
 | S5 sobreposição | `SYSTEM_ALERT_WINDOW` em `requestedPermissions` |
 | S6 recência | `firstInstallTime` e `lastUpdateTime` do `PackageInfo` |
-| S7 pagamento padrão | `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` para cada serviço HCE. Android 15+: papel de carteira, confirmar na SPEC-016. Isolado em um coletor, degrada sem erro |
+| S7 pagamento padrão | No inventário: uma segunda consulta de HCE sem `MATCH_DISABLED_COMPONENTS` dá os serviços ligados; para os exportados de apps de usuário, `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` (até a API 34, o componente das configurações de NFC; da 35 em diante, o papel de carteira) → `InstalledApp.defaultPaymentServices`. `DefaultPaymentAppCollector(knownWallets)` só lê o campo. Sem NFC, sem HCE ou com o serviço NFC morto, degrada sem erro; sem a permissão `NFC`, a `SecurityException` propaga (ADR-021) |
 | S8 SMS | `READ_SMS` ou `RECEIVE_SMS` em `requestedPermissions` |
 | S9 imitação | `BankLookalikeCollector(knownBankApps)`: esqueleto do rótulo e variantes sem prefixos e sufixos contra os nomes de `KnownBanks.apps` (distância OSA até 0, 1 ou 2 pelo tamanho do nome); o pacote de qualquer entrada da lista tira o S9 (ADR-020) |
 

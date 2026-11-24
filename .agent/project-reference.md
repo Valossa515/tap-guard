@@ -56,7 +56,7 @@ Nenhuma integração de rede: o app **não declara `INTERNET`** (RNF-01). Integr
 |--------|----------|---------|
 | `PackageManager` | API Android | Inventário de apps, permissões, serviços, origem da instalação, datas |
 | `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` | API Android | S4 — serviços de acessibilidade que o usuário ligou (ADR-019; substitui o `AccessibilityManager`) |
-| `CardEmulation` | API Android | S7 — app de pagamento padrão (Android 15+: papel de carteira, a confirmar na SPEC-016) |
+| `CardEmulation` | API Android | S7 — app de pagamento padrão: `isDefaultServiceForCategory(componente, CATEGORY_PAYMENT)` por serviço de HCE ligado e exportado, no inventário. Até a API 34, o componente escolhido nas configurações de NFC; da 35 em diante, com o papel de carteira, todo serviço registrado do dono do papel (ADR-021) |
 | `NfcAdapter` / `IsoDep` | NFC modo leitor | F2 — leitura EMV (PPSE, SELECT, GPO, READ RECORD) |
 | WorkManager | API Android | F3 — varredura periódica |
 | Notificações | API Android | F3 — alertas |
@@ -73,7 +73,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | Interface | Módulo | Responsibility |
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
-| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; `BankLookalikeCollector`, SPEC-015; S7, SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
+| `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; `BankLookalikeCollector`, SPEC-015; `DefaultPaymentAppCollector`, SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
@@ -110,12 +110,13 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `KnownBanks.apps` | `core.detection.signal` | Bancos conhecidos para o S9: 29 entradas (26 pacotes) das 14 instituições com mais clientes no ranking do Banco Central (dez/2025), com os apps oficiais delas. Não pode ser alterada; quem usa o SDK amplia ou reduz com `+` e `-` (ADR-020) |
 | `NfcPermissionCollector()` | `core.detection.signal` | Sinal S2: `NFC_PERMISSION` quando `requestedPermissions` contém `android.permission.NFC` (comparação exata). As permissões relacionadas não contam. Sem API do Android (ADR-018) |
 | `CardEmulationServiceCollector()` | `core.detection.signal` | Sinal S3: `CARD_EMULATION_SERVICE` quando `cardEmulationServices` não está vazio. Não depende do S2. Sem API do Android (ADR-018) |
+| `DefaultPaymentAppCollector(knownWallets)` | `core.detection.signal` | Sinal S7: `UNKNOWN_DEFAULT_PAYMENT_APP` quando `defaultPaymentServices` não está vazio e o pacote não está no conjunto (comparação exata; conjunto obrigatório e copiado; lista padrão `KnownWallets.packageNames`). Sem API do Android (ADR-021) |
 | `OverlayPermissionCollector()` | `core.detection.signal` | Sinal S5: `OVERLAY_PERMISSION` quando `requestedPermissions` contém `android.permission.SYSTEM_ALERT_WINDOW` (comparação exata). Vale a permissão declarada, não a concedida. Sem API do Android (ADR-019) |
 | `SmsPermissionCollector()` | `core.detection.signal` | Sinal S8: `SMS_PERMISSION` quando `requestedPermissions` contém `android.permission.READ_SMS` ou `android.permission.RECEIVE_SMS` (comparação exata). As outras permissões de SMS não contam. Sem API do Android (ADR-019) |
 | `EnabledAccessibilityServiceCollector()` | `core.detection.signal` | Sinal S4: `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio. Serviço só declarado não conta. Sem API do Android (ADR-019) |
 | `RecentInstallOrUpdateCollector(clock)` | `core.detection.signal` | Sinal S6: `RECENTLY_INSTALLED_OR_UPDATED` quando o mais recente entre `firstInstallTime` e `lastUpdateTime` não é anterior ao agora do `Clock` menos 7 dias. Limite inclusivo; futuro conta. `Clock` obrigatório no construtor; sem API do Android (ADR-019) |
 
-API pública do `core-detection` (treze classes): `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks` e `BankLookalikeCollector`.
+API pública do `core-detection` (catorze classes): `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector` e `DefaultPaymentAppCollector`.
 
 ### App (SPEC-003)
 

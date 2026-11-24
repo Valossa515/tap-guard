@@ -1,7 +1,9 @@
 # Architecture: SPEC-016 Pagamento padrão (S7)
 
 > Entrada: `.agent/plans/spec-016-pagamento-padrao.md`, `.agent/specs/features/spec-016-pagamento-padrao.spec.toon` (FT-016 v1.1), `.agent/specs/acceptance/spec-016-pagamento-padrao.acceptance.toon` (v1.1)
-> Contrato: `.agent/specs/contracts/spec-016-pagamento-padrao.contract.toon` (v1.0) · 2026-11-24
+> Contrato: `.agent/specs/contracts/spec-016-pagamento-padrao.contract.toon` (v1.1) · 2026-11-24
+
+> **Emenda 1.1 do contrato (tarefa 1, 2026-11-24):** com `paymentCandidates` como função própria, o detekt acusou `TooManyFunctions` no `PackageManagerAppInventory` (11 funções; o limite é 11). Os candidatos passaram para dentro de `defaultPaymentServicesByPackage`, e a segunda consulta continua fora do `try`. O parâmetro se chama `userServices`: com o nome longo, a assinatura numa linha passaria de 120 colunas (detekt), e o ktlint recusa a forma de várias linhas. O `LargeClass` não acusou o `PackageManagerAppInventoryTest`, então o plano B aprovado (ajudantes num arquivo de suporte e `PackageManagerAppInventoryDefaultPaymentTest`) não foi preciso.
 
 ## Summary
 - **Modelo:** o `InstalledApp` ganha `defaultPaymentServices: Set<String>`.
@@ -40,7 +42,7 @@
 | **Posição e obrigatoriedade** | Depois de `enabledAccessibilityServices`, obrigatório e sem padrão. A fábrica passa a 11 parâmetros; o `@Suppress("LongParameterList")` dela continua dentro da exceção do ADR-015. A fixture passa a 10 parâmetros, dentro da exceção do ADR-019. O KDoc promete **subconjunto de `cardEmulationServices`**, e o inventário garante isso pela interseção |
 | **Nome do coletor** | `DefaultPaymentAppCollector`, e não `UnknownDefaultPaymentAppCollector` (sugestão do plano). Segue o S1: o coletor que recebe uma lista de isenção tem o nome do dado observado (`InstallSourceCollector`, sinal `UNTRUSTED_INSTALL_SOURCE`), porque "desconhecido" depende da lista que quem usa o SDK passa. Os outros coletores sem lista usam o nome do traço (`CardEmulationService`, `BankLookalike`) |
 | **Parâmetro** | `knownWallets: Set<String>`, como `trustedInstallers` e `knownBankApps`. Obrigatório, sem padrão, copiado. Lista padrão `KnownWallets.packageNames`, citada no KDoc. O conjunto vazio faz todo app padrão receber S7, documentado como no S1 |
-| **O que fica privado** | No inventário: `hceServices(flags)`, `defaultPaymentServicesByPackage(...)`, `paymentCandidates(...)`, `askDefaultPaymentServices(...)` e `cardEmulationOrNull()`. No coletor: o conjunto copiado e a resposta no `companion` |
+| **O que fica privado** | No inventário: `hceServices(flags)`, `defaultPaymentServicesByPackage(...)` (com os candidatos dentro dela, emenda 1.1), `askDefaultPaymentServices(...)` e `cardEmulationOrNull()`. No coletor: o conjunto copiado e a resposta no `companion` |
 | **Duas consultas, não uma** | A primeira continua com `MATCH_DISABLED_COMPONENTS` (critério largo do ADR-018). A segunda vai sem a flag, para o `PackageManager` aplicar o estado atual. As duas usam `hceServices(flags)`, que faz a consulta, tira `serviceInfo` e filtra `BIND_NFC_SERVICE`. `ServiceInfo.enabled` não é usado: é o valor do manifesto (plano, emenda 1.1) |
 | **Como os dados passam entre as etapas** | Valores locais em `installedApps()`: `cardEmulationServices` (mapa de todos os pacotes, como hoje); `userCardEmulationServices` (só os pacotes de usuário com serviço, montado a partir de `userPackages`); `defaultPaymentServices` (mapa pacote → classes). Nada novo em campos da classe além do `Context` da aplicação |
 | **Ordem dentro da etapa** | 1) `userCardEmulationServices` vazio → `emptyMap()` (não toca no NFC); 2) `cardEmulationOrNull()` nulo → `emptyMap()` (sem a segunda consulta); 3) segunda consulta e candidatos; 4) perguntas, dentro do `try`. A segunda consulta fica **fora** do `try`: erro do `PackageManager` propaga, como na SPEC-011 |
