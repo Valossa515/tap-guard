@@ -213,10 +213,10 @@ A documentação e os artefatos do SDD não contam. A margem vem da SPEC-016 (43
 - **Kover:** o motor entra na cobertura do `core-domain` (mínimo 80%; hoje 98,9%).
 
 ## Tasks
-1. [ ] Arquivo de configuração dos pesos e limites, com KDoc que aponta a §5 e o `backlog_rules.md`.
-2. [ ] Implementação do `RiskScorer`: soma limitada a 100, regras 2 a 4 na ordem da seção "Algoritmo", nível pela faixa ou verde quando confiável.
-3. [ ] Testes: os cinco exemplos da §5 com nome próprio e a tabela de combinações (P, C, T), escrita à mão.
-4. [ ] Documentação: ADR-022 (pesos num arquivo, algoritmo e ordem, score do confiável, recomendação da regra de clonagem); §5 (score do confiável, ordem e "app sem S1 nunca fica vermelho"); `backlog_rules.md`; `core-domain/README.md` (estado, pacote `risk`, cobertura); `SKILLS.md`, `project-reference.md`, `glossary.md`, `context.md`, `architecture.md`.
+1. [x] Arquivo de configuração dos pesos e limites, com KDoc que aponta a §5 e o `backlog_rules.md`.
+2. [x] Implementação do `RiskScorer`: soma limitada a 100, regras 2 a 4 na ordem da seção "Algoritmo", nível pela faixa ou verde quando confiável.
+3. [x] Testes: os cinco exemplos da §5 com nome próprio e a tabela de combinações (P, C, T), escrita à mão.
+4. [x] Documentação: ADR-022 (pesos num arquivo, algoritmo e ordem, score do confiável, recomendação da regra de clonagem); §5 (score do confiável, ordem e "app sem S1 nunca fica vermelho"); `backlog_rules.md`; `core-domain/README.md` (estado, pacote `risk`, cobertura); `SKILLS.md`, `project-reference.md`, `glossary.md`, `context.md`, `architecture.md`.
 
 ## Database changes
 Nenhuma. O score e o nível vão para `app_snapshot.score` e `app_snapshot.level` pela SPEC-018; o `1.json` não muda.
@@ -227,12 +227,18 @@ Nenhuma. O score e o nível vão para `app_snapshot.score` e `app_snapshot.level
 - Pesos são ponto de partida (§5). Calibrar depois muda a tabela inteira; a regra do `backlog_rules.md` (atualizar exemplos e testes na mesma spec) continua.
 
 ## Acceptance criteria
-- [ ] Os cinco exemplos da §5 passam como testes com nome próprio.
-- [ ] Cada peso da §5 conferido por um caso de um sinal só.
-- [ ] Todas as linhas da tabela de combinações passam (regras 2 a 4 e limites 29/30 e 59/60).
-- [ ] App confiável: nível verde e score calculado pelas regras 3 e 4.
-- [ ] `RiskResult.signals` igual aos sinais recebidos.
-- [ ] Nenhuma dependência Android no `core-domain`; nenhuma dependência nova; sem `@Suppress` novo.
-- [ ] `koverVerify` do `core-domain` passa (mínimo 80%).
-- [ ] ktlint, detekt e testes passam (`./gradlew build`).
-- [ ] Documentação do módulo, §5, `backlog_rules.md` e ADR-022 atualizados.
+- [x] Os cinco exemplos da §5 passam como testes com nome próprio (`WeightedRiskScorerExamplesTest`).
+- [x] Cada peso da §5 conferido por um caso de um sinal só (P0–P9).
+- [x] Todas as linhas da tabela de combinações passam (regras 2 a 4 e limites 29/30 e 59/60): 37 casos em `WeightedRiskScorerTableTest`.
+- [x] App confiável: nível verde e score calculado pelas regras 3 e 4 (T1–T6).
+- [x] `RiskResult.signals` igual aos sinais recebidos (todas as linhas).
+- [x] Nenhuma dependência Android no `core-domain`; nenhuma dependência nova; sem `@Suppress` novo.
+- [x] `koverVerify` do `core-domain` passa (97,5%).
+- [x] ktlint, detekt e testes passam (`./gradlew build`).
+- [x] Documentação do módulo, §5, `backlog_rules.md` e ADR-022 atualizados.
+
+## Conferência (2026-11-25)
+- **Arquitetura:** revisão do architect sem mudança de comportamento (`spec-017-motor-score-architecture.md`). Nomes: `RiskScoreConfig` (`internal`) e `WeightedRiskScorer` (público). Estimativa pelos arquivos: 325; a spec mantém 380.
+- **Testes:** 43 novos (5 exemplos, 37 linhas da tabela, 1 de faixas); o `core-domain` passa de 32 para 75. Cobertura de linhas: 97,5%.
+- **Conferência local, desfeita sem commit:** tirar a exceção de S7 na regra 3 derruba P7, C04, C05 e T4; a de S9, C06 e C07; tirar o teto de 100 derruba C19 e T5; regra 2 parando antes das regras 3 e 4 derruba T2, T3 e T4; regra 2 limitando a 29 derruba T1, T2, T4 e T5; tirar S7 dos sinais de NFC derruba C13; o peso de S4 de 25 para 20 derruba P4, o exemplo 2 e C05. Trocar a ordem das regras 3 e 4 não derruba nenhum teste, porque elas comutam.
+- **Commit da tarefa 2 sozinho:** `koverVerify` em 73,9% até o commit dos testes (tarefa 3).

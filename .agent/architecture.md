@@ -50,7 +50,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 1. O ViewModel chama o caso de uso `ScanDevice`.
 2. `ScanDevice` pede o inventário de apps ao `AppInventory`.
 3. Cada `SignalCollector` devolve os sinais de cada app.
-4. O `RiskScorer` (domínio puro) calcula score e nível.
+4. O `RiskScorer` (domínio puro; `WeightedRiskScorer`, SPEC-017) calcula score e nível com os pesos de `RiskScoreConfig`.
 5. O resultado é gravado como nova varredura e comparado com a anterior.
 6. A interface observa o repositório e se atualiza.
 
