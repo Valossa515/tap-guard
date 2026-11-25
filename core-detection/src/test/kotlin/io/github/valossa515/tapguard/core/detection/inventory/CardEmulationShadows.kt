@@ -55,6 +55,10 @@ class WalletRoleCardEmulationShadow {
     ): Boolean = category == "payment" && service.packageName == HOLDER_PACKAGE
 
     companion object {
+        /**
+         * O mesmo app de usuário dos outros cenários do inventário (`USER_APP` do
+         * `PackageManagerAppInventoryTest`).
+         */
         const val HOLDER_PACKAGE = "com.example.a.user"
     }
 }

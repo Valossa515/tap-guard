@@ -220,7 +220,7 @@ Funcionou nas cinco APIs, sem reflexão. Os resultados foram iguais em todas:
      - `LibraryManifestTest` e `MergedManifestTest` passam (sem permissão nova);
      - Kover do `core-domain`: 98,9%;
      - lint sem achados em `app`, `core-data`, `core-detection` e `core-nfc`; o único aviso é o `MissingApplicationIcon` do `decoy-app`, que já existia.
-   - **Tamanho real:** 521 linhas adicionadas e 15 removidas em código e testes (estimativa: 435). Código: 129 adicionadas (inventário 73, coletor 44, `InstalledApp` 10, fixture 2). Testes: 392 (inventário 216, coletor 100, shadows 60, `InstalledAppTest` 16). **Passa do limite de 500 por PR**: decisão do usuário pendente (ver Risks).
+   - **Tamanho real:** 521 linhas adicionadas e 15 removidas em código e testes (estimativa: 435). Código: 129 adicionadas (inventário 73, coletor 44, `InstalledApp` 10, fixture 2). Testes: 392 (inventário 216, coletor 100, shadows 60, `InstalledAppTest` 16). **Passa do limite de 500 por PR**: o usuário manteve um PR (emenda 1.2 da spec, ver Risks).
 4. [x] **Documentação** (`docs:`):
    - `core-detection/README.md`: inventário em cinco etapas (com a segunda consulta), coletor de S7, a permissão `NFC` para quem usa o SDK, testes com `ShadowCardEmulation` e shadows próprios;
    - `core-domain/README.md`: campo novo;
@@ -255,7 +255,7 @@ Nenhuma. `app_snapshot` não guarda serviços. O S7 vai no bit 6 de `signals` pe
 - **Lint:** o método não tem `@RequiresPermission` nas tags lidas; se o lint acusar algo, o builder para e pergunta.
 - **Detekt `LargeClass` (600 linhas de código) no `PackageManagerAppInventoryTest`:** hoje a classe tem cerca de 400; com os cenários novos, cerca de 545. Os shadows ficam em arquivo próprio. Se passar, o builder para e pergunta.
 - **SPEC-052:** ressalvas do formato acima (`null` com vários significados, dono do papel sem serviço próprio); a troca pelo pacote resolve a troca falsa da API 35+.
-- **Tamanho acima de 500 (aberto):** a implementação ficou com 521 linhas adicionadas (e 15 removidas) de código e testes, contra 435 estimadas e aprovadas num PR só. A diferença está nos testes do inventário (216 contra 165) e do coletor (100 contra 85). Opções para o usuário: manter um PR com `single-pr-reason` (emenda da spec), separar o coletor de S7 num segundo PR, ou enxugar os testes.
+- **Tamanho acima de 500 (resolvido, emenda 1.2 da spec):** a implementação ficou com 521 linhas adicionadas (e 15 removidas) de código e testes, contra 435 estimadas e aprovadas num PR só. A diferença está nos testes do inventário (216 contra 165) e do coletor (100 contra 85). Opções para o usuário: manter um PR com `single-pr-reason` (emenda da spec), separar o coletor de S7 num segundo PR, ou enxugar os testes. Decisão em 2026-11-25: um PR, com `estimate-lines` 521 e `single-pr-reason`; o corte do coletor e do teste (cerca de 144 linhas) não compensa reescrever o histórico por 21 linhas acima do limite.
 
 ## Acceptance criteria
 - [ ] Padrão fora da lista gera S7; na lista, ou sem ser o padrão, não; comparação exata; conjunto obrigatório e copiado; só S7 (AC-001 a AC-006)

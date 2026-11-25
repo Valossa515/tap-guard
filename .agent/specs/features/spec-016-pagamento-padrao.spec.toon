@@ -3,14 +3,16 @@
 # SPEC-016 (issue #12) – interface library: outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build
 # Decisoes do usuario em 2026-11-24 (tabela do plano); um PR com Closes #12
 # Emenda 1.1 (2026-11-24 aprovacao do plano e revisao do architect): so servicos ligados (segunda consulta sem MATCH_DISABLED_COMPONENTS; ServiceInfo.enabled e o valor do manifesto) e exportados sao consultados (BR-009); recomendacao para a SPEC-052 detectar a troca pelo pacote (BR-011); coletor DefaultPaymentAppCollector; estimate-lines 435 pelos arquivos do contrato
+# Emenda 1.2 (2026-11-25 decisao do usuario sobre o tamanho): estimate-lines 521 (tamanho real em codigo e testes) com single-pr-reason; um PR sem batches
 
 feature:
   id: FT-016
   name: SPEC-016 Pagamento padrao (S7)
-  version: 1.1
+  version: 1.2
   status: draft
   interface: library
-  estimate-lines: 435
+  estimate-lines: 521
+  single-pr-reason: "Estimativa de 435 superada na implementação (521). O corte possível (coletor e teste, cerca de 144 linhas) foi avaliado e não compensa reescrever o histórico por 21 linhas acima do limite; o PR continua revisável."
 
 requirement:
   summary: Sinal S7 no core-detection. O AppInventory faz uma segunda consulta de HCE por varredura sem MATCH_DISABLED_COMPONENTS para saber quais servicos estao ligados; para cada servico ligado e exportado que tambem esta em cardEmulationServices de um app de usuario pergunta ao sistema CardEmulation.isDefaultServiceForCategory com CATEGORY_PAYMENT e guarda as classes que voltam true no campo novo InstalledApp.defaultPaymentServices. O coletor DefaultPaymentAppCollector recebe o conjunto de carteiras na construcao e devolve UNKNOWN_DEFAULT_PAYMENT_APP quando o campo nao esta vazio e o pacote nao esta no conjunto. O coletor nao chama o Android.
@@ -59,4 +61,4 @@ assumptions[10]:
   O Robolectric nao simula o registro do servico no sistema NFC nem o papel de carteira nem a permissao NFC nem a diferenca entre APIs; o ShadowCardEmulation responde true para o componente definido mesmo desligado; conferencia em aparelho na SPEC-022
   Detekt 1.23.8: catch (expected: RuntimeException) com teste da causa e catch (expected: UnsupportedOperationException) passam na producao; throw RuntimeException(...) nos testes cai em TooGenericExceptionThrown e RemoteException(...).rethrowAsRuntimeException() passa; os parametros dos shadows precisam ser usados (UnusedParameter) (experimento do plano item 10)
   isDefaultServiceForCategory nao tem @RequiresPermission nas tags lidas; espera-se nenhum aviso do lint
-  Estimativa de 435 linhas pelos arquivos do contrato (cerca de 115 de codigo e 320 de testes) sem os artefatos do SDD e sem a documentacao; abaixo de 500 e por isso um PR sem batches (360 no plano antes da emenda 1.1)
+  Estimativa de 435 linhas pelos arquivos do contrato (cerca de 115 de codigo e 320 de testes) sem os artefatos do SDD e sem a documentacao; abaixo de 500 e por isso um PR sem batches (360 no plano antes da emenda 1.1); emenda 1.2: o real ficou em 521 e o PR unico segue com single-pr-reason
