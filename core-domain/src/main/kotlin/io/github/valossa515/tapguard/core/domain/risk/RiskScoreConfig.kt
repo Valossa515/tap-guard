@@ -48,8 +48,10 @@ internal object RiskScoreConfig {
     /** Regra 4: teto do app sem S1 junto com um sinal de NFC (S2, S3 ou S7). */
     const val NO_NFC_SIGNAL_CAP = 59
 
-    /** Faixas: verde de 0 a 29, amarelo de 30 a 59, vermelho de 60 em diante. */
+    /** Início da faixa amarela (30 a 59). Abaixo dele, verde (0 a 29). */
     const val YELLOW_FROM = 30
+
+    /** Início da faixa vermelha (60 em diante). */
     const val RED_FROM = 60
 
     fun weightOf(signal: Signal): Int =
