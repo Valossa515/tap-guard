@@ -26,6 +26,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowCardEmulation
+import org.robolectric.shadows.ShadowNfcAdapter
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
 
@@ -163,6 +165,7 @@ class PackageManagerAppInventoryTest {
             assertEquals(emptySet<String>(), app.services)
             assertEquals(emptySet<String>(), app.cardEmulationServices)
             assertEquals(emptySet<String>(), app.enabledAccessibilityServices)
+            assertEquals(emptySet<String>(), app.defaultPaymentServices)
         }
 
     @Test
@@ -313,6 +316,178 @@ class PackageManagerAppInventoryTest {
         }
 
     @Test
+    fun `marks default payment service of one user app`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+            installHceService(OTHER_APP, OTHER_HCE_SERVICE)
+            setDefaultPaymentService(USER_APP, HCE_SERVICE)
+
+            val apps = inventory().installedApps().associateBy { it.packageName }
+
+            assertEquals(setOf(HCE_SERVICE), apps.getValue(USER_APP).defaultPaymentServices)
+            assertEquals(emptySet<String>(), apps.getValue(OTHER_APP).defaultPaymentServices)
+            assertEquals(setOf(HCE_SERVICE), apps.getValue(USER_APP).cardEmulationServices)
+            assertEquals(setOf(OTHER_HCE_SERVICE), apps.getValue(OTHER_APP).cardEmulationServices)
+        }
+
+    @Test
+    fun `default outside queried services marks no app`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(SYSTEM_APP, flags = ApplicationInfo.FLAG_SYSTEM))
+            installHceService(USER_APP, HCE_SERVICE)
+            installHceService(SYSTEM_APP, SYSTEM_HCE_SERVICE)
+            installService(aService(USER_APP, PERMISSION_ONLY_SERVICE, permission = BIND_NFC_SERVICE), action = null)
+
+            val outside = listOf(SYSTEM_APP to SYSTEM_HCE_SERVICE, USER_APP to PERMISSION_ONLY_SERVICE)
+
+            for ((packageName, service) in outside) {
+                setDefaultPaymentService(packageName, service)
+
+                val app = inventory().installedApps().single()
+
+                assertEquals(service, USER_APP, app.packageName)
+                assertEquals(service, emptySet<String>(), app.defaultPaymentServices)
+            }
+        }
+
+    @Test
+    @Config(shadows = [WalletRoleCardEmulationShadow::class])
+    fun `wallet role marks every service of the holder`() =
+        runTest {
+            val holder = WalletRoleCardEmulationShadow.HOLDER_PACKAGE
+            enableCardEmulation()
+            install(aPackageInfo(holder))
+            install(aPackageInfo(OTHER_APP))
+            installHceService(holder, HCE_SERVICE)
+            installHceService(holder, SECOND_HCE_SERVICE)
+            installHceService(OTHER_APP, OTHER_HCE_SERVICE)
+
+            val defaults = inventory().installedApps().associate { it.packageName to it.defaultPaymentServices }
+
+            assertEquals(mapOf(holder to setOf(HCE_SERVICE, SECOND_HCE_SERVICE), OTHER_APP to emptySet()), defaults)
+        }
+
+    @Test
+    fun `disabled not exported or disabled app service is not asked`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+            installHceService(USER_APP, DISABLED_SERVICE)
+            installHceService(USER_APP, MANIFEST_DISABLED_SERVICE, enabled = false)
+            installHceService(USER_APP, NOT_EXPORTED_SERVICE, exported = false)
+            installHceService(OTHER_APP, OTHER_HCE_SERVICE)
+            packageManager.setComponentEnabledSetting(ComponentName(USER_APP, DISABLED_SERVICE), DISABLED, 0)
+            packageManager.setApplicationEnabledSetting(OTHER_APP, DISABLED, 0)
+            val notAsked =
+                listOf(
+                    USER_APP to DISABLED_SERVICE,
+                    USER_APP to MANIFEST_DISABLED_SERVICE,
+                    USER_APP to NOT_EXPORTED_SERVICE,
+                    OTHER_APP to OTHER_HCE_SERVICE,
+                )
+
+            for ((packageName, service) in notAsked) {
+                setDefaultPaymentService(packageName, service)
+
+                val apps = inventory().installedApps().associateBy { it.packageName }
+
+                assertEquals(service, emptySet<String>(), apps.getValue(packageName).defaultPaymentServices)
+            }
+            val apps = inventory().installedApps().associateBy { it.packageName }
+            val allUserServices = setOf(HCE_SERVICE, DISABLED_SERVICE, MANIFEST_DISABLED_SERVICE, NOT_EXPORTED_SERVICE)
+            assertEquals(allUserServices, apps.getValue(USER_APP).cardEmulationServices)
+            assertEquals(setOf(OTHER_HCE_SERVICE), apps.getValue(OTHER_APP).cardEmulationServices)
+        }
+
+    @Test
+    fun `service enabled at runtime is asked`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP))
+            installHceService(USER_APP, MANIFEST_DISABLED_SERVICE, enabled = false)
+            packageManager.setComponentEnabledSetting(
+                ComponentName(USER_APP, MANIFEST_DISABLED_SERVICE),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                0,
+            )
+            setDefaultPaymentService(USER_APP, MANIFEST_DISABLED_SERVICE)
+
+            val app = inventory().installedApps().single()
+
+            assertEquals(setOf(MANIFEST_DISABLED_SERVICE), app.defaultPaymentServices)
+        }
+
+    @Test
+    fun `without nfc every app has no default payment service`() =
+        runTest {
+            install(aPackageInfo(USER_APP))
+            install(aPackageInfo(OTHER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+            installHceService(OTHER_APP, OTHER_HCE_SERVICE)
+            setDefaultPaymentService(USER_APP, HCE_SERVICE)
+
+            val apps = inventory().installedApps()
+
+            assertEquals(
+                mapOf(USER_APP to emptySet<String>(), OTHER_APP to emptySet()),
+                apps.associate { it.packageName to it.defaultPaymentServices },
+            )
+            assertEquals(
+                mapOf(USER_APP to setOf(HCE_SERVICE), OTHER_APP to setOf(OTHER_HCE_SERVICE)),
+                apps.associate { it.packageName to it.cardEmulationServices },
+            )
+        }
+
+    @Test
+    fun `nfc without hce every app has no default payment service`() =
+        runTest {
+            enableCardEmulation(hostCardEmulation = false)
+            install(aPackageInfo(USER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+            setDefaultPaymentService(USER_APP, HCE_SERVICE)
+
+            assertEquals(emptySet<String>(), inventory().installedApps().single().defaultPaymentServices)
+        }
+
+    @Test
+    @Config(shadows = [DeadNfcServiceCardEmulationShadow::class])
+    fun `dead nfc service leaves default payment empty and keeps other fields`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP).apply { requestedPermissions = arrayOf(NFC_PERMISSION) })
+            install(aPackageInfo(OTHER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+            installHceService(OTHER_APP, OTHER_HCE_SERVICE)
+
+            val apps = inventory().installedApps().associateBy { it.packageName }
+
+            assertEquals(emptySet<String>(), apps.getValue(USER_APP).defaultPaymentServices)
+            assertEquals(emptySet<String>(), apps.getValue(OTHER_APP).defaultPaymentServices)
+            assertEquals(setOf(HCE_SERVICE), apps.getValue(USER_APP).cardEmulationServices)
+            assertEquals(setOf(NFC_PERMISSION), apps.getValue(USER_APP).requestedPermissions)
+        }
+
+    @Test
+    @Config(shadows = [MissingNfcPermissionCardEmulationShadow::class])
+    fun `missing nfc permission propagates security exception`() =
+        runTest {
+            enableCardEmulation()
+            install(aPackageInfo(USER_APP))
+            installHceService(USER_APP, HCE_SERVICE)
+
+            val error = runCatching { inventory().installedApps() }.exceptionOrNull()
+
+            assertTrue("$error", error is SecurityException)
+        }
+
+    @Test
     fun `includes disabled app`() =
         runTest {
             install(aPackageInfo(USER_APP).apply { applicationInfo?.enabled = false })
@@ -418,6 +593,41 @@ class PackageManagerAppInventoryTest {
     }
 
     /**
+     * Liga o NFC simulado: `FEATURE_NFC`, `FEATURE_NFC_HOST_CARD_EMULATION` quando [hostCardEmulation]
+     * é verdadeiro e o hardware do `ShadowNfcAdapter`. No Robolectric 4.18, sem as features
+     * `NfcAdapter.getDefaultAdapter` devolve nulo, e com `FEATURE_NFC` sem HCE
+     * `CardEmulation.getInstance` lança `UnsupportedOperationException`, nas cinco APIs.
+     */
+    private fun enableCardEmulation(hostCardEmulation: Boolean = true) {
+        shadowPackageManager.setSystemFeature(PackageManager.FEATURE_NFC, true)
+        shadowPackageManager.setSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION, hostCardEmulation)
+        ShadowNfcAdapter.setNfcHardwareExists(true)
+    }
+
+    private fun installHceService(
+        packageName: String,
+        name: String,
+        enabled: Boolean = true,
+        exported: Boolean = true,
+    ) {
+        val service = aService(packageName, name, enabled = enabled, permission = BIND_NFC_SERVICE, exported = exported)
+        installService(service, HOST_APDU_ACTION)
+    }
+
+    /**
+     * Define o serviço padrão de pagamento no `ShadowCardEmulation`, que responde `true` para esse
+     * componente mesmo com o serviço desligado ou não exportado (não simula o registro do sistema
+     * NFC). Por isso um campo vazio prova que o inventário não perguntou. O mapa volta vazio em cada
+     * teste. A categoria é o literal `payment`: trocar a da produção derruba os testes.
+     */
+    private fun setDefaultPaymentService(
+        packageName: String,
+        name: String,
+    ) {
+        ShadowCardEmulation.setDefaultServiceForCategory(ComponentName(packageName, name), PAYMENT_CATEGORY)
+    }
+
+    /**
      * Grava a chave dos serviços de acessibilidade ligados, como o sistema faria. No Robolectric 4.18,
      * `Settings.Secure.putString` basta nas cinco APIs, sem reflexão, e a chave volta a `null` no
      * começo de cada teste. O Robolectric não aplica o `@Readable` da API 31 em diante: a
@@ -500,6 +710,12 @@ class PackageManagerAppInventoryTest {
         const val OFF_HOST_SERVICE = "com.example.a.user.OffHostService"
         const val NFCF_SERVICE = "com.example.a.user.NfcFService"
         const val SYSTEM_HCE_SERVICE = "com.example.system.PaymentService"
+        const val SECOND_HCE_SERVICE = "com.example.a.user.SecondPaymentService"
+        const val MANIFEST_DISABLED_SERVICE = "com.example.a.user.ManifestDisabledService"
+        const val NOT_EXPORTED_SERVICE = "com.example.a.user.NotExportedService"
+        const val OTHER_HCE_SERVICE = "com.example.b.other.PaymentService"
+        const val PAYMENT_CATEGORY = "payment"
+        const val DISABLED = PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         const val HOST_APDU_ACTION = "android.nfc.cardemulation.action.HOST_APDU_SERVICE"
         const val OFF_HOST_APDU_ACTION = "android.nfc.cardemulation.action.OFF_HOST_APDU_SERVICE"
         const val HOST_NFCF_ACTION = "android.nfc.cardemulation.action.HOST_NFCF_SERVICE"

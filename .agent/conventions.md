@@ -88,7 +88,7 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 
 ## Error Handling
 - **Strategy:** estado de erro em toda tela com dados; no F2, mensagem própria para ausência de NFC, NFC desligado (com atalho para as configurações), cartão não suportado e leitura interrompida.
-- Falha da API de pagamento padrão em versões novas do Android degrada sem erro.
+- Falha da API de pagamento padrão degrada sem erro: sem NFC ou sem HCE no aparelho e com o serviço NFC morto, nenhum app fica como padrão nessa varredura. A exceção é a `SecurityException` do app sem a permissão `android.permission.NFC`, que propaga: é erro de quem integra o SDK (ADR-021).
 - **Falhas esperadas como valores:** sealed no `core-domain`, como `CardReadResult` (`Success`, `UnsupportedCard`, `ReadInterrupted`). NFC ausente ou desligado não é resultado de `CardReader.read`.
 - **Invariantes dos modelos:** `require` no `init`, que lança `IllegalArgumentException` (score de 0 a 100, máscara válida, quatro dígitos, fim da varredura não anterior ao início). Mensagem sobre dado do cartão nunca repete o valor recebido.
 - Sem exceções próprias por enquanto.

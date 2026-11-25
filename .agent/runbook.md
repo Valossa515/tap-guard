@@ -75,7 +75,7 @@ TODO: no code yet
 ## Troubleshooting
 Problemas previstos na especificação (seção 13):
 - **Vigia atrasa ou não roda** -> fabricantes matam tarefas em segundo plano; a varredura também roda ao abrir o app; orientar o usuário sobre economia de bateria nas configurações.
-- **S7 / RF-303 falham em versão nova do Android** -> API de pagamento padrão mudou (Android 15+: papel de carteira); coletor isolado deve degradar sem erro; testar em Android 8, 12, 14 e na versão mais recente.
+- **S7 / RF-303 falham em versão nova do Android** -> a fonte é `CardEmulation.isDefaultServiceForCategory` por serviço de HCE ligado e exportado (ADR-021): até a API 34 responde pelo componente das configurações de NFC, da 35 em diante pelo papel de carteira. Sem NFC, sem HCE ou com o serviço NFC morto, nenhum app fica como padrão, sem erro; `SecurityException` na varredura quer dizer que o app não declara `android.permission.NFC`. Conferir em aparelho com Android 8, 12, 14 e a versão mais recente (SPEC-022).
 - **Receptor de instalação não dispara** -> receptor no manifesto não é confiável desde o Android 8; a detecção confiável é a varredura periódica.
 - **`compileSdk` 37 não encontrado** (`Failed to find target with hash string 'android-37.0'` ou `checkDebugAarMetadata` exigindo 37) -> instale a `Android SDK Platform 37.0` pelo SDK Manager, ou aceite as licenças do SDK para o AGP baixar sozinho. O targetSdk continua 36.
 - **"Schema do Room commitado" falha no CI** -> uma entidade mudou e o `core-data/schemas/.../N.json` regerado não foi commitado. Rode `./gradlew build` e commite o schema.

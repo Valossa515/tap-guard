@@ -2,20 +2,21 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-015 BATCH-03):** inventário de apps com os serviços de HCE e os de acessibilidade ligados (`PackageManagerAppInventory`, SPEC-011, SPEC-013 e SPEC-014), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) e o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03). O coletor de S7 entra na SPEC-016, e o `ScanDevice` e a ligação no Hilt na SPEC-018.
+> **Estado (SPEC-016):** inventário de apps com os serviços de HCE, os de acessibilidade ligados e o serviço de pagamento padrão (`PackageManagerAppInventory`, SPEC-011, SPEC-013, SPEC-014 e SPEC-016), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03) e o coletor do sinal S7 (`DefaultPaymentAppCollector`, SPEC-016). O `ScanDevice` e a ligação no Hilt entram na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks` e `BankLookalikeCollector` (treze classes). O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector` e `DefaultPaymentAppCollector` (catorze classes). O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
-`PackageManagerAppInventory(context, ioDispatcher)` fica no pacote `io.github.valossa515.tapguard.core.detection.inventory`. `installedApps()` devolve um `InstalledApp` para cada app de usuário, com rótulo, código de versão longo, instalador, datas de instalação e de atualização, permissões pedidas, serviços declarados (inclusive os desligados), serviços de HCE (`cardEmulationServices`) e serviços de acessibilidade ligados (`enabledAccessibilityServices`).
+`PackageManagerAppInventory(context, ioDispatcher)` fica no pacote `io.github.valossa515.tapguard.core.detection.inventory`. `installedApps()` devolve um `InstalledApp` para cada app de usuário, com rótulo, código de versão longo, instalador, datas de instalação e de atualização, permissões pedidas, serviços declarados (inclusive os desligados), serviços de HCE (`cardEmulationServices`), serviços de acessibilidade ligados (`enabledAccessibilityServices`) e os serviços que o sistema diz serem o padrão de pagamento (`defaultPaymentServices`).
 
 - **Ficam de fora:** apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` (regra 1 da especificação) e o pacote do próprio app que consulta.
-- **Quatro etapas, no `ioDispatcher`:**
+- **Cinco etapas, no `ioDispatcher`:**
   1. uma lista leve de todos os pacotes, onde rodam os filtros;
   2. uma consulta dos serviços de HCE de todos os pacotes (abaixo);
   3. uma leitura dos serviços de acessibilidade ligados (abaixo);
-  4. o detalhe de cada app de usuário, um por chamada. O cancelamento é verificado antes de cada app.
+  4. a consulta do pagamento padrão (abaixo);
+  5. o detalhe de cada app de usuário, um por chamada. O cancelamento é verificado antes de cada app.
 - **Serviços de HCE:** uma só chamada `queryIntentServices` por varredura, com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e `MATCH_DISABLED_COMPONENTS`. Entram os serviços que exigem `android.permission.BIND_NFC_SERVICE`, inclusive os desligados e os de app desligado, agrupados por pacote; os pacotes fora da lista leve são ignorados. É a mesma descoberta do sistema NFC (`RegisteredServicesCache` do AOSP), com duas diferenças registradas no ADR-018:
   - off-host (`OFF_HOST_APDU_SERVICE`) e NFC-F (`HOST_NFCF_SERVICE`) ficam fora;
   - o critério é mais largo de propósito: não exige serviço exportado, meta-data nem a permissão `NFC` no pacote.
@@ -25,9 +26,14 @@ Biblioteca Android com os coletores de sinais sobre as APIs do Android (`Package
   - Os nomes de classe são agrupados por pacote; pacotes fora da lista leve (sistema, próprio app, não instalado, pacote vazio de uma entrada como `/Cls`) são ignorados. Não cruza com `services`: um serviço ligado conta mesmo que a classe não esteja entre os declarados.
   - Chave nula ou vazia quer dizer nenhum serviço ligado. É também o que o framework devolve quando o provedor de configurações falha (ele pega a `RemoteException` e devolve `null`), sem como distinguir.
   - A chave é legível sem permissão da API 26 à 36 (`@Readable` sem `maxTargetSdk` a partir da 31) e não passa pelo filtro de visibilidade de pacotes.
-- **Falhas:** um app desinstalado durante a leitura é pulado; os demais erros do `PackageManager` são propagados, e também a `SecurityException` se a chave de acessibilidade deixar de ser legível.
+- **Pagamento padrão** (ADR-021): o sistema diz qual serviço de HCE é o padrão de pagamento por aproximação. `CardEmulation` não tem método público que devolva o padrão, e a chave `nfc_payment_default_component` do `Settings.Secure` é `@hide` sem `@Readable` (`SecurityException` para app comum da API 31 em diante). Por isso o inventário pergunta serviço por serviço:
+  - só quando algum app de usuário tem serviço de HCE e o aparelho tem NFC com HCE (`NfcAdapter.getDefaultAdapter` não nulo e `CardEmulation.getInstance` sem `UnsupportedOperationException`);
+  - uma segunda consulta de HCE, **sem** `MATCH_DISABLED_COMPONENTS`, diz quais serviços estão ligados. O `ServiceInfo.enabled` não serve: é o valor do manifesto, e um serviço desligado no manifesto e ligado depois com `setComponentEnabledSetting` conta. Ficam os exportados que também estão em `cardEmulationServices` de um app de usuário. O `cardEmulationServices` continua com o critério largo;
+  - para cada um, `isDefaultServiceForCategory(componente, CATEGORY_PAYMENT)`. Até a API 34, o sistema compara com o componente escolhido nas configurações de NFC; da API 35 em diante, com o papel de carteira ligado, responde `true` para todo serviço registrado do app dono do papel;
+  - sem NFC, sem HCE ou com o serviço NFC morto (na API 36, `RuntimeException` com causa `RemoteException`; até a 35 o framework já devolve `false`), todos os apps ficam com o campo vazio, sem erro. Funciona com o NFC desligado.
+- **Falhas:** um app desinstalado durante a leitura é pulado; os demais erros do `PackageManager` são propagados, e também a `SecurityException` se a chave de acessibilidade deixar de ser legível ou se o app não tiver a permissão `android.permission.NFC`.
 - **Versões do Android:** os ramos ficam em `PackageManagerVersionCompat.kt` (funções `internal`). O código de versão longo vem da API 28; o instalador sai de `getInstallSourceInfo().installingPackageName` a partir da API 30 e de `getInstallerPackageName` abaixo dela; o `PackageInfoFlags` e o `ResolveInfoFlags` são usados a partir da API 33.
-- O construtor guarda só o `PackageManager`, o `ContentResolver` e o nome do pacote, não o `Context`.
+- O construtor guarda o `PackageManager`, o `ContentResolver`, o nome do pacote e o `Context` da aplicação (para o `NfcAdapter`).
 
 ### Permissão para quem usa a biblioteca
 
@@ -49,7 +55,15 @@ Sem ela, a partir da API 30 o Android só devolve os pacotes visíveis ao app, t
 </queries>
 ```
 
-e continua precisando ver os próprios pacotes na lista. Para os serviços de acessibilidade ligados, não precisa de nada a mais: a chave não passa pelo filtro de pacotes. No Tap Guard, ela fica no manifesto do `app` (ADR-016), e o `LibraryManifestTest` falha se o manifesto da biblioteca passar a declarar alguma permissão.
+e continua precisando ver os próprios pacotes na lista. Para os serviços de acessibilidade ligados e para o pagamento padrão, não precisa de nada a mais: a chave não passa pelo filtro de pacotes, e as duas consultas de HCE usam a mesma ação.
+
+Para o pagamento padrão, o app também declara `android.permission.NFC` (permissão normal, concedida na instalação). Sem ela, o sistema NFC recusa a pergunta e `installedApps()` lança `SecurityException`:
+
+```xml
+<uses-permission android:name="android.permission.NFC" />
+```
+
+No Tap Guard, as duas ficam no manifesto do `app` (ADR-016), e o `LibraryManifestTest` falha se o manifesto da biblioteca passar a declarar alguma permissão.
 
 ## Coletor do sinal S1 (origem da instalação)
 
@@ -95,6 +109,23 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 
 `EnabledAccessibilityServiceCollector()`, no mesmo pacote, devolve `ACCESSIBILITY_SERVICE_ENABLED` quando `enabledAccessibilityServices` não está vazio, ou um conjunto vazio. O critério é o do inventário (acima): serviço só declarado, que o usuário não ligou, não conta. Não tem parâmetros e não usa API do Android. Motivos da fonte (`Settings.Secure` no lugar do `AccessibilityManager`) no ADR-019.
 
+## Coletor do sinal S7 (pagamento padrão)
+
+`DefaultPaymentAppCollector(knownWallets)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementa `SignalCollector`. Não usa API do Android: lê o `defaultPaymentServices` e o `packageName` que o inventário já trouxe.
+
+- **Gera S7** (`UNKNOWN_DEFAULT_PAYMENT_APP`) quando `defaultPaymentServices` não está vazio e o pacote não está no conjunto. Fora isso, devolve um conjunto vazio. Nunca devolve outro sinal.
+- **Comparação exata**, com maiúsculas e minúsculas. O conjunto é copiado na construção; um conjunto vazio faz todo app padrão receber S7.
+- **O parâmetro é obrigatório**, sem valor padrão. A lista padrão é `KnownWallets.packageNames` (abaixo):
+
+```kotlin
+DefaultPaymentAppCollector(KnownWallets.packageNames)
+DefaultPaymentAppCollector(KnownWallets.packageNames + "com.banco.app")   // amplia
+```
+
+- Serviço padrão de um app do sistema ou do próprio app não gera S7 em nenhum app: o inventário não lista esses pacotes.
+- **Limitação do pacote emprestado** (ADR-017 e ADR-020): num aparelho sem a carteira, um app com o pacote dela não recebe S7. Instalado à mão, recebe S1. Defesa na issue #65.
+- Fonte, comportamento por versão do Android e ressalvas no ADR-021.
+
 ## Coletores dos sinais S5, S6 e S8 (controle)
 
 `OverlayPermissionCollector()`, `SmsPermissionCollector()` e `RecentInstallOrUpdateCollector(clock)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementam `SignalCollector`. Não usam API do Android e não chamam o `PackageManager`: leem o que o inventário já trouxe. Cada um devolve o seu sinal ou um conjunto vazio, nunca outro sinal.
@@ -110,7 +141,7 @@ InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // red
 
 Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no mesmo formato do `TrustedStores`: `object` público, conjunto que não pode ser alterado (nem por cast) e um comentário por entrada com o nome e a fonte (em `KnownBanks`, um por instituição, com o título de cada app). Motivos, critério e fontes no ADR-020.
 
-- **`KnownWallets.packageNames`** (6 pacotes): apps que podem ser o app de pagamento por aproximação padrão sem gerar S7. Quem a usa é o coletor de S7 (SPEC-016).
+- **`KnownWallets.packageNames`** (6 pacotes): apps que podem ser o app de pagamento por aproximação padrão sem gerar S7. Quem a usa é o coletor de S7 (acima).
 
 | App | Pacote |
 |-----|--------|
@@ -196,9 +227,12 @@ BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")) 
   - os serviços e os apps desligados;
   - os serviços de HCE: filtro e permissão, off-host e NFC-F fora, desligados, app desligado, critério mais largo que o do sistema e isolamento por pacote;
   - os serviços de acessibilidade ligados: formatos completo e curto, chave nula e vazia, entradas malformadas e isolamento por pacote (sistema, próprio pacote, não instalado);
+  - o pagamento padrão: serviço padrão de um app, padrão fora dos serviços consultados (app do sistema, classe sem o filtro), papel de carteira, serviços desligados ou não exportados e app desligado não consultados, serviço ligado em tempo de execução consultado, sem NFC, NFC sem HCE, serviço NFC morto e sem a permissão `NFC`;
   - a desinstalação durante a leitura, o cancelamento e o dispatcher injetado.
   - A chave de acessibilidade é gravada com `Settings.Secure.putString` (helper `enableAccessibilityServices`), que basta nas cinco APIs; ela volta a `null` em cada teste. O Robolectric não aplica o `@Readable`.
   - Um serviço que precisa aparecer no `queryIntentServices` entra com `addOrUpdateService` e `addIntentFilterForService` (helper `installService`). Posto no `PackageInfo` do `installPackage`, ele não entra na resolução de intents do Robolectric.
+  - O NFC simulado liga `FEATURE_NFC`, `FEATURE_NFC_HOST_CARD_EMULATION` e `ShadowNfcAdapter.setNfcHardwareExists(true)` (helper `enableCardEmulation`); sem as features, `getDefaultAdapter` devolve nulo. O padrão é definido com `ShadowCardEmulation.setDefaultServiceForCategory` e a categoria literal `payment` (helper `setDefaultPaymentService`). O shadow responde `true` mesmo para serviço desligado: campo vazio prova que o inventário não perguntou. Como no aparelho, o `ServiceInfo.enabled` é o do manifesto e o estado de `setComponentEnabledSetting` só filtra a consulta sem `MATCH_DISABLED_COMPONENTS`.
+  - Três shadows próprios em `CardEmulationShadows.kt`, por `@Config(shadows = [...])` no método: serviço NFC morto (`RemoteException(...).rethrowAsRuntimeException()`, porque o detekt recusa `throw RuntimeException(...)`), sem a permissão `NFC` (`SecurityException`) e papel de carteira (`true` para todo serviço de um pacote). O método do shadow usa os dois parâmetros (`UnusedParameter`). O Robolectric não simula o registro do serviço no sistema NFC, o papel de carteira real nem a permissão: conferência em aparelho na SPEC-022.
 - `LibraryManifestTest` confere que a biblioteca não declara permissões, fora o `REORDER_TASKS` que o `androidx.test:core` traz só em teste.
 - Coletor de S1, em JUnit 4 sem Robolectric (não há API do Android nem ramo por versão):
   - `InstallSourceCollectorTrustedStoreTest`: um caso por loja, parametrizado sobre uma lista escrita à mão no teste (`ExpectedTrustedStores.kt`), não sobre a lista de produção;
@@ -224,6 +258,8 @@ BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")) 
   - `BankNameMatcherTest`: prefixos e sufixos (cada entrada carregada sai), limites 5/6 e 9/10, esqueleto vazio, lista vazia e nomes de `KnownBanks.apps` que só casam entre apps do mesmo banco. Este é o único teste da comparação que lê a lista de produção, de propósito: uma entrada nova que colida com outra instituição o derruba.
 - Coletor de S9, também em JUnit 4 sem Robolectric, com uma lista pequena escrita à mão (Nubank, Itaú e Itaú Empresas):
   - `BankLookalikeCollectorTest`: pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote com sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com um banco fictício; lista vazia; conjunto alterado depois; só S9.
+- Coletor de S7, também em JUnit 4 sem Robolectric, com uma lista pequena escrita à mão (`com.wallet.one`, `com.wallet.two`):
+  - `DefaultPaymentAppCollectorTest`: padrão fora da lista; padrão na lista; app que não é o padrão; pacote com maiúsculas; conjunto alterado depois; lista vazia; só S7.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

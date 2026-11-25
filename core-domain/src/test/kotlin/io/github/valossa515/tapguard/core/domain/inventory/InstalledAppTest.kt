@@ -9,7 +9,7 @@ import java.time.Instant
 
 class InstalledAppTest {
     @Test
-    fun `fields are read back including enabled accessibility services and installer accepts null`() {
+    fun `fields are read back including default payment services and installer accepts null`() {
         val app =
             InstalledApp(
                 packageName = "com.example.app",
@@ -22,6 +22,7 @@ class InstalledAppTest {
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
                 enabledAccessibilityServices = setOf(A11Y_SERVICE),
+                defaultPaymentServices = setOf(HCE_SERVICE),
             )
 
         assertEquals("com.example.app", app.packageName)
@@ -34,6 +35,7 @@ class InstalledAppTest {
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
         assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
+        assertEquals(setOf(HCE_SERVICE), app.defaultPaymentServices)
     }
 
     @Test
@@ -42,23 +44,27 @@ class InstalledAppTest {
         val services = mutableSetOf(SERVICE)
         val cardEmulationServices = mutableSetOf(HCE_SERVICE)
         val accessibilityServices = mutableSetOf(A11Y_SERVICE)
+        val defaultPaymentServices = mutableSetOf(HCE_SERVICE)
         val app =
             anInstalledApp(
                 requestedPermissions = permissions,
                 services = services,
                 cardEmulationServices = cardEmulationServices,
                 enabledAccessibilityServices = accessibilityServices,
+                defaultPaymentServices = defaultPaymentServices,
             )
 
         permissions.add(SMS)
         services.clear()
         cardEmulationServices.clear()
         accessibilityServices.clear()
+        defaultPaymentServices.clear()
 
         assertEquals(setOf(NFC), app.requestedPermissions)
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
         assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
+        assertEquals(setOf(HCE_SERVICE), app.defaultPaymentServices)
     }
 
     @Test
@@ -69,9 +75,16 @@ class InstalledAppTest {
                 services = setOf(SERVICE),
                 cardEmulationServices = setOf(HCE_SERVICE),
                 enabledAccessibilityServices = setOf(A11Y_SERVICE),
+                defaultPaymentServices = setOf(HCE_SERVICE),
             )
         val exposedCollections =
-            listOf(app.requestedPermissions, app.services, app.cardEmulationServices, app.enabledAccessibilityServices)
+            listOf(
+                app.requestedPermissions,
+                app.services,
+                app.cardEmulationServices,
+                app.enabledAccessibilityServices,
+                app.defaultPaymentServices,
+            )
 
         for (exposed in exposedCollections) {
             val mutable = exposed as MutableSet<String>
@@ -83,6 +96,7 @@ class InstalledAppTest {
         assertEquals(setOf(SERVICE), app.services)
         assertEquals(setOf(HCE_SERVICE), app.cardEmulationServices)
         assertEquals(setOf(A11Y_SERVICE), app.enabledAccessibilityServices)
+        assertEquals(setOf(HCE_SERVICE), app.defaultPaymentServices)
     }
 
     private companion object {
