@@ -1,0 +1,79 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-017-motor-score.contract.toon
+# SPEC-017 (issue #13) – camadas = motor de score do core-domain (configuracao e implementacao) e testes JUnit 5 e docs
+# Publico novo: WeightedRiskScorer (core.domain.risk); internal novo: RiskScoreConfig (pesos e limites e faixas)
+# Sem @Suppress novo; sem dependencia nova; sem import android.*; RiskScorer e ScoringContext e RiskResult e Signal sem mudanca
+# Estimativa pelos arquivos: 325 linhas de codigo e testes (110 de codigo e 215 de testes); spec mantem 380 com margem; um PR com Closes #13
+
+contract:
+  feature-ref: FT-017
+  version: 1.0
+
+layers:
+  core-domain-risk:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskScoreConfig.kt,create,internal object RiskScoreConfig com KDoc (unico arquivo de configuracao do motor; secao 5 e backlog_rules.md; mudar um peso exige atualizar os cinco exemplos e a tabela de testes na mesma spec); const val por peso com comentario do sinal (UNTRUSTED_INSTALL_SOURCE_WEIGHT = 30 e NFC_PERMISSION_WEIGHT = 15 e CARD_EMULATION_SERVICE_WEIGHT = 20 e ACCESSIBILITY_SERVICE_ENABLED_WEIGHT = 25 e OVERLAY_PERMISSION_WEIGHT = 10 e RECENTLY_INSTALLED_OR_UPDATED_WEIGHT = 10 e UNKNOWN_DEFAULT_PAYMENT_APP_WEIGHT = 30 e SMS_PERMISSION_WEIGHT = 10 e BANK_LOOKALIKE_WEIGHT = 20); const val MAX_SCORE = 100 e TRUSTED_STORE_CAP = 29 (regra 3) e NO_NFC_SIGNAL_CAP = 59 (regra 4) e YELLOW_FROM = 30 e RED_FROM = 60; fun weightOf(signal: Signal): Int com when exaustivo sem else; fun levelFor(score: Int): RiskLevel (RED a partir de RED_FROM; YELLOW a partir de YELLOW_FROM; senao GREEN)
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/WeightedRiskScorer.kt,create,class WeightedRiskScorer : RiskScorer sem parametros e sem estado; override fun score(app; signals; ctx): RiskResult: sum = minOf(signals.sumOf(RiskScoreConfig::weightOf); MAX_SCORE); regra 3 quando nenhum de UNTRUSTED_INSTALL_SOURCE e UNKNOWN_DEFAULT_PAYMENT_APP e BANK_LOOKALIKE esta em signals limita a TRUSTED_STORE_CAP; regra 4 quando nao (UNTRUSTED_INSTALL_SOURCE em signals e algum de NFC_PERMISSION e CARD_EMULATION_SERVICE e UNKNOWN_DEFAULT_PAYMENT_APP em signals) limita a NO_NFC_SIGNAL_CAP; level = GREEN se app.packageName in ctx.trustedPackages (regra 2; nao muda o score) senao RiskScoreConfig.levelFor(score); devolve RiskResult(score; level; signals); conjuntos privados no companion (TRUSTED_STORE_EXCEPTIONS = S7 e S9; NFC_SIGNALS = S2 e S3 e S7); KDoc: secao 5 e ordem das regras (1 no AppInventory; 2 so no nivel com o score passando pelas regras 3 e 4; 3 e 4 sao tetos e comutam; app sem S1 nunca fica vermelho); sem import android.*
+  docs:
+    files[11]{path,action,description}:
+      core-domain/README.md,modify,estado (motor de score na SPEC-017); pacote risk com WeightedRiskScorer e RiskScoreConfig (internal); secao Motor de score com o algoritmo e a ordem e o score do confiavel; testes parametrizados JUnit 5; cobertura medida
+      docs/especificacao.md,modify,secao 5: regra 2 nao muda o score (as regras 3 e 4 continuam no numero); regras 3 e 4 sao tetos; app sem S1 nunca fica vermelho; arquivo de configuracao RiskScoreConfig; secao 11 sem mudanca
+      .agent/backlog_rules.md,modify,Score de risco: score do app confiavel; tetos e comutacao; app sem S1 nunca vermelho; arquivo RiskScoreConfig
+      .agent/decisions.md,modify,ADR-022 (Motor de score: arquivo de configuracao e algoritmo e score do confiavel e regra de clonagem na SPEC-019); ADR-003 status implementada na SPEC-017
+      .agent/SKILLS.md,modify,Domain models: WeightedRiskScorer e RiskScoreConfig e regra 2 so no nivel; testes parametrizados JUnit 5 no core-domain com @MethodSource em companion @JvmStatic
+      .agent/project-reference.md,modify,motor de score implementado (WeightedRiskScorer e RiskScoreConfig)
+      .agent/glossary.md,modify,Score de risco e Nivel de risco e App confiavel com a regra 2 so no nivel; RiskScoreConfig
+      .agent/context.md,modify,motor de score criado; regra de clonagem na SPEC-019 (#73)
+      .agent/architecture.md,modify,linha do RiskScorer com WeightedRiskScorer e RiskScoreConfig
+      .agent/plans/spec-017-motor-score.md,modify,marcar tarefas e registrar a conferencia dos criterios
+      .agent/plans/spec-017-motor-score-tests.md,create,plano de testes (papel tester) do motor
+
+migrations[0]:
+
+dependencies:
+  uses[6]:
+    RiskScorer e ScoringContext e RiskResult e RiskLevel (core-domain risk; SPEC-010)
+    Signal (core-domain signal; SPEC-010)
+    InstalledApp (core-domain inventory; SPEC-010; o motor so le packageName)
+    anInstalledApp em core-domain/src/testFixtures (SPEC-012)
+    TrustedStores e KnownWallets como modelo de object de configuracao em arquivo proprio (core-detection; SPEC-012 e SPEC-015)
+    junit-jupiter (BOM 5.14.4; traz junit-jupiter-params) ja em testImplementation do core-domain
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: WeightedRiskScorer (exemplos da secao 5)
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/WeightedRiskScorerExamplesTest.kt
+      type: junit5
+      helpers: anInstalledApp com packageName com.example.app; ScoringContext(emptySet())
+      scenarios[5]:
+        example-1-apk-outside-store-with-nfc-and-hce-is-65-red
+        example-2-same-app-installed-yesterday-with-accessibility-is-100-red
+        example-3-bank-app-from-store-with-nfc-and-hce-is-capped-at-29-green
+        example-4-game-installed-by-apk-without-nfc-is-30-yellow
+        example-5-app-outside-store-with-accessibility-and-sms-is-capped-at-59-yellow
+    - target: WeightedRiskScorer (tabela do plano)
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/WeightedRiskScorerTableTest.kt
+      type: junit5
+      helpers: data class privada Case(id; signals; trusted; score; level) com toString do id e dos sinais; mapa escrito a mao de S1..S9 para Signal; tres @MethodSource em companion com @JvmStatic; nunca le RiskScoreConfig
+      scenarios[3]:
+        single-signal-weights (P0 a P9)
+        adjustment-rules-3-and-4 (C01 a C19)
+        trusted-app-rule-2 (T1 a T8)
+    - target: RiskScoreConfig.levelFor
+      file: core-domain/src/test/kotlin/io/github/valossa515/tapguard/core/domain/risk/RiskScoreConfigTest.kt
+      type: junit5
+      scenarios[1]:
+        band-limits-0-29-30-59-60-100
+  integration-tests:
+  verification[7]{criterion,how}:
+    AC-007 e AC-009,Local e desfeito sem commit: tirar a excecao de S7 na regra 3 derruba P7 e C04 e C05 e T4 (C08 e C09 tem S9 e nao mudam)
+    AC-007,Local e desfeito sem commit: tirar a excecao de S9 na regra 3 derruba C06 e C07 (P9 fica em 20; C08 e C09 tem S7)
+    AC-008,Local e desfeito sem commit: tirar o teto de 100 derruba C19 e T5 (soma 170 sem teto de regra; o RiskResult recusa)
+    AC-009 e AC-010,Local e desfeito sem commit: regra 2 parando antes das regras 3 e 4 derruba T2 e T3 e T4; regra 2 limitando o score a 29 derruba T1 e T2 e T4 e T5
+    AC-008,Local e desfeito sem commit: tirar S7 dos sinais de NFC da regra 4 derruba C13
+    AC-006,Local e desfeito sem commit: trocar o peso de S4 de 25 para 20 derruba P4 e E2 e C05
+    AC-013,./gradlew :core-domain:build com koverVerify acima de 80% e sem aviso novo
+  excluded[2]{target,reason}:
+    Regra 1 (apps do sistema),Cumprida e testada no AppInventory (SPEC-011 e ADR-015)
+    Montar o ScoringContext e chamar o motor,SPEC-018 (ScanDevice)

@@ -1,0 +1,55 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-017-motor-score.spec.toon
+# SPEC-017 (issue #13) – interface library: outputs.*.status e o resultado devolvido ou a falha do build
+# Planejado em 2026-11-25; decisao do usuario: o score do app confiavel passa pelas regras 3 e 4 e a regra 2 so troca o nivel; regra dos apps de clonagem fora desta spec (forma B na SPEC-019 #73, aprovada pelo usuario); um PR com Closes #13
+
+feature:
+  id: FT-017
+  name: SPEC-017 Motor de score
+  version: 1.0
+  status: draft
+  interface: library
+  estimate-lines: 380
+
+requirement:
+  summary: Implementacao do RiskScorer no core-domain em Kotlin puro. Pesos dos nove sinais e limites (teto 100 da soma e tetos 29 e 59 das regras 3 e 4 e faixas verde 0-29 amarelo 30-59 vermelho 60+) num unico arquivo de configuracao da implementacao e nao no enum Signal. Score = soma dos pesos limitada a 100 e depois as regras de ajuste 2 a 4 na ordem da secao 5; a regra 1 ja e cumprida pelo AppInventory. ScoringContext continua so com trustedPackages.
+  actor: ScanDevice (SPEC-018) e o app do banco que usar o SDK
+  trigger: RiskScorer.score(app, signals, ctx)
+
+inputs[3]{name,type,required,constraints}:
+  app,InstalledApp,true,o motor so le packageName (regra 2); nunca e app do sistema (regra 1 no AppInventory)
+  signals,Set<Signal>,true,sinais devolvidos pelos coletores; qualquer subconjunto dos nove inclusive vazio
+  ctx,ScoringContext,true,so trustedPackages (ADR-015); comparacao exata com app.packageName
+
+outputs:
+  success:
+    description: RiskResult com score de 0 a 100 e nivel e os sinais recebidos
+    status: Success
+    body[3]{name,type,value}:
+      score,Int,soma limitada a 100 depois das regras 3 e 4; vale tambem para app confiavel
+      level,RiskLevel,GREEN se o pacote esta em trustedPackages; senao GREEN 0-29 e YELLOW 30-59 e RED 60+ pelo score final
+      signals,Set<Signal>,igual ao conjunto recebido
+  errors[2]{code,status,when}:
+    COVERAGE_BELOW_MIN,BuildFailure,koverVerify do core-domain abaixo de 80% de linhas
+    ANDROID_DEPENDENCY,BuildFailure,import android.* ou plugin ou dependencia Android no core-domain (o modulo kotlin jvm nao compila)
+
+business-rules[10]{id,rule}:
+  BR-001,Pesos da secao 5: S1 30 e S2 15 e S3 20 e S4 25 e S5 10 e S6 10 e S7 30 e S8 10 e S9 20; num unico arquivo de configuracao da implementacao no core-domain e nao no enum Signal; o mesmo arquivo guarda o teto 100 e os tetos 29 e 59 e as faixas
+  BR-002,Score inicial = soma dos pesos dos sinais recebidos limitada a 100
+  BR-003,Regra 1 (apps do sistema ignorados) nao e do motor: o AppInventory nao devolve app do sistema (SPEC-011 e ADR-015); o criterio 100% das regras de ajuste cobre as regras 2 a 4
+  BR-004,Regra 2: app com packageName em ctx.trustedPackages (comparacao exata com maiusculas e minusculas) tem nivel GREEN com qualquer sinal inclusive S7 e S9; o score nao muda por causa da regra 2 e continua passando pelas regras 3 e 4 (decisao do usuario 2026-11-25)
+  BR-005,Regra 3: sem S1 e sem S7 e sem S9 o score e limitado a 29
+  BR-006,Regra 4: sem S1 junto com pelo menos um de S2 ou S3 ou S7 o score e limitado a 59
+  BR-007,Ordem e combinacao: as regras 3 e 4 sao tetos (minimo) e comutam; quando as duas valem vence 29; sem S1 a regra 4 sempre vale entao app sem S1 nunca fica vermelho mesmo com S7 ou S9; com S1 a regra 3 nunca vale; a regra 2 decide o nivel por ultimo e vence o nivel das faixas
+  BR-008,Nivel pelo score final: GREEN 0 a 29 e YELLOW 30 a 59 e RED 60 ou mais; GREEN quando a regra 2 vale
+  BR-009,RiskResult.signals e o conjunto recebido sem mudanca; a implementacao e publica e sem estado e nao lanca excecao; ScoringContext e RiskScorer nao mudam
+  BR-010,Fora: regra dos apps de clonagem (forma B no coletor de S1 na SPEC-019 #73); montar o ScoringContext e chamar o motor no ScanDevice e Hilt (SPEC-018); textos da interface (SPEC-030 em diante); #57 e #65; core-data sem mudanca
+
+assumptions[7]:
+  Decisao do usuario em 2026-11-25: score do app confiavel passa pelas regras 3 e 4; a regra 2 so troca o nivel; a KDoc do RiskResult (verde com qualquer score) ja permite
+  Decisoes do primeiro comentario da #13 e do ADR-015: ScoringContext so com trustedPackages; regra 1 no inventario; regra 3 pela ausencia de S1; pesos na implementacao num unico arquivo
+  Comparacao de trustedPackages exata com maiusculas e minusculas como em todos os coletores (SPEC-012 a SPEC-016)
+  RiskResult.signals repassa os sinais recebidos porque a SPEC-018 grava a mascara e o RF-106 explica cada sinal
+  29 e 59 nao saem de nenhuma soma (pesos multiplos de 5): os limites saem dos tetos das regras 3 e 4; 30 e 60 de somas exatas
+  junit-jupiter (BOM 5.14.4) ja traz junit-jupiter-params; nenhuma dependencia nova para @ParameterizedTest
+  Estimativa de 380 linhas: cerca de 90 de codigo e 230 de testes mais 60 de margem nos testes (a SPEC-016 estimou 435 e chegou a 521); sem os artefatos do SDD e sem documentacao; abaixo de 500 e por isso um PR sem batches
