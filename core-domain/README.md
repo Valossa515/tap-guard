@@ -2,7 +2,7 @@
 
 Domínio do Tap Guard em Kotlin puro: modelos (app, sinal, score, nível), motor de score e interfaces dos coletores (`AppInventory`, `SignalCollector`, `CardReader`).
 
-> **Estado (SPEC-010; `InstalledApp.cardEmulationServices` na SPEC-013, `enabledAccessibilityServices` na SPEC-014 e `defaultPaymentServices` na SPEC-016):** modelos e contratos do domínio, sem implementação. O motor de score vem na SPEC-017, os coletores e o inventário da SPEC-011 à SPEC-016, o caso de uso de varredura na SPEC-018 e o leitor do cartão na SPEC-041.
+> **Estado (SPEC-010; `InstalledApp.cardEmulationServices` na SPEC-013, `enabledAccessibilityServices` na SPEC-014 e `defaultPaymentServices` na SPEC-016; motor de score na SPEC-017):** modelos, contratos do domínio e o motor de score (`WeightedRiskScorer`). Os coletores e o inventário vêm da SPEC-011 à SPEC-016 (no `core-detection`), o caso de uso de varredura na SPEC-018 e o leitor do cartão na SPEC-041.
 
 ## Pacotes
 
@@ -12,7 +12,7 @@ Raiz: `io.github.valossa515.tapguard.core.domain`.
 |--------|-------|
 | `inventory` | `InstalledApp`, `AppInventory` |
 | `signal` | `Signal`, `toBitMask()` e `signalsFromBitMask()` (`SignalBitMask.kt`), `SignalCollector` |
-| `risk` | `RiskLevel`, `RiskResult`, `ScoringContext`, `RiskScorer` |
+| `risk` | `RiskLevel`, `RiskResult`, `ScoringContext`, `RiskScorer`, `WeightedRiskScorer` (SPEC-017), `RiskScoreConfig` (`internal`, SPEC-017) |
 | `scan` | `ScanTrigger`, `ScannedApp`, `ScanReport`, `ScanDevice` |
 | `card` | `NfcTagHandle`, `LastFourDigits`, `CardReadResult`, `CardReader` |
 | raiz | `unmodifiableCopy()` (`internal`) |
@@ -30,6 +30,24 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 - **`CardReadResult`:** `Success` (nome da aplicação, `LastFourDigits` e validade), `UnsupportedCard` ou `ReadInterrupted`. Não há campo para o número completo do cartão. `LastFourDigits` só aceita quatro dígitos ASCII. O `toString()` dos dois não mostra nenhum dado do cartão.
 - **`NfcTagHandle`:** marcador opaco do cartão aproximado. O `core-nfc` embrulha a `Tag` do Android; este módulo não a conhece.
 
+## Motor de score (SPEC-017, ADR-022)
+
+`WeightedRiskScorer()` implementa o `RiskScorer` da seção 5. Público, sem parâmetros e sem estado; do `InstalledApp`, só lê o pacote.
+
+1. Soma os pesos dos sinais recebidos e limita a soma a 100.
+2. **Regra 1** (apps do sistema): não é do motor. O `AppInventory` não os devolve.
+3. **Regra 3:** sem S1 (loja confiável), sem S7 e sem S9, limita o score a 29.
+4. **Regra 4:** sem S1 junto com S2, S3 ou S7, limita o score a 59.
+5. **Nível:** verde de 0 a 29, amarelo de 30 a 59, vermelho de 60 em diante. **Regra 2:** pacote em `ScoringContext.trustedPackages` (comparação exata) fica verde com qualquer score. A regra 2 só decide o nível: o score continua passando pelas regras 3 e 4.
+
+As regras 3 e 4 são tetos e comutam (quando as duas valem, vence 29). Sem S1 a regra 4 sempre vale: um app sem S1 nunca fica vermelho. `RiskResult.signals` são os sinais recebidos.
+
+**Configuração:** `RiskScoreConfig` (`internal object`) é o único arquivo de configuração: os nove pesos, os tetos (100, 29, 59) e o início das faixas (30, 60), como `const val`. `weightOf` usa `when` exaustivo: um sinal novo sem peso não compila. Mudar um peso exige atualizar, na mesma spec, os cinco exemplos da seção 5 e a tabela de testes.
+
+**Testes:** `WeightedRiskScorerExamplesTest` (os cinco exemplos da seção 5), `WeightedRiskScorerTableTest` (37 combinações das regras 2 a 4 e dos limites 29/30 e 59/60, com `@ParameterizedTest` e `@MethodSource`; os sinais são escritos como na seção 5 e traduzidos por um mapa escrito à mão, sem ler o `RiskScoreConfig`) e `RiskScoreConfigTest` (faixas).
+
+A regra dos apps de clonagem não fica aqui: fica no coletor de S1 (SPEC-019).
+
 ## Regras
 
 - Nenhuma API do Android aqui dentro.
@@ -44,11 +62,11 @@ As cinco interfaces seguem as assinaturas da seção 7 da especificação.
 - **Módulos:** nenhum.
 - **Plugins:** só `kotlin("jvm")` (mais ktlint, detekt e Kover). Nenhum plugin ou dependência Android ou AndroidX.
 - **Bibliotecas:** nenhuma além da stdlib do Kotlin e do JDK (`java.time`, `java.util.Collections`, disponíveis no Android desde a API 26).
-- **Testes:** JUnit 5 (com `junit-platform-launcher`, exigido pelo Gradle 9), sem mocks.
+- **Testes:** JUnit 5 (com `junit-platform-launcher`, exigido pelo Gradle 9), sem mocks. Testes parametrizados com `@ParameterizedTest` e `@MethodSource` num `companion object` com `@JvmStatic` (o artefato `junit-jupiter` já traz o `junit-jupiter-params`; SPEC-017).
 - **Fixtures** (SPEC-012): `anInstalledApp(...)` (com `cardEmulationServices` desde a SPEC-013 e, desde a SPEC-014, `firstInstallTime` e `lastUpdateTime`, com os valores de antes como padrão, e `enabledAccessibilityServices`, vazio por padrão; desde a SPEC-015, `label`, com `"Example"` como padrão; desde a SPEC-016, `defaultPaymentServices`, vazio por padrão) e `aRiskResult(...)` em `src/testFixtures/.../DomainFixtures.kt`, pelo plugin `java-test-fixtures`. Os testes deste módulo as enxergam direto; os outros módulos usam `testImplementation(testFixtures(project(":core-domain")))` (hoje, o `core-detection`). Cada fixture expõe só os parâmetros que algum teste troca.
 - **`@Suppress("LongParameterList")` na `anInstalledApp`** (SPEC-014): com 10 parâmetros desde a SPEC-016, ela passa do limite do detekt (6). Repassa à fábrica do `InstalledApp`, uma data class, com valores padrão, e só existe no `testFixtures`. É a exceção do ADR-015, estendida pelo ADR-019 a fixtures que repassam à fábrica de uma data class, com valores padrão; não vale para outras funções de teste.
 - **detekt e Kover no `testFixtures`:** a tarefa `detekt` não analisa `src/testFixtures` por padrão, então o `build.gradle.kts` o acrescenta (`source.from`). O Kover exclui o source set `testFixtures` (`excludedSourceSets`), para as fixtures não contarem na cobertura. Fora de `src/test`, a regra `MagicNumber` do detekt vale: número literal numa fixture vira constante nomeada.
-- **Cobertura:** Kover, com no mínimo 80% de cobertura de linhas (RNF-08). O `./gradlew build` falha abaixo disso. Na SPEC-010: 98,8%; na SPEC-012, sem as fixtures: 98,8% (82 de 83 linhas); na SPEC-016: 98,9%.
+- **Cobertura:** Kover, com no mínimo 80% de cobertura de linhas (RNF-08). O `./gradlew build` falha abaixo disso. Na SPEC-010: 98,8%; na SPEC-012, sem as fixtures: 98,8% (82 de 83 linhas); na SPEC-016: 98,9%; na SPEC-017: 97,5% (117 de 120; as duas linhas novas sem cobertura são as declarações `val` do `companion object` privado do `WeightedRiskScorer`, cujo getter o código não chama).
 
 ## Comandos
 

@@ -74,7 +74,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 |-----------|--------|----------------|
 | `AppInventory` | `core-domain` (`inventory`) / `core-detection` (`PackageManagerAppInventory`, SPEC-011) | `suspend fun installedApps(): List<InstalledApp>` — inventário; não devolve apps do sistema (regra 1) nem o próprio app |
 | `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; `BankLookalikeCollector`, SPEC-015; `DefaultPaymentAppCollector`, SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
-| `RiskScorer` | `core-domain` (`risk`; impl. na SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro |
+| `RiskScorer` | `core-domain` (`risk`) / `WeightedRiskScorer` (impl., SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro. Pesos, tetos e faixas em `RiskScoreConfig` (`internal`); regras 2 a 4 na ordem da §5, com a regra 2 só no nível (ADR-022) |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
 
@@ -87,7 +87,7 @@ Imutáveis: data classes só com `val`. Os modelos com coleção (`InstalledApp`
 | `InstalledApp` | `inventory` | `packageName`, `label`, `versionCode: Long`, `installerPackageName: String?`, `firstInstallTime: Instant`, `lastUpdateTime: Instant`, `requestedPermissions: Set<String>`, `services: Set<String>` (nomes de classe), `cardEmulationServices: Set<String>` (nomes de classe dos serviços de HCE, SPEC-013), `enabledAccessibilityServices: Set<String>` (nomes de classe dos serviços de acessibilidade ligados, SPEC-014), `defaultPaymentServices: Set<String>` (nomes de classe dos serviços de HCE que o sistema diz serem o padrão de pagamento, parte de `cardEmulationServices`, SPEC-016). Sem campo de app do sistema |
 | `Signal` | `signal` | Enum com `bit`: `UNTRUSTED_INSTALL_SOURCE` (S1, bit 0), `NFC_PERMISSION` (S2), `CARD_EMULATION_SERVICE` (S3), `ACCESSIBILITY_SERVICE_ENABLED` (S4), `OVERLAY_PERMISSION` (S5), `RECENTLY_INSTALLED_OR_UPDATED` (S6), `UNKNOWN_DEFAULT_PAYMENT_APP` (S7), `SMS_PERMISSION` (S8), `BANK_LOOKALIKE` (S9, bit 8). Sem peso |
 | `toBitMask()` / `signalsFromBitMask()` | `signal` (`SignalBitMask.kt`) | Conjunto ↔ máscara de `app_snapshot.signals`; máscara negativa ou com bit acima do 8 lança `IllegalArgumentException` |
-| `RiskLevel` | `risk` | `GREEN`, `YELLOW`, `RED`, em ordem crescente de gravidade; sem conversão de score (SPEC-017) |
+| `RiskLevel` | `risk` | `GREEN`, `YELLOW`, `RED`, em ordem crescente de gravidade; a faixa de cada nível fica em `RiskScoreConfig.levelFor` (SPEC-017) |
 | `RiskResult` | `risk` | `score` (0 a 100, senão `IllegalArgumentException`), `level`, `signals: Set<Signal>`; nível não conferido contra o score (regra 2) |
 | `ScoringContext` | `risk` | `trustedPackages: Set<String>` (apps marcados como confiáveis) |
 | `ScanTrigger` | `scan` | `MANUAL`, `APP_OPEN`, `PERIODIC` |

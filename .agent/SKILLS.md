@@ -138,6 +138,12 @@ decoy-app/       ← harmless test app with a scam-app profile — depends on no
 - **Full card number barred by type:** `CardReadResult.Success` holds `LastFourDigits` (exactly four ASCII digits), `applicationLabel` and `expiry` only. `toString()` of `Success` and `LastFourDigits` shows no value, and the validation message never repeats the input. `CardReadResult` is `Success`, `UnsupportedCard` or `ReadInterrupted`; missing or disabled NFC is not a result of `read`.
 - **`ScoringContext`** holds only `trustedPackages`; weights are configuration of the `RiskScorer` implementation (SPEC-017). This replaces the `rules` parameter shown in the skill example, and `RiskScorer` is an interface (spec §7), not the class of the skill example.
 
+### Score engine (SPEC-017, ADR-022)
+- **`WeightedRiskScorer`** (public, no parameters, no state) implements `RiskScorer` in `core.domain.risk`: sum of weights capped at 100, then rule 3 (no S1, S7 or S9 → cap 29) and rule 4 (not S1 with S2, S3 or S7 → cap 59); level from the band, or `GREEN` when the package is in `trustedPackages` (exact match). **Rule 2 only sets the level**: the score of a trusted app still goes through rules 3 and 4 (user decision). Rules 3 and 4 are caps and commute; an app without S1 is never red. Only `app.packageName` is read.
+- **`RiskScoreConfig`** (`internal object`) is the single configuration file: nine weights, `MAX_SCORE`, `TRUSTED_STORE_CAP`, `NO_NFC_SIGNAL_CAP`, `YELLOW_FROM`, `RED_FROM` as `const val`, `weightOf` with an exhaustive `when` (a new signal without a weight does not compile) and `levelFor`. Which signals count as NFC and the rule 3 exceptions stay in the scorer.
+- **Tests:** JUnit 5 `@ParameterizedTest(name = "{0}")` with `@MethodSource` in a `companion object` with `@JvmStatic` (`junit-jupiter` already brings `junit-jupiter-params`). The table writes signals as in §5 (`"S1 S2 S3"`) and maps them with a hand-written map: tests never read `RiskScoreConfig` weights, so changing a weight fails cases. Changing a weight means updating the five §5 examples and the table in the same spec.
+- **Phone-clone rule:** not in the score. It lives in the S1 collector (SPEC-019, #73).
+
 ### Detection (SPEC-011, SPEC-013, SPEC-014, SPEC-016)
 > Reading, dispatcher and version-branch rules: `skills/android/SKILL.md` › Reading installed packages and Dispatchers in adapters. Only what is specific to this project is listed here.
 - **`PackageManagerAppInventory(context, ioDispatcher)`** in `core.detection.inventory`. No Hilt annotations: binding in SPEC-018.

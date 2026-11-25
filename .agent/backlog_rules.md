@@ -44,6 +44,8 @@
   2. App marcado como confiável pelo usuário fica sempre verde.
   3. App instalado por loja confiável tem score limitado a 29, a não ser que tenha S7 ou S9.
   4. Vermelho exige S1 junto com pelo menos um sinal de NFC (S2, S3 ou S7). Sem isso, o teto é amarelo (59).
+- Combinação (ADR-022): as regras 3 e 4 são tetos e comutam (vence 29); app sem S1 nunca fica vermelho; a regra 2 só troca o nível, e o score do app confiável passa pelas regras 3 e 4.
+- Arquivo de configuração: `RiskScoreConfig` (`core-domain`, `internal`), com pesos, tetos e faixas; motor: `WeightedRiskScorer`. A tabela de combinações dos testes (`WeightedRiskScorerTableTest`) também muda quando um peso muda.
 - Exemplos obrigatórios como testes unitários:
   - APK de fora da loja com NFC e HCE: 30 + 15 + 20 = 65, vermelho.
   - Mesmo app, instalado ontem e com acessibilidade ativa: 100, vermelho.

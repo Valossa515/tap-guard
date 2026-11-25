@@ -19,7 +19,7 @@
 
 ## ADR-003 — Score por soma de pesos com regras de ajuste
 - **Date:** 2026-11-13
-- **Status:** Aceita (planned)
+- **Status:** Aceita (implementada na SPEC-017; detalhes no ADR-022)
 - **Context:** é preciso classificar apps de forma explicável e calibrável.
 - **Decision:** soma dos pesos dos sinais presentes, limitada a 100, ajustada por quatro regras em ordem (sistema ignorado; confiável sempre verde; loja confiável limitada a 29 salvo S7/S9; vermelho exige S1 + sinal de NFC). Pesos em um único arquivo de configuração.
 - **Consequences:** regras documentadas no repositório (RNF-09); cinco exemplos da especificação viram testes unitários. Detalhes em `backlog_rules.md`.
@@ -409,6 +409,35 @@
   - Falha do serviço NFC até a API 35 vira `false`, igual a "não é o padrão" (mesma limitação do S4 com o `Settings.Secure`).
   - Pacote emprestado (ADR-017 e ADR-020): num aparelho sem a carteira, um app com o pacote dela não recebe S7; instalado à mão, recebe S1. Defesa na issue #65.
   - Listas embutidas (ADR-020): um banco que lançar o Pix por aproximação no próprio app recebe S7 até entrar em `KnownWallets`.
+
+## ADR-022 — Motor de score: arquivo de configuração, ordem das regras e score do app confiável
+- **Date:** 2026-11-25
+- **Status:** Aceita (implementada na SPEC-017)
+- **Context:**
+  - A SPEC-017 (#13) implementa o `RiskScorer` da §7 com os pesos, as faixas e as regras de ajuste da §5 (ADR-003).
+  - Decisões anteriores que valem aqui (ADR-015, [primeiro comentário da #13](https://github.com/Valossa515/tap-guard/issues/13#issuecomment-6980220766)): `ScoringContext` só com `trustedPackages`; regra 1 cumprida pelo inventário; regra 3 pela ausência de S1; pesos na implementação, num único arquivo, não no `Signal`.
+  - A §5 diz "nesta ordem", mas não diz qual score devolver para um app confiável: a regra 2 só fala do nível. A KDoc do `RiskResult` já aceitava "verde com qualquer score".
+  - O [segundo comentário da #13](https://github.com/Valossa515/tap-guard/issues/13#issuecomment-7069937199) pedia decidir onde fica a regra dos apps de clonagem (banco copiado de um celular antigo recebe S1 e fica vermelho).
+- **Decision:**
+  - **`RiskScoreConfig`** (`internal object`, `core.domain.risk`) é o único arquivo de configuração: os nove pesos da §5, `MAX_SCORE = 100`, `TRUSTED_STORE_CAP = 29` (regra 3), `NO_NFC_SIGNAL_CAP = 59` (regra 4), `YELLOW_FROM = 30` e `RED_FROM = 60`, como `const val` (detekt `MagicNumber`). `weightOf(signal)` usa `when` exaustivo: um sinal novo sem peso não compila. `levelFor(score)` dá a faixa. Quais sinais contam como NFC e as exceções da regra 3 ficam no motor: são regras, não números para calibrar.
+  - **`WeightedRiskScorer`** (público, sem parâmetros, sem estado): soma limitada a 100; regra 3; regra 4; nível pela faixa ou verde pela regra 2. Público porque o `ScanDevice` (`core-detection`) e o SDK o constroem; a configuração fica `internal` (ninguém fora do módulo precisa dos números).
+  - **Regra 2 só no nível** (decisão do usuário): o score de um app confiável continua passando pelas regras 3 e 4. Desfazer "confiável" não muda o número, e o score de um app é o mesmo nos dois casos.
+  - **Ordem e combinação:** as regras 3 e 4 são tetos (mínimo) e comutam; quando as duas valem, vence 29. Sem S1, a regra 4 sempre vale: **um app sem S1 nunca fica vermelho**, nem com S7 ou S9. Com S1, a regra 3 nunca vale. A regra 2 não mexe no score, então também comuta; ela decide o nível por último.
+  - **Comparação de `trustedPackages`:** exata, com maiúsculas e minúsculas, como nos coletores.
+  - **Regra dos apps de clonagem fora do score** (decisão do usuário): forma (B), no coletor de S1, na SPEC-019 (#73), que fecha antes da SPEC-018. O `InstallSourceCollector` não gera S1 quando o pacote está na lista de bancos **e** o instalador está numa lista pública de sete apps de clonagem (Smart Switch, Mi Mover, OPPO Clone Phone, OnePlus Clone Phone, Huawei Phone Clone, HONOR Device Clone, vivo EasyShare; fonte: [Talsec, Installation Sources Cookbook](https://docs.talsec.app/appsec-articles/glossary/sideloading/installation-sources-cookbook), tabela "Cloners & Movers", e as páginas da Play). Ficam fora ShareMe, SHAREit e SHAREit Lite (apps de compartilhar arquivos com qualquer pessoa) e MIUI Backup (restaura backup). Motivos: o score, o `ScoringContext` e as regras da §5 não mudam; o banco copiado se comporta em todas as regras como o banco da loja; as defesas da #57 e da #65 ficam no mesmo coletor. A exceção não abre brecha nova: quem consegue registrar um instalador com nome de pacote emprestado já consegue registrar uma loja com nome emprestado (ADR-017).
+- **Alternatives:**
+  - regra 2 parando o ajuste (score sem as regras 3 e 4) ou limitando o score a 29 (rejeitadas pelo usuário);
+  - pesos num `Map<Signal, Int>` (rejeitada: um sinal sem peso passaria pela compilação);
+  - pesos injetáveis no construtor (rejeitada: nada pede calibrar pelo SDK; a §5 calibra com testes);
+  - `RiskScoreConfig` público (rejeitada: sem consumidor fora do módulo);
+  - regras 3 e 4 como dados no arquivo de configuração (rejeitada: a §5 manda calibrar pesos, não regras);
+  - regra dos apps de clonagem no score (forma A: dois conjuntos novos no `ScoringContext`; rejeitada pelo usuário pelos motivos acima) e na forma larga, só pelo pacote de banco (rejeitada no comentário da #13: reabre a brecha do S1).
+- **Consequences:**
+  - Testes no `core-domain`: os cinco exemplos da §5 com nome próprio, uma tabela de 37 combinações (`WeightedRiskScorerTableTest`, primeiro `@ParameterizedTest` do módulo) e as faixas. A tabela escreve os sinais como na §5 e não lê o `RiskScoreConfig`. Mudar um peso exige atualizar os exemplos e a tabela na mesma spec.
+  - Conferência local na SPEC-017 (desfeita sem commit): tirar a exceção de S7 ou de S9 na regra 3, tirar o teto de 100, mudar a regra 2 (parar antes das regras 3 e 4 ou limitar a 29), tirar S7 dos sinais de NFC e trocar um peso derrubam os casos previstos; trocar a ordem das regras 3 e 4 não derruba nenhum, porque elas comutam.
+  - Quem ordena por score (RF-105) separa os confiáveis antes (RF-108): um confiável pode ter score acima de 29 e nível verde.
+  - Cobertura de linhas do `core-domain`: 97,5%.
+  - Banco: sem mudança. Score e nível vão para `app_snapshot` pela SPEC-018.
 
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)

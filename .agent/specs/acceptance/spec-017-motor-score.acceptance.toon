@@ -1,0 +1,23 @@
+# TOON v3.0 – Acceptance Criteria
+# .agent/specs/acceptance/spec-017-motor-score.acceptance.toon
+# SPEC-017 (issue #13) – JUnit 5 no core-domain sem mocks; tabela de combinacoes escrita a mao no teste (linhas P C T do plano); cinco exemplos da secao 5 com nome proprio
+
+acceptance:
+  feature-ref: FT-017
+  version: 1.0
+
+criteria[14]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Exemplo 1 da secao 5,App com.example.app; trustedPackages vazio; sinais S1 S2 S3,score(app e sinais e ctx),Score 65 e RED,must-have,BR-006
+  AC-002,Exemplo 2 da secao 5,Mesmo app; sinais S1 S2 S3 S4 S6,score(app e sinais e ctx),Score 100 e RED,must-have,BR-002
+  AC-003,Exemplo 3 da secao 5,Mesmo app; sinais S2 S3,score(app e sinais e ctx),Score 29 e GREEN,must-have,BR-005
+  AC-004,Exemplo 4 da secao 5,Mesmo app; sinal S1,score(app e sinais e ctx),Score 30 e YELLOW,must-have,BR-008
+  AC-005,Exemplo 5 da secao 5,Mesmo app; sinais S1 S4 S8,score(app e sinais e ctx),Score 59 e YELLOW,must-have,BR-006
+  AC-006,Cada peso da secao 5,Mesmo app; um sinal por vez e nenhum sinal (linhas P0 a P9 do plano),score(app e sinais e ctx),0 e 30 e 15 e 20 e 25 e 10 e 10 e 30 e 10 e 20; S1 e S7 YELLOW e os outros GREEN,must-have,BR-001
+  AC-007,Regra 3 e as excecoes S7 e S9,Linhas C01 a C09 do plano (sem S1),score(app e sinais e ctx),Sem S7 e S9 o score fica em 29; com S7 ou S9 o teto e 59; soma 140 sem S1 da 59 YELLOW,must-have,BR-005
+  AC-008,Regra 4 e limites 59 e 60,Linhas C10 a C19 do plano (com S1),score(app e sinais e ctx),Com S2 ou S3 ou S7 soma 60 da RED; sem eles soma 60 da 59 YELLOW; soma 105 sem NFC da 59; todos os nove dao 100 RED,must-have,BR-006
+  AC-009,Ordem e combinacao das regras,Linhas C01 e C04 e C09 e C15 do plano,score(app e sinais e ctx),Com as regras 3 e 4 juntas vence 29; app sem S1 nunca passa de 59,must-have,BR-007
+  AC-010,Regra 2 com as regras 3 e 4,Linhas T1 a T6 do plano (com.example.app em trustedPackages),score(app e sinais e ctx),Nivel GREEN em todas; score 65 e 59 e 29 e 59 e 100 e 0,must-have,BR-004
+  AC-011,Regra 2 so com o pacote exato,Linhas T7 (com.other.app) e T8 (COM.EXAMPLE.APP) do plano com S1 S2 S3,score(app e sinais e ctx),Score 65 e RED nas duas,must-have,BR-004
+  AC-012,Sinais repassados,Todas as linhas da tabela,score(app e sinais e ctx),RiskResult.signals igual ao conjunto recebido,must-have,BR-009
+  AC-013,Dominio puro e cobertura,Codigo da spec,./gradlew :core-domain:build e inspecao dos imports e do build.gradle.kts,Nenhum import android.* nem dependencia nova nem @Suppress novo; koverVerify passa acima de 80% (COVERAGE_BELOW_MIN e ANDROID_DEPENDENCY nao acontecem); ktlint e detekt e testes passam,must-have,BR-001
+  AC-014,Documentacao atualizada,PR da spec,Revisar core-domain/README.md e docs/especificacao.md (secao 5) e backlog_rules.md e decisions.md e SKILLS.md e project-reference.md e glossary.md e context.md e architecture.md,ADR-022 com os pesos num arquivo e o algoritmo e a ordem e o score do confiavel e a recomendacao da regra de clonagem; secao 5 com o score do confiavel e app sem S1 nunca vermelho; README com o motor e a cobertura,must-have,BR-010

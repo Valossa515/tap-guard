@@ -151,6 +151,13 @@ O score de um app é a soma dos pesos dos sinais presentes, limitada a 100, e de
 3. App instalado por loja confiável tem score limitado a 29, a não ser que tenha S7 ou S9.
 4. Vermelho exige S1 junto com pelo menos um sinal de NFC (S2, S3 ou S7). Sem isso, o teto é amarelo (59).
 
+Como as regras se combinam (ADR-022, SPEC-017):
+
+- As regras 3 e 4 são tetos. Quando as duas valem, fica o de 29, e a ordem entre elas não muda o resultado.
+- Sem S1 a regra 4 sempre vale: um app sem S1 nunca fica vermelho, nem com S7 ou S9.
+- A regra 2 só decide o nível. O score de um app confiável continua passando pelas regras 3 e 4, e desfazer "confiável" não muda o número.
+- Os pesos, os tetos e as faixas ficam em `RiskScoreConfig`, no `core-domain`; o motor é o `WeightedRiskScorer`.
+
 **Listas de apoio, embutidas no app**
 
 - Lojas confiáveis (pacote do instalador): Google Play (`com.android.vending`), Galaxy Store (`com.sec.android.app.samsungapps`), Xiaomi GetApps (`com.xiaomi.mipicks` e `com.xiaomi.market`), OPPO App Market (`com.heytap.market` e `com.oppo.market`), vivo V-Appstore (`com.vivo.appstore`), HONOR App Market (`com.hihonor.appmarket`), Palm Store (`com.transsnet.store`), Huawei AppGallery (`com.huawei.appmarket`) e Amazon Appstore (`com.amazon.venezia`). Não são lojas: os instaladores de pacote do sistema e o shell (o que aparece num APK instalado à mão ou por adb), F-Droid, Aurora Store e apps de clonagem. Instalador desconhecido conta como fora da loja. Motivos e fontes no ADR-017 (SPEC-012).

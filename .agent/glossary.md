@@ -10,6 +10,8 @@
 | **RiskLevel** | Nível de risco: `GREEN`, `YELLOW`, `RED`, em ordem de gravidade | §5, SPEC-010 |
 | **RiskResult** | Resultado do `RiskScorer`: score (0 a 100), nível e sinais de um app | §7, SPEC-010 |
 | **ScoringContext** | Contexto passado ao `RiskScorer`: os pacotes marcados como confiáveis pelo usuário (`trustedPackages`) | §7, SPEC-010 |
+| **WeightedRiskScorer** | Implementação do `RiskScorer`: soma dos pesos limitada a 100 e regras de ajuste 2 a 4 | §5, SPEC-017 |
+| **RiskScoreConfig** | Único arquivo de configuração do motor: pesos, tetos (100, 29, 59) e faixas (`internal`) | §5, SPEC-017 |
 | **ScannedApp** | Um app avaliado numa varredura: o `InstalledApp` e o seu `RiskResult` | SPEC-010 |
 | **ScanReport** | Resultado de uma varredura (`ScanDevice`): gatilho, início, fim e apps avaliados | §7, SPEC-010 |
 | **CardReadResult** | Resultado da leitura do cartão (`CardReader`): `Success`, `UnsupportedCard` ou `ReadInterrupted` | §7, SPEC-010 |
@@ -42,7 +44,7 @@
 | S8 | Pede leitura ou recebimento de SMS | 10 | `SMS_PERMISSION` (7) |
 | S9 | Nome parecido com o de um banco conhecido, mas pacote diferente do oficial | 20 | `BANK_LOOKALIKE` (8) |
 
-Os pesos não ficam no enum: ficam no arquivo de configuração do motor de score (SPEC-017).
+Os pesos não ficam no enum: ficam no arquivo de configuração do motor de score, `RiskScoreConfig` (`core-domain`, SPEC-017, ADR-022).
 
 "Sinal de NFC" = S2, S3 ou S7.
 
@@ -62,7 +64,7 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **Esqueleto do nome (S9):** forma do nome que o S9 compara (`bankNameSkeleton`, SPEC-015): cortado no primeiro separador, sem acentos, em minúsculas, com letras parecidas trocadas por uma só (`0→o`, `l→i`, cirílico e grego) e só com `a-z` e `0-9`. "Itáú | Token" e "1taú" dão `itau`. Rótulo e nomes da lista passam pelo mesmo esqueleto, e também os prefixos e sufixos que a comparação tira. Detalhes no ADR-020.
 - **App de pagamento padrão:** app que o sistema usa para pagamento por aproximação (categoria de pagamento; no Android 15+, papel de carteira). O Tap Guard o descobre perguntando `CardEmulation.isDefaultServiceForCategory(componente, CATEGORY_PAYMENT)` para cada serviço de HCE ligado e exportado dos apps de usuário; os que respondem `true` ficam em `InstalledApp.defaultPaymentServices` (ADR-021).
 - **Papel de carteira:** `RoleManager.ROLE_WALLET` (API 35). Com ele ligado, o sistema NFC trata como padrão de pagamento todo serviço registrado do app dono do papel, sem olhar a categoria (ADR-021).
-- **App confiável:** app que o usuário marcou como confiável; fica sempre verde, sai dos alertas e aparece em lista própria, com opção de desfazer.
+- **App confiável:** app que o usuário marcou como confiável; fica sempre verde, sai dos alertas e aparece em lista própria, com opção de desfazer. A marcação muda só o nível, não o score: o score continua passando pelas regras 3 e 4 (ADR-022).
 - **App isca (`decoy-app`):** app próprio, inofensivo, com o perfil de um app de golpe, usado como alvo de testes.
 - **Varredura:** análise de todos os apps instalados que não são do sistema.
 - **Vigia:** varredura periódica em segundo plano com notificação.
@@ -72,7 +74,7 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **Spec / Etapa:** unidade de trabalho (issue `SPEC-0xx`) e milestone do repositório.
 
 ## Disambiguation
-- **Score vs nível:** score é o número de 0 a 100 após as regras de ajuste; nível é a faixa (verde/amarelo/vermelho) derivada do score.
+- **Score vs nível:** score é o número de 0 a 100 após as regras de ajuste; nível é a faixa (verde/amarelo/vermelho) derivada do score, salvo no app confiável, que fica verde com qualquer score (regra 2).
 - **Varredura vs vigia:** varredura é uma execução; vigia é o agendamento periódico que dispara varreduras e notificações.
 - **App confiável vs loja confiável:** o primeiro é decisão do usuário sobre um app; o segundo é a origem da instalação (S1).
 - **Carteira conhecida vs banco conhecido:** a lista de carteiras alimenta S7; a lista de bancos alimenta S9.
