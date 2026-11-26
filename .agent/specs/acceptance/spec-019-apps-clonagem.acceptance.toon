@@ -1,0 +1,26 @@
+# TOON v3.0 – Acceptance Criteria
+# SPEC-019 (#73): JUnit 4 JVM; casos esperados escritos a mao; sem Robolectric
+
+acceptance:
+  feature-ref: FT-019
+  version: 1.0
+
+criteria[18]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Lista publica e fontes,Lista de clonadores,Inspecionar API e comentarios,Object publico e Set<String> com nome e fonte por entrada no formato das listas da SPEC-015,must-have,BR-001
+  AC-002,Sete pacotes exatos,Sete pacotes escritos a mao no teste,Comparar com lista publica,Igualdade de conjuntos sem entrada faltante ou extra,must-have,BR-002
+  AC-003,Imutabilidade publica,Lista publica convertida por cast em MutableSet,Tentar adicionar pacote ficticio,UnsupportedOperationException PUBLIC_LIST_MUTATION e conteudo preservado,must-have,BR-001
+  AC-004,Construtor obrigatorio,Tres conjuntos de configuracao,Inspecionar assinatura e chamadas,Tres argumentos obrigatorios sem padrao nem overload antigo,must-have,BR-003
+  AC-005,Copia independente dos tres conjuntos,Cada conjunto mutavel testado separadamente com casos aceito e rejeitado,Construir coletor e depois remover entrada usada e adicionar antes ausente,Resultados anteriores preservados nos tres cenarios,must-have,BR-003
+  AC-006,Loja confiavel,Cada uma das onze lojas esperadas e pacote com ou sem cadastro bancario,Coletar,Vazio independentemente dos conjuntos de bancos e clonadores,must-have,BR-004
+  AC-007,Banco copiado,Pacote bancario presente e cada um dos sete clonadores esperados,Coletar com clonadores configurados,Vazio para os sete,must-have,BR-005
+  AC-008,App qualquer copiado,Pacote fora dos bancos e cada um dos sete clonadores esperados,Coletar com clonadores configurados,Exatamente S1 para os sete,must-have,BR-006
+  AC-009,Banco instalado a mao,Pacote nos bancos e instalador nulo ou desconhecido ou shell ou instalador de pacotes do sistema,Coletar,Exatamente S1 em cada caso,must-have,BR-006
+  AC-010,Compartilhadores e backup excluidos,Pacote nos bancos e instalador ShareMe ou SHAREit ou SHAREit Lite ou MIUI Backup,Coletar com listas padrao,Exatamente S1 para os quatro,must-have,BR-007
+  AC-011,Conjuncao e correspondencia exata,Somente banco conhecido ou somente clonador conhecido; variacao isolada de caixa de cada pacote; rotulo bancario sem pacote correspondente,Coletar fora das lojas,Exatamente S1; nenhum reconhecimento por nome ou normalizacao,must-have,BR-006
+  AC-012,Conjuntos vazios,Bancos vazios ou clonadores vazios separadamente; lojas vazias; todos vazios,Coletar casos correspondentes,Excecao desligada nos dois primeiros mas lojas ainda aceitas; banco com clonador aceito com lojas vazias; todos vazios geram S1,must-have,BR-008
+  AC-013,Configuracao propria,Banco e clonador ficticios passados explicitamente e variantes ampliadas ou reduzidas,Construir coletores com cada configuracao e coletar,Dispensa depende dos conjuntos fornecidos; nenhuma consulta implicita a lista publica,must-have,BR-009
+  AC-014,Responsabilidade de integracao,Plano e documentacao da SPEC-019,Revisar contrato de passagem para SPEC-018,Hilt do app na SPEC-018 monta lojas e clonadores e KnownBanks.apps mapeado para packageName deduplicado; teste desse provedor fica na SPEC-018,must-have,BR-009
+  AC-015,Limites do coletor,App com outros atributos de risco e diff da implementacao,Coletar e revisar dependencias,Somente vazio ou S1; nenhum android.* ou PackageManager novo; score e contexto e inventario e persistencia preservados; TrustedStores sem clonadores,must-have,BR-010
+  AC-016,Regressoes atuais,Tres classes existentes de testes de S1 com seis chamadas adaptadas,Executar suite,Todos os casos anteriores passam incluindo Smart Switch para app fora dos bancos; nenhuma expectativa antiga removida,must-have,BR-012
+  AC-017,Documentacao coerente,ADR-017 e ADR-020 e secao 5 e README e documentos de contexto,Revisar diff,Emenda no ADR-017 sem ADR novo; regra estreita e lista com fontes e tres parametros e vazios e Hilt futuro registrados; sem promessa de verde com S7 ou S9,must-have,BR-011
+  AC-018,Qualidade e escopo,Codigo e testes da SPEC-019,Executar build do modulo e build completo e validar SDD,ktlint e detekt e testes passam; JUnit 4 JVM sem Robolectric nos novos testes; sem dependencia ou permissao nova; registrar testes exclusivos do CI,must-have,BR-012

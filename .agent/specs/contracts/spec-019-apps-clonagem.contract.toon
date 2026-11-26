@@ -1,0 +1,76 @@
+# TOON v3.0 - Architecture Contract
+# SPEC-019; comportamento aprovado preservado; estimate-lines 450 incluindo margem 70
+contract:
+  feature-ref: FT-019
+  version: 1.0
+
+layers:
+  detection:
+    files[4]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownCloneApps.kt,create,BR-001 e BR-002; object publico; Set<String> nao modificavel; sete fontes por entrada
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollector.kt,modify,BR-003 a BR-010; tres parametros obrigatorios copiados; predicado aprovado e KDoc
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownBanks.kt,modify,BR-009; KDoc documenta derivacao dos pacotes para S1
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/signal/TrustedStores.kt,modify,BR-010; KDoc remete a excecao estreita sem mudar a lista
+  tests:
+    files[9]{path,action,description}:
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/ExpectedKnownCloneApps.kt,create,sete pacotes escritos a mao
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/KnownCloneAppsTest.kt,create,AC-001 a AC-003; igualdade e cast recusado
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorCloneAppTest.kt,create,AC-007 e AC-008; banco e nao banco para cada clonador
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorRejectedCloneTest.kt,create,AC-009 e AC-010; nulo e manuais e compartilhadores excluidos
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorConfigurationTest.kt,create,AC-006 e AC-011 a AC-013; caixa e rotulo e vazios e configuracao propria
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorCopiedSetsTest.kt,create,AC-005; mutacao de cada conjunto de entrada
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorTest.kt,modify,AC-004 e AC-015 e AC-016; atualizar quatro chamadas sem remover expectativas
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorTrustedStoreTest.kt,modify,AC-006 e AC-016; nova assinatura e banco e nao banco nas onze lojas
+      core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/signal/InstallSourceCollectorUntrustedInstallerTest.kt,modify,AC-016; nova assinatura e app fora dos bancos com Smart Switch
+  docs:
+    files[10]{path,action,description}:
+      core-detection/README.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      docs/especificacao.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/decisions.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/SKILLS.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/project-reference.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/context.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/architecture.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/glossary.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/backlog_rules.md,modify,AC-014 e AC-017; regra S1 e tres parametros e emenda ADR-017 e remissao ADR-020 e secoes 5 e 8 e integracao SPEC-018
+      .agent/plans/spec-019-apps-clonagem-tests.md,create,Plano de testes e resultados do tester
+
+migrations[0]:
+
+dependencies:
+  uses[5]:
+    InstalledApp e Signal e SignalCollector do core-domain
+    anInstalledApp do testFixtures do core-domain
+    TrustedStores e KnownBanks e KnownWallets como padroes existentes
+    java.util.Collections e LinkedHashSet do JDK
+    JUnit 4 e kotlinx.coroutines.test.runTest ja no modulo
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: KnownCloneApps
+      scenarios[2]:
+        conteudo-exato-contra-sete-literais-independentes
+        mutacao-por-cast-lanca-UnsupportedOperationException-e-preserva-conteudo
+    - target: InstallSourceCollector
+      scenarios[8]:
+        sete-clonadores-com-banco-vazio-e-com-app-comum-S1
+        banco-manual-nulo-desconhecido-shell-e-instaladores-do-sistema-S1
+        ShareMe-SHAREit-Lite-e-MIUI-Backup-com-banco-S1
+        variacao-de-caixa-isolada-do-banco-e-do-clonador-e-rotulo-sem-pacote-S1
+        vazios-independentes-lojas-vazias-e-todos-vazios
+        configuracao-ficticia-ampliada-e-reduzida
+        tres-conjuntos-copiados-contra-remocao-e-adicao
+        todos-os-testes-antigos-e-onze-lojas-com-banco-e-nao-banco
+  integration-tests:
+  verification[6]{criterion,how}:
+    AC-001 e AC-004,Inspecionar object e fontes e tres parametros obrigatorios sem overload antigo
+    AC-014 e AC-017,Revisar documentacao e responsabilidade Hilt na SPEC-018
+    AC-005,Mutacoes locais retiram copia de cada conjunto e devem derrubar testes; restaurar sem commit
+    AC-007 e AC-008 e AC-011,Mutacoes locais trocam E por OU e ignoram caixa e devem derrubar testes; restaurar sem commit
+    AC-002 e AC-008 e AC-016,Mutacao local inclui clonadores em TrustedStores e deve derrubar testes; restaurar sem commit
+    AC-015 e AC-018,Build do modulo e build completo com lint e testes; validar SDD; revisar diff sem mudancas de dominio ou dependencias
+  excluded[3]{target,reason}:
+    Hilt e derivacao real de KnownBanks.apps,SPEC-018
+    Atribuicao de instalador no aparelho,SPEC-022
+    Motor e persistencia,Sem alteracao nesta spec; suites existentes permanecem
