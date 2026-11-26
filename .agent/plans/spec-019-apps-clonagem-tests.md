@@ -21,4 +21,4 @@ Depois de uma execução verde, alterar individualmente a produção: E por OU; 
 
 ## Resultados
 
-Lista: 2 testes passaram; ktlint e detekt do módulo passaram. Demais grupos pendentes.
+Lista: 2 testes passaram; ktlint e detekt do módulo passaram. Suíte focada completa: 71 testes passaram (44 novos e 27 existentes), sem falhas ou ignorados; ktlint e detekt passaram. Conferência por mutação e build completo pendentes.

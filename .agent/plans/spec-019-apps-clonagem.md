@@ -160,7 +160,7 @@ Branch proposta para a implementação: `spec-019-apps-clonagem`; PR com SPEC-01
 
 1. [x] Architect revisar os artefatos, fixar nomes e organização dos testes e produzir o contrato; não reabrir a decisão (B).
 2. [x] Entregar lista pública com fontes e seus testes de conteúdo e imutabilidade.
-3. [ ] Alterar o coletor, adaptar as seis chamadas e entregar os testes da exceção, negativos, vazios e cópias no mesmo passo, mantendo a suíte compilável.
+3. [x] Alterar o coletor, adaptar as seis chamadas e entregar os testes da exceção, negativos, vazios e cópias no mesmo passo, mantendo a suíte compilável.
 4. [ ] Atualizar ADR-017, remissão do ADR-020, §5, KDocs, README e documentos de contexto; registrar o contrato de integração para a SPEC-018.
 5. [ ] Executar a validação SDD e os checks de implementação; revisar o diff e o orçamento antes do PR.
 

@@ -4,6 +4,8 @@ import java.util.Collections
 
 /**
  * Apps de banco conhecidos para o sinal S9: nome de exibição e pacote oficial de cada um.
+ * A SPEC-018 também deriva de [apps] os pacotes distintos para o S1 (SPEC-019), na composição
+ * Hilt: só o pacote conhecido junto com instalador de clonagem conhecido dispensa o sinal.
  *
  * Critério de corte (ADR-020): as 14 instituições com mais clientes no ranking do Banco Central
  * (dez/2025), todas acima de 25 milhões, e os apps oficiais delas com o nome da marca no título,

@@ -15,11 +15,15 @@ class InstallSourceCollectorTrustedStoreTest(
     @Test
     fun `store installer yields no signal`() =
         runTest {
-            val collector = InstallSourceCollector(TrustedStores.packageNames)
+            val collector = InstallSourceCollector(TrustedStores.packageNames, setOf("com.example.bank"), emptySet())
 
             val signals = collector.collect(anInstalledApp(installerPackageName = installer))
 
             assertEquals(emptySet<Signal>(), signals)
+            assertEquals(
+                emptySet<Signal>(),
+                collector.collect(anInstalledApp(packageName = "com.example.bank", installerPackageName = installer)),
+            )
         }
 
     companion object {
