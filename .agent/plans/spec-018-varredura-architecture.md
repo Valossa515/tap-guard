@@ -148,3 +148,15 @@ O usuário pediu `require(keep > 0)` na retenção. Um `@Query` de interface nã
 | `ScanRunDao.kt` (forma e `require`) | +21 −6 |
 | `ScanRunDaoTest.kt` (teste novo) | +14 |
 | **BATCH-01 com a correção** | **449 adicionadas, 4 removidas = 453** (estimativa 407) |
+
+## BATCH-02 — emenda 1.2 e tarefas (2026-11-27)
+
+**Emenda 1.2 do contrato (sem mudança de comportamento):** a estratégia do BATCH-02 não derrubava duas das mutações pedidas para a conferência.
+- **Catch de qualquer exceção:** só havia cenários com `IOException`. Entra `other-exceptions-are-rethrown-AC-019`: um DataStore real (`PreferenceDataStoreFactory.create`) cujo produtor do arquivo lança `IllegalStateException`. Conferido num clone: a exceção chega a quem lê; com o `catch` só de `IOException` ela passa, e com um `catch` de tudo ela some. Cobre o "relançam o resto" que a BR-010 já pedia, sem fingir o store (skill de testes, DataStore).
+- **Consulta sem filtro:** o cenário dos confiáveis grava também uma linha com `decision` em minúsculas (`trusted`), que não conta. Prova a comparação exata sem inventar outro valor de decisão.
+
+**Tarefas do BATCH-02 (um commit cada):**
+1. `feat`: porta `TrustedAppRepository`, consulta `getTrustedPackageNames` no `UserDecisionDao`, `RoomTrustedAppRepository` e a ligação no `RepositoryModule`.
+2. `fix`: `IOException` nas quatro leituras do `SettingsDataSource` (comentário da #14).
+3. `test`: `RoomTrustedAppRepositoryTest`, `SettingsDataSourceTest` (corrompido, pasta, exceção relançada), `DataModuleTest`; plano de testes.
+4. `docs`: documentação do BATCH-02 e status do ADR-023.

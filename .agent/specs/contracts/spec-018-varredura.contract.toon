@@ -6,11 +6,12 @@
 # Sem @Suppress novo; sem mudanca de schema (1.json igual); sem permissao nova; sem dependencia nova de producao
 # Estimativa pelos arquivos: cerca de 1470 linhas de codigo e testes (407 no BATCH-01 e 202 no BATCH-02 e 405 no BATCH-03 e 458 no BATCH-04; tabela no documento de arquitetura)
 # Emenda 1.1 (2026-11-27 pedida pelo usuario depois do review do BATCH-01): ScanRunDao vira abstract class; deleteOlderThanLatest publico faz require(keep > 0) com mensagem fixa e chama o @Query protected deleteOutsideLatest; cenario keep-below-one-rejected-AC-013 no ScanRunDaoTest
+# Emenda 1.2 (2026-11-27 inicio do BATCH-02): cenario other-exceptions-are-rethrown-AC-019 no SettingsDataSourceTest (DataStore real cujo produtor do arquivo lanca IllegalStateException; cobre o relancam o resto do BR-010 e derruba um catch de qualquer excecao; conferido num clone); o cenario trusted-decisions-returned grava tambem uma linha com decision trusted em minusculas que nao conta (comparacao exata; derruba a consulta sem filtro)
 # Cada linha diz o batch: BATCH-01 (gravacao e retencao) ou BATCH-02 (confiaveis e preferencias) ou BATCH-03 (ScanDevice) ou BATCH-04 (Hilt e ponta a ponta)
 
 contract:
   feature-ref: FT-018
-  version: 1.1
+  version: 1.2
 
 layers:
   core-domain-ports:
@@ -125,15 +126,16 @@ test-strategy:
       type: room-in-memory
       batch: BATCH-02
       scenarios[2]:
-        trusted-decisions-returned-AC-009
+        trusted-decisions-returned-and-lowercase-decision-ignored-AC-009
         empty-table-returns-empty-AC-009
     - target: SettingsDataSource
       file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/settings/SettingsDataSourceTest.kt
       type: datastore-real-file
       batch: BATCH-02
-      scenarios[2]:
+      scenarios[3]:
         corrupted-file-reads-four-defaults-AC-019
         directory-in-place-of-file-reads-four-defaults-AC-019
+        other-exceptions-are-rethrown-AC-019
     - target: DetectionModule e InventoryModule e DispatchersModule e ClockModule
       file: app/src/test/kotlin/io/github/valossa515/tapguard/di/DetectionModuleTest.kt
       type: hilt-robolectric

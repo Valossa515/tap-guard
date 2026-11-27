@@ -1,10 +1,11 @@
 # TOON v3.0 – Acceptance Criteria
 # SPEC-018 (#14) v1.1: AC-029 pedido pelo usuario na aprovacao do plano (2026-11-27); AC-022 so confere as classes da lista
+# v1.2 (inicio do BATCH-02): AC-019 tambem exige que uma excecao que nao e IOException propague; AC-009 exige comparacao exata da decisao
 # core-detection JUnit 4 na JVM com portas falsas; core-data Robolectric com Room em memoria e DataStore real; app Robolectric com HiltTestApplication
 
 acceptance:
   feature-ref: FT-018
-  version: 1.1
+  version: 1.2
 
 criteria[29]{id,scenario,given,when,then,priority,business-rule-ref}:
   AC-001,Ordem da varredura,Inventario e coletores e portas falsos que registram as chamadas,Executar ScanDevice(MANUAL),Inventario antes dos coletores; confiaveis lidos uma vez; coletores de cada app antes do score; save uma vez depois de todos os apps; relatorio devolvido igual ao gravado,must-have,BR-001
@@ -15,7 +16,7 @@ criteria[29]{id,scenario,given,when,then,priority,business-rule-ref}:
   AC-006,Relogio,Clock falso que avanca e outro que volta entre a primeira e a segunda leitura,Executar a varredura,startedAt e finishedAt vem do clock; com o relogio que volta finishedAt e igual a startedAt e nao ha excecao,must-have,BR-005
   AC-007,Aparelho sem apps,Inventario vazio,Executar a varredura,Relatorio com lista vazia e gravado; scan_run com totalApps 0 e contagens 0,must-have,BR-007
   AC-008,Confiavel fica verde,Dois apps com S1 S2 S3 e so um em trustedPackages,Executar a varredura com o motor real,O confiavel fica GREEN com score 65; o outro fica RED com 65,must-have,BR-006
-  AC-009,Leitura dos confiaveis,user_decision com pacotes TRUSTED e tabela vazia,Ler TrustedAppRepository.trustedPackages(),Devolve exatamente os pacotes TRUSTED; vazio quando nao ha decisao,must-have,BR-006
+  AC-009,Leitura dos confiaveis,user_decision com pacotes TRUSTED e um com decision trusted em minusculas; e tabela vazia,Ler TrustedAppRepository.trustedPackages(),Devolve exatamente os pacotes TRUSTED (comparacao exata; o de minusculas fica fora); vazio quando nao ha decisao,must-have,BR-006
   AC-010,Gravacao de scan_run,Relatorio com trigger e datas e apps de cada nivel,RoomScanRepository.save,Uma linha com startedAt e finishedAt em ms e trigger pelo nome e totalApps e redCount e yellowCount corretos,must-have,BR-007
   AC-011,Gravacao de app_snapshot,Um app sem instalador com S1 S2 S3 e outro com instalador e S1 S2 S3 S9,RoomScanRepository.save,Uma linha por app com todos os campos; signals igual as mascaras escritas a mao (7 e 263); score e level pelo nome,must-have,BR-007
   AC-012,Contagens com confiavel,App confiavel verde com score 65 e apps amarelo e vermelho,RoomScanRepository.save,redCount e yellowCount contam pelo nivel final; o confiavel nao entra em redCount,must-have,BR-007
@@ -25,7 +26,7 @@ criteria[29]{id,scenario,given,when,then,priority,business-rule-ref}:
   AC-016,Gravacao atomica,Dez varreduras gravadas e um relatorio com pacote repetido,RoomScanRepository.save,SQLiteConstraintException; nenhuma linha nova em scan_run ou app_snapshot; as dez antigas continuam,must-have,BR-009
   AC-017,Sem mudanca de schema,Codigo da spec compilado,Rodar o build e o passo Schema do Room commitado,core-data/schemas sem diferenca; nenhum indice ou coluna novo,must-have,BR-009
   AC-018,Pagamento padrao fora,App padrao de pagamento no inventario,Executar a varredura e revisar o construtor,O relatorio preserva defaultPaymentServices; o ScanDevice nao recebe o SettingsDataSource nem grava lastDefaultPaymentComponent,must-have,BR-008
-  AC-019,IOException nas preferencias,Arquivo das preferencias com bytes invalidos e outro caso com um diretorio no lugar do arquivo,Ler as quatro preferencias,Cada leitura devolve o padrao (false; true; 6; null) sem excecao,must-have,BR-010
+  AC-019,IOException nas preferencias,Arquivo das preferencias com bytes invalidos e outro caso com um diretorio no lugar do arquivo,Ler as quatro preferencias,Cada leitura devolve o padrao (false; true; 6; null) sem excecao; com um DataStore cujo produtor do arquivo lanca IllegalStateException as quatro leituras propagam essa excecao,must-have,BR-010
   AC-020,Grafo do core-data,HiltTestApplication no core-data,Injetar ScanRepository e TrustedAppRepository e as ligacoes existentes,Todas injetadas; banco e DataStore continuam unicos,must-have,BR-011
   AC-021,Grafo do app,HiltTestApplication no app,Injetar ScanDevice e AppInventory e List<SignalCollector> e Clock e os dois dispatchers,Todos injetados; Clock igual a Clock.systemUTC(); dispatchers iguais a Dispatchers.IO e Dispatchers.Default,must-have,BR-011
   AC-022,Nove coletores na lista,List<SignalCollector> injetada,Inspecionar a lista,Um coletor de cada uma das nove classes,must-have,BR-012
