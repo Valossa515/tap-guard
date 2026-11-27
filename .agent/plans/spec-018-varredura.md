@@ -157,7 +157,7 @@ Total ~1.480; declarado 1.500. **Por que quatro e não três:** a divisão suger
 
 1. [x] BATCH-01 — `ScanRepository`; retenção no `ScanRunDao`; `RoomScanRepository`; `RepositoryModule`; testes (mapeamento de todos os campos, máscara escrita à mão, contagens com confiável, relatório vazio, 12 → 10 por `id`, relógio atrasado, menos de 10, cascata, rollback com pacote duplicado); `DataModuleTest`.
 2. [x] BATCH-02 — `TrustedAppRepository`; consulta no `UserDecisionDao`; `RoomTrustedAppRepository`; `catch` nas quatro leituras; testes (TRUSTED e vazio; corrompido e diretório nas quatro preferências); `DataModuleTest`.
-3. [ ] BATCH-03 — `DefaultScanDevice` e `DefaultScanDeviceTest` (ordem, união, confiável verde com score 65, campos e relógio, zero apps, dispatcher, cancelamento sem gravação, quatro erros propagados sem gravação).
+3. [x] BATCH-03 — `DefaultScanDevice` e `DefaultScanDeviceTest` (ordem, união, confiável verde com score 65, campos e relógio, zero apps, dispatcher, cancelamento sem gravação, quatro erros propagados sem gravação).
 4. [ ] BATCH-04 — módulos do Hilt do app, `app/detekt.yml`, dependências de teste, `DetectionModuleTest`, `ScanDeviceEndToEndTest`; documentação abaixo; `./gradlew build` e validação do SDD.
 
 ## Documentação (cada batch documenta o que entrega; o contrato diz o batch de cada arquivo)
@@ -208,3 +208,10 @@ Nenhuma mudança de schema: sem coluna, sem índice, `1.json` igual. Duas consul
 - Tamanho real: 182 linhas de código e testes (173 adicionadas, 9 removidas; estimativa 202).
 - `./gradlew build` verde; schema igual; conferência local com rodada de controle e cinco mutações, todas derrubando testes e desfeitas sem commit. Detalhes em `spec-018-varredura-tests.md`.
 - Comentário na #18 (SPEC-030): ler a última varredura pelo `id` e trocar o `observeAll` para `ORDER BY id DESC`, com teste de relógio atrasado.
+
+## Conferência do BATCH-03 — 2026-11-27
+
+- Sem emenda: os 10 cenários do contrato pegam as mutações pedidas, desde que o teste de cancelamento cancele o job de quem chama sem lançar no coletor (assim foi escrito).
+- Tarefas em commits próprios: `DefaultScanDevice` (tarefa 1), testes e plano de testes (tarefa 2), documentação e status do ADR-023 (tarefa 3).
+- Tamanho real: 412 linhas de código e testes (79 de produção, 333 de teste; estimativa 405), abaixo de 500.
+- `./gradlew build` verde; conferência local com rodada de controle e cinco mutações, todas derrubando testes e desfeitas sem commit. Detalhes em `spec-018-varredura-tests.md`.

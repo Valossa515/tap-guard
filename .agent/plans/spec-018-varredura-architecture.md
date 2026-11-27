@@ -173,3 +173,15 @@ O usuário pediu `require(keep > 0)` na retenção. Um `@Query` de interface nã
 | **Total** | **202** | **182** (173 adicionadas, 9 removidas) |
 
 A consulta nova do `UserDecisionDao` é coberta pelo `RoomTrustedAppRepositoryTest`, como o contrato pede. O `UserDecisionDaoTest` não mudou. Nomes, arquivos e ligações seguiram o contrato 1.2.
+
+### Conferência do BATCH-03 — 2026-11-27
+
+| Arquivo | Estimado | Real |
+| --- | ---: | ---: |
+| `DefaultScanDevice.kt` | 85 | 79 |
+| `DefaultScanDeviceTest.kt` | 320 | 333 |
+| **Total** | **405** | **412** |
+
+Tarefas: 1. `feat` `DefaultScanDevice`; 2. `test` testes e plano de testes; 3. `docs` documentação e ADR-023.
+
+Sem emenda. Na revisão do próprio teste, antes de rodar, tirei um `@Suppress("LongParameterList")` que eu tinha posto no ajudante `device()`. A exceção do ADR-015/ADR-019 só vale para fixtures que repassam à fábrica de uma data class. Agora o ajudante tem 5 parâmetros: o relógio é uma propriedade da classe de teste e as três falhas viraram um só parâmetro (etapa + exceção).

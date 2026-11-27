@@ -47,12 +47,13 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 
 ## Scan Flow (planned)
 
-1. O ViewModel chama o caso de uso `ScanDevice`.
+1. O ViewModel chama o caso de uso `ScanDevice` (`DefaultScanDevice`, `core-detection`, SPEC-018, ADR-023). O início vem do `Clock`.
 2. `ScanDevice` pede o inventário de apps ao `AppInventory`.
-3. Cada `SignalCollector` devolve os sinais de cada app.
-4. O `RiskScorer` (domínio puro; `WeightedRiskScorer`, SPEC-017) calcula score e nível com os pesos de `RiskScoreConfig`.
-5. O resultado é gravado como nova varredura e comparado com a anterior.
-6. A interface observa o repositório e se atualiza.
+3. Os apps confiáveis são lidos uma vez do `TrustedAppRepository` e viram o `ScoringContext` (regra 2).
+4. No dispatcher injetado, para cada app (com `ensureActive()` antes), cada `SignalCollector` devolve os sinais, um depois do outro.
+5. O `RiskScorer` (domínio puro; `WeightedRiskScorer`, SPEC-017, criado dentro do `DefaultScanDevice`) calcula score e nível com os pesos de `RiskScoreConfig`.
+6. O fim é o maior entre o início e o agora. O `ScanReport` é gravado uma vez pelo `ScanRepository` (insert e retenção numa transação) e devolvido. Erros e cancelamento não gravam nada pela metade.
+7. A comparação com a varredura anterior é da SPEC-050; a interface observa o repositório e se atualiza (SPEC-030).
 
 ## Signal Collection (planned, especificação §8)
 

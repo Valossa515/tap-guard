@@ -199,3 +199,30 @@ Mesmo cuidado do BATCH-02: a cada rodada, aplicar a mutação e mostrar o diff, 
 3. tirar o `ensureActive()`;
 4. fim sem a correção do relógio (`finishedAt = clock.instant()`);
 5. coletores em paralelo (`async` por coletor, com `awaitAll`).
+
+### Resultados do BATCH-03 — 2026-11-27
+
+- **Testes novos:** 14 no `DefaultScanDeviceTest`, todos passaram, nenhum ignorado. São os 10 cenários do contrato, com os erros abertos em quatro testes (inventário, coletor, confiáveis, gravação) e o relógio em dois (avança, volta).
+- **Build completo:** `./gradlew build` passou em 1min (535 tarefas, 69 executadas): ktlint, detekt, Android lint, testes e Kover. Relatórios: core-domain 75, core-detection 420, core-data 36 (2 ignorados no Windows), core-nfc 1, app 32, decoy-app 1. São 565 casos, 563 aprovados, 2 ignorados e 0 falhas.
+- **Ignorados no Windows (rodam no CI):** os dois que já existiam no `SettingsDataSourceTest`, `written values are read back` e `writing null removes last default payment component`. Nenhum teste novo é ignorado.
+- **Correção antes de rodar:** tirei um `@Suppress("LongParameterList")` que eu tinha posto no ajudante `device()`; agora ele tem 5 parâmetros (o relógio virou propriedade da classe; as falhas, um parâmetro só).
+- Não executado em aparelho nem no CI remoto (sem push).
+
+### Conferência local do BATCH-03 (todas desfeitas sem commit)
+
+Mesmo cuidado do BATCH-02. A cada rodada, o script:
+1. aplicou a mutação e mostrou o diff dela;
+2. apagou `core-detection/build/test-results/testDebugUnitTest/*.xml`;
+3. criou um marcador de tempo e rodou `./gradlew :core-detection:testDebugUnitTest --tests "*DefaultScanDeviceTest"`;
+4. conferiu no log que a tarefa executou e que o XML existia, era mais novo que o marcador e tinha os 14 testes.
+
+A rodada de controle, sem mutação, passou (exit 0, tarefa executada, XML novo). No fim, `git status` limpo e `git diff` vazio.
+
+| Mutação | Diff | Exit | Testes que falharam |
+| --- | --- | --- | --- |
+| Controle (sem mutação) | — | 0 | nenhum |
+| Gravar um relatório parcial depois de cada app, antes de terminar todos | +1/−0 | 1 | `cancelling on the second app skips the third and saves nothing`; `steps run in order with collectors in sequence and one save at the end`; `clock going back during the scan finishes at the start`; `collector error on the second app propagates and nothing is saved`; `returned report is the one saved once` |
+| Ignorar os confiáveis (ainda lê a porta, mas passa vazio ao motor) | +1/−1 | 1 | `trusted app is green with its score and the other stays red` |
+| Tirar o `ensureActive()` | +0/−1 | 1 | `cancelling on the second app skips the third and saves nothing` |
+| Fim sem a correção do relógio (`finishedAt = clock.instant()`) | +1/−1 | 1 | `clock going back during the scan finishes at the start` |
+| Coletores em paralelo (`async` por coletor e `awaitAll`) | +5/−5 | 1 | `steps run in order with collectors in sequence and one save at the end` |
