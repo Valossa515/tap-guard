@@ -1,0 +1,38 @@
+# TOON v3.0 – Acceptance Criteria
+# SPEC-018 (#14) v1.1: AC-029 pedido pelo usuario na aprovacao do plano (2026-11-27); AC-022 so confere as classes da lista
+# core-detection JUnit 4 na JVM com portas falsas; core-data Robolectric com Room em memoria e DataStore real; app Robolectric com HiltTestApplication
+
+acceptance:
+  feature-ref: FT-018
+  version: 1.1
+
+criteria[29]{id,scenario,given,when,then,priority,business-rule-ref}:
+  AC-001,Ordem da varredura,Inventario e coletores e portas falsos que registram as chamadas,Executar ScanDevice(MANUAL),Inventario antes dos coletores; confiaveis lidos uma vez; coletores de cada app antes do score; save uma vez depois de todos os apps; relatorio devolvido igual ao gravado,must-have,BR-001
+  AC-002,Uniao dos sinais,Dois coletores falsos com sinais distintos e repetidos para o mesmo app,Executar a varredura,RiskResult.signals e a uniao e score e nivel sao os do WeightedRiskScorer para esses sinais,must-have,BR-001
+  AC-003,Dispatcher injetado,CountingDispatcher sobre o dispatcher do runTest,Executar a varredura,O laco de coletores e score passa pelo dispatcher recebido (contagem maior que zero),must-have,BR-002
+  AC-004,Cancelamento,Coletor falso que cancela a varredura no segundo de tres apps,Executar a varredura,CancellationException; nenhum coletor chamado para o terceiro app; save nao chamado,must-have,BR-003
+  AC-005,Erros propagados,Inventario ou coletor ou leitura dos confiaveis ou save que lanca uma excecao de teste,Executar a varredura em cada caso,A mesma excecao chega a quem chama; nos tres primeiros casos save nao e chamado,must-have,BR-004
+  AC-006,Relogio,Clock falso que avanca e outro que volta entre a primeira e a segunda leitura,Executar a varredura,startedAt e finishedAt vem do clock; com o relogio que volta finishedAt e igual a startedAt e nao ha excecao,must-have,BR-005
+  AC-007,Aparelho sem apps,Inventario vazio,Executar a varredura,Relatorio com lista vazia e gravado; scan_run com totalApps 0 e contagens 0,must-have,BR-007
+  AC-008,Confiavel fica verde,Dois apps com S1 S2 S3 e so um em trustedPackages,Executar a varredura com o motor real,O confiavel fica GREEN com score 65; o outro fica RED com 65,must-have,BR-006
+  AC-009,Leitura dos confiaveis,user_decision com pacotes TRUSTED e tabela vazia,Ler TrustedAppRepository.trustedPackages(),Devolve exatamente os pacotes TRUSTED; vazio quando nao ha decisao,must-have,BR-006
+  AC-010,Gravacao de scan_run,Relatorio com trigger e datas e apps de cada nivel,RoomScanRepository.save,Uma linha com startedAt e finishedAt em ms e trigger pelo nome e totalApps e redCount e yellowCount corretos,must-have,BR-007
+  AC-011,Gravacao de app_snapshot,Um app sem instalador com S1 S2 S3 e outro com instalador e S1 S2 S3 S9,RoomScanRepository.save,Uma linha por app com todos os campos; signals igual as mascaras escritas a mao (7 e 263); score e level pelo nome,must-have,BR-007
+  AC-012,Contagens com confiavel,App confiavel verde com score 65 e apps amarelo e vermelho,RoomScanRepository.save,redCount e yellowCount contam pelo nivel final; o confiavel nao entra em redCount,must-have,BR-007
+  AC-013,Retencao das 10,Doze varreduras gravadas em sequencia,Gravar a decima segunda,Ficam as 10 de maior id; os app_snapshot das duas apagadas somem pela cascata,must-have,BR-009
+  AC-014,Retencao com relogio atrasado,Dez varreduras e uma nova com startedAt menor que todas,Gravar a nova,A nova fica; sai a de menor id,must-have,BR-009
+  AC-015,Menos de 10,Tres varreduras,Gravar a quarta,Nenhuma varredura apagada,must-have,BR-009
+  AC-016,Gravacao atomica,Dez varreduras gravadas e um relatorio com pacote repetido,RoomScanRepository.save,SQLiteConstraintException; nenhuma linha nova em scan_run ou app_snapshot; as dez antigas continuam,must-have,BR-009
+  AC-017,Sem mudanca de schema,Codigo da spec compilado,Rodar o build e o passo Schema do Room commitado,core-data/schemas sem diferenca; nenhum indice ou coluna novo,must-have,BR-009
+  AC-018,Pagamento padrao fora,App padrao de pagamento no inventario,Executar a varredura e revisar o construtor,O relatorio preserva defaultPaymentServices; o ScanDevice nao recebe o SettingsDataSource nem grava lastDefaultPaymentComponent,must-have,BR-008
+  AC-019,IOException nas preferencias,Arquivo das preferencias com bytes invalidos e outro caso com um diretorio no lugar do arquivo,Ler as quatro preferencias,Cada leitura devolve o padrao (false; true; 6; null) sem excecao,must-have,BR-010
+  AC-020,Grafo do core-data,HiltTestApplication no core-data,Injetar ScanRepository e TrustedAppRepository e as ligacoes existentes,Todas injetadas; banco e DataStore continuam unicos,must-have,BR-011
+  AC-021,Grafo do app,HiltTestApplication no app,Injetar ScanDevice e AppInventory e List<SignalCollector> e Clock e os dois dispatchers,Todos injetados; Clock igual a Clock.systemUTC(); dispatchers iguais a Dispatchers.IO e Dispatchers.Default,must-have,BR-011
+  AC-022,Nove coletores na lista,List<SignalCollector> injetada,Inspecionar a lista,Um coletor de cada uma das nove classes,must-have,BR-012
+  AC-023,Conjuntos do S1 nao trocados,InstallSourceCollector da lista injetada,Coletar cada pacote de KnownBanks.apps instalado por cada clonador; app comum por cada clonador; app comum pela Play; banco pelo shell,Sem S1; S1; sem S1; S1,must-have,BR-012
+  AC-024,Listas de S7 e S9,Coletores injetados,Coletar carteira conhecida padrao; pacote desconhecido padrao; rotulo Nubank com pacote estranho,Sem S7; S7; S9,must-have,BR-012
+  AC-025,Desempenho,Grafo real com InventoryModule trocado por inventario falso de 300 apps sinteticos pesados e Room do Robolectric,Medir so a primeira chamada de ScanDevice(MANUAL),Termina em ate 5 segundos com relatorio de 300 apps e sem excecao na gravacao,must-have,BR-013
+  AC-026,Limites do modulo,Diff da spec,Revisar dependencias e manifestos,DefaultScanDevice sem android.* e sem anotacoes; core-detection sem Hilt; motor criado dentro; LibraryManifestTest e MergedManifestTest passam sem permissao nova,must-have,BR-014
+  AC-027,Documentacao,ADR-023 e SKILLS.md e documentos de contexto e READMEs e secoes 7 e 9,Revisar diff,Decisoes do plano registradas; retencao de alertas atribuida a SPEC-053; API publica com 16 classes; isencao dos @Provides registrada,must-have,BR-015
+  AC-028,Qualidade,Codigo e testes de cada batch,Rodar ./gradlew build e validate-spec.sh,ktlint e detekt e testes passam; sem @Suppress novo; PR de cada batch lista os testes que so rodam no CI (nenhum previsto),must-have,BR-015
+  AC-029,Nove sinais pelo grafo real (BATCH-04; ScanDeviceEndToEndTest),Grafo real do Hilt com InventoryModule trocado por inventario falso com um app que dispara os nove sinais (sem instalador; NFC; HCE; acessibilidade ligada; sobreposicao; instalado agora pelo Clock do grafo; padrao de pagamento fora das carteiras; READ_SMS; rotulo Nubank com pacote estranho),Executar o ScanDevice injetado,O ScanReport traz os nove sinais nesse app (nenhum coletor faltando na lista do modulo) com score 100 e RED,must-have,BR-012

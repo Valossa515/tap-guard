@@ -1,0 +1,79 @@
+# TOON v3.0 – Feature Specification
+# .agent/specs/features/spec-018-varredura.spec.toon
+# SPEC-018 (issue #14) – interface library: outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build
+# Emenda 1.1 (2026-11-27 revisao do architect; sem mudanca de comportamento): TrustedAppsRepository vira TrustedAppRepository (singular como ScanRepository e os DAOs); AC-029 pedido pelo usuario no BATCH-04 (nove sinais no ScanReport pelo grafo real); estimativas por arquivo no documento de arquitetura (nenhum batch passa de 500)
+# Decisoes do usuario em 2026-11-27: retencao pela ordem de gravacao (id); finishedAt limitado a startedAt quando o relogio volta; IOException tratada no SettingsDataSource sem SettingsRepository; WeightedRiskScorer criado dentro do ScanDevice (ADR-022) para o construtor ficar com 6; LongParameterList com ignoreAnnotated Provides em app/detekt.yml
+
+feature:
+  id: FT-018
+  name: SPEC-018 Caso de uso de varredura
+  version: 1.1
+  status: draft
+  interface: library
+  estimate-lines: 1500
+
+requirement:
+  summary: O ScanDevice pede o inventario de apps; roda os nove coletores em cada app; calcula score e nivel com o WeightedRiskScorer respeitando os apps marcados como confiaveis; grava a varredura (scan_run e um app_snapshot por app) e mantem so as 10 varreduras mais recentes na mesma transacao; devolve o ScanReport. A spec cria as duas portas que ele usa (ScanRepository e TrustedAppRepository) com as implementacoes Room; faz a primeira ligacao dos coletores no Hilt do app com o Clock e os dispatchers; e trata IOException nas leituras das preferencias.
+  actor: ViewModel da tela de inicio (SPEC-030); worker da vigia (SPEC-051); app do banco que usar o SDK
+  trigger: ScanDevice(trigger) com ScanTrigger MANUAL ou APP_OPEN ou PERIODIC
+
+inputs[8]{name,type,required,constraints}:
+  trigger,ScanTrigger,true,MANUAL ou APP_OPEN ou PERIODIC; so passa para o relatorio e para scan_run.trigger
+  inventory,AppInventory,true,PackageManagerAppInventory no app; devolve apps de usuario sem o proprio app (SPEC-011)
+  collectors,List<SignalCollector>,true,os nove coletores montados no Hilt do app; copiada no construtor; ordem nao muda o resultado
+  trustedApps,TrustedAppRepository,true,porta nova no core-domain; le os pacotes com decision TRUSTED em user_decision
+  scans,ScanRepository,true,porta nova no core-domain; grava a varredura e aplica a retencao numa transacao
+  clock,Clock,true,Clock.systemUTC() no app; o mesmo do coletor de S6
+  dispatcher,CoroutineDispatcher,true,Dispatchers.Default no app (@DefaultDispatcher); roda o laco de coletores e score
+  report,ScanReport,true,entrada do ScanRepository.save; apps sem pacote repetido (o inventario nao repete)
+
+outputs:
+  success:
+    description: Varredura completa gravada com retencao aplicada e o relatorio devolvido
+    status: ScanReport
+    body[6]{name,type,value}:
+      trigger,ScanTrigger,o recebido
+      startedAt,Instant,clock antes do inventario
+      finishedAt,Instant,o maior entre startedAt e o clock depois do score
+      apps,List<ScannedApp>,todos os apps do inventario na ordem dele com o RiskResult de cada um
+      scan_run,linha,uma por varredura com startedAt e finishedAt em ms e trigger e totalApps e redCount e yellowCount
+      app_snapshot,linhas,uma por app com signals = toBitMask e score e level
+  errors[6]{code,status,when}:
+    SCAN_CANCELLED,CancellationException,quem chama cancela antes do fim; nada gravado; transacao desfeita se cancelada durante a gravacao
+    SOURCE_FAILED,PropagatedException,o inventario ou um coletor ou a leitura dos confiaveis lanca; a mesma excecao propaga e nada e gravado
+    RECORD_FAILED,PropagatedException,a gravacao falha (por exemplo SQLiteConstraintException); nada entra e a retencao nao roda
+    PREFERENCES_UNREADABLE,Defaults,o arquivo das preferencias nao pode ser lido (IOException inclusive CorruptionException); as leituras devolvem os padroes
+    SCHEMA_CHANGED,BuildFailure,o build regenera core-data/schemas com diferenca (passo Schema do Room commitado)
+    GRAPH_INVALID,BuildFailure,falta ligacao no grafo do Hilt ou o tipo da lista nao casa (List com wildcard)
+
+business-rules[15]{id,rule}:
+  BR-001,Ordem do invoke: startedAt do clock; inventario; apps confiaveis lidos uma vez e postos no ScoringContext; para cada app na ordem do inventario os coletores em sequencia com a uniao dos sinais e o score; finishedAt; ScanReport; ScanRepository.save; devolve o relatorio
+  BR-002,Sequencial: sem paralelismo entre coletores ou apps; o laco de coletores e score roda no dispatcher injetado; o inventario troca sozinho para o dispatcher de I/O; o Room usa o proprio executor
+  BR-003,Cancelamento cooperativo: ensureActive antes de cada app do laco (o inventario ja confere antes de cada app); cancelado antes da gravacao nada e gravado; cancelado durante a gravacao a transacao e desfeita; CancellationException nunca engolida
+  BR-004,Erros sem try: erro do inventario ou de coletor ou da leitura dos confiaveis ou da gravacao propaga para quem chama; nada fica gravado pela metade
+  BR-005,Relogio que volta: finishedAt = maxOf(startedAt; clock.instant()); o ScanReport nunca recebe fim antes do inicio (decisao do usuario)
+  BR-006,Apps confiaveis: TrustedAppRepository.trustedPackages() devolve os pacotes de user_decision com decision TRUSTED; so leitura nesta spec; marcar e desfazer na SPEC-033; a regra 2 fica no motor (so o nivel vira verde e o score passa pelas regras 3 e 4; ADR-022); o ScanDevice nao muda nivel nem score
+  BR-007,Gravacao: scan_run com startedAt e finishedAt (toEpochMilli) e trigger (name) e totalApps e redCount e yellowCount pelo nivel final (confiavel conta como verde); app_snapshot por app com packageName e label e versionCode e installer (installerPackageName) e firstInstallTime e lastUpdateTime (toEpochMilli) e signals (toBitMask) e score e level (name); nada mais gravado
+  BR-008,lastDefaultPaymentComponent nao e gravado: a SPEC-052 calcula a partir do ScanReport (ADR-021); o ScanDevice nao recebe o SettingsDataSource; o relatorio preserva defaultPaymentServices do inventario
+  BR-009,Retencao: na mesma transacao depois dos inserts apaga scan_run fora das 10 de maior id (ordem de gravacao; decisao do usuario); app_snapshot cai pela cascata da FK; constante 10 no core-data; sem indice novo e 1.json sem mudanca; falha num insert desfaz tudo e a retencao nao roda; alertas por 90 dias ficam na SPEC-053
+  BR-010,Preferencias: as quatro leituras do SettingsDataSource emitem emptyPreferences em IOException (inclusive CorruptionException) e relancam o resto; gravacoes sem mudanca; SettingsRepository no core-domain fica para a primeira spec que usar preferencias
+  BR-011,Hilt: no app DispatchersModule com @IoDispatcher (Dispatchers.IO) e @DefaultDispatcher (Dispatchers.Default) e ClockModule (Clock.systemUTC()) e InventoryModule (PackageManagerAppInventory) e DetectionModule (lista de coletores e ScanDevice); no core-data DataModule e RepositoryModule com @Binds das duas portas; core-detection sem Hilt nem javax.inject
+  BR-012,Coletores montados: um @Provides devolve List<SignalCollector> com os nove coletores; os tres conjuntos do S1 sao montados dentro dele com argumentos nomeados (TrustedStores.packageNames; KnownBanks.apps mapeado para packageName com toSet; KnownCloneApps.packageNames) e nunca entram no grafo como Set<String>; S7 com KnownWallets.packageNames; S9 com KnownBanks.apps; S6 com o Clock do grafo; @JvmSuppressWildcards no ponto de uso da lista
+  BR-013,Desempenho: 300 apps simulados em ate 5 segundos medidos so no invoke pelo grafo real com inventario falso e Room do Robolectric e sem aquecimento; o custo do PackageManager em aparelho fica na SPEC-022
+  BR-014,DefaultScanDevice no core-detection: publico; sem android.*; sem anotacoes; construtor com 6 dependencias (inventory e collectors e trustedApps e scans e clock e dispatcher); cria o WeightedRiskScorer dentro (ADR-022); o @Provides dele usa a isencao ignoreAnnotated Provides do LongParameterList em app/detekt.yml
+  BR-015,Fora: comparacao entre varreduras (SPEC-050); worker (SPEC-051); pagamento padrao e lastDefaultPaymentComponent (SPEC-052); alertas e retencao de 90 dias (SPEC-053); marcar e desfazer confiavel (SPEC-033); telas e leitura da ultima varredura (SPEC-030 em diante); SettingsRepository; sem mudanca de schema ou permissao ou manifesto ou coletor ou motor ou modelo
+
+assumptions[7]:
+  Decisoes do usuario em 2026-11-27 (tabela de lacunas do plano)
+  Experimentos num clone descartavel (Windows; JDK 21; Robolectric 4.18): 300 apps nos nove coletores e no motor em 87 e 41 ms; 300 snapshots e retencao em 101 ms a frio e cerca de 10 ms depois; withTransaction no room-runtime 2.8.5; plano de consulta sem indice novo; CorruptionException e IOException e diretorio no lugar do arquivo voltam aos padroes com o catch
+  Hilt 2.60.1 conferido no clone: List<SignalCollector> como parametro de @Provides falha sem @JvmSuppressWildcards e compila com ele
+  detekt 1.23.8 conferido no clone: LongParameterList recusa 7 em construtor e 6 em funcao; ignoreAnnotated Provides isenta so os providers
+  Nomes de tipos e arquivos sao propostas do plano; o architect fixa no contrato
+  Estimativa de 1500 linhas de codigo e testes sem os artefatos do SDD e sem a documentacao; acima de 500 e por isso quatro batches
+  outputs.*.status e o resultado devolvido ou a excecao propagada ou a falha do build (feature.interface library)
+
+batches[4]{id,scope,estimate}:
+  BATCH-01,Gravacao e retencao: porta ScanRepository; consulta de retencao no ScanRunDao; RoomScanRepository com mapeamento e transacao; RepositoryModule; testFixtures no core-data; testes do repositorio e do DAO e do grafo; Refs #14,400 lines
+  BATCH-02,Apps confiaveis e preferencias: porta TrustedAppRepository; consulta no UserDecisionDao; RoomTrustedAppRepository e ligacao; IOException nas quatro leituras do SettingsDataSource; testes; Refs #14,240 lines
+  BATCH-03,DefaultScanDevice no core-detection com testes JUnit 4 na JVM (portas falsas e motor real e CountingDispatcher e relogio que volta e cancelamento e erros); Refs #14,420 lines
+  BATCH-04,Hilt no app (DispatchersModule e ClockModule e InventoryModule e DetectionModule); isencao do detekt; dependencias de teste; teste do grafo; ponta a ponta com desempenho; documentacao e ADR-023; Closes #14,420 lines
