@@ -90,7 +90,7 @@
 - T2 sem varredura anterior: "Ainda não verificamos seu aparelho".
 - Textos exatos dos níveis: verde "Nada suspeito encontrado."; amarelo "Encontramos apps que merecem atenção."; vermelho "Encontramos um app com perfil de golpe. Veja o que fazer."
 - Textos exatos das notificações: app de risco "Um app instalado há pouco tem perfil de golpe. Toque para ver."; pagamento padrão "O app de pagamento por aproximação do seu celular mudou. Foi você?"
-- Retenção: 10 varreduras mais recentes; alertas por 90 dias.
+- Retenção: 10 varreduras mais recentes pela ordem de gravação (`id`), na transação da gravação (SPEC-018, ADR-023); alertas por 90 dias (SPEC-053).
 
 ## Definition of Ready
 - Issue com ID da spec no título, entregável, critérios de aceite em checklist e dependências mapeadas.

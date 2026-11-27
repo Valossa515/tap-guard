@@ -155,7 +155,7 @@ Total ~1.480; declarado 1.500. **Por que quatro e não três:** a divisão suger
 
 ## Tarefas
 
-1. [ ] BATCH-01 — `ScanRepository`; retenção no `ScanRunDao`; `RoomScanRepository`; `RepositoryModule`; testes (mapeamento de todos os campos, máscara escrita à mão, contagens com confiável, relatório vazio, 12 → 10 por `id`, relógio atrasado, menos de 10, cascata, rollback com pacote duplicado); `DataModuleTest`.
+1. [x] BATCH-01 — `ScanRepository`; retenção no `ScanRunDao`; `RoomScanRepository`; `RepositoryModule`; testes (mapeamento de todos os campos, máscara escrita à mão, contagens com confiável, relatório vazio, 12 → 10 por `id`, relógio atrasado, menos de 10, cascata, rollback com pacote duplicado); `DataModuleTest`.
 2. [ ] BATCH-02 — `TrustedAppRepository`; consulta no `UserDecisionDao`; `RoomTrustedAppRepository`; `catch` nas quatro leituras; testes (TRUSTED e vazio; corrompido e diretório nas quatro preferências); `DataModuleTest`.
 3. [ ] BATCH-03 — `DefaultScanDevice` e `DefaultScanDeviceTest` (ordem, união, confiável verde com score 65, campos e relógio, zero apps, dispatcher, cancelamento sem gravação, quatro erros propagados sem gravação).
 4. [ ] BATCH-04 — módulos do Hilt do app, `app/detekt.yml`, dependências de teste, `DetectionModuleTest`, `ScanDeviceEndToEndTest`; documentação abaixo; `./gradlew build` e validação do SDD.
@@ -193,3 +193,10 @@ Nenhuma mudança de schema: sem coluna, sem índice, `1.json` igual. Duas consul
 - [ ] Nove sinais no `ScanReport` pelo grafo real (AC-029, `ScanDeviceEndToEndTest`, BATCH-04)
 - [ ] 300 apps simulados em até 5 s (AC-025)
 - [ ] Limites, documentação e qualidade (AC-026 a AC-028)
+
+## Conferência do BATCH-01 — 2026-11-27
+
+- Tarefas em commits próprios: porta e consulta de retenção (tarefa 1), `RoomScanRepository` e `RepositoryModule` (tarefa 2), testes e plano de testes (tarefa 3), documentação e ADR-023 (tarefa 4).
+- Tamanho real: 416 linhas de código e testes (estimativa 407), abaixo de 500.
+- `./gradlew build` verde; schema igual; conferência local com cinco mutações, todas derrubando testes e desfeitas sem commit. Detalhes em `spec-018-varredura-tests.md`.
+- Nenhuma decisão de comportamento mudou.

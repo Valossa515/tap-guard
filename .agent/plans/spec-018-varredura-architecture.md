@@ -122,3 +122,19 @@ Soma de cerca de 1.470 linhas; o `estimate-lines: 1500` fica. **Nenhum batch pas
 
 - **BATCH-04 perto do limite:** mitigação descrita acima.
 - **SQLite do Robolectric diferente do aparelho:** os testes de atomicidade dependem do rollback do SQLite, que é o mesmo motor. O tempo é só indicativo; a SPEC-022 mede em aparelho.
+
+## Conferência do BATCH-01 — 2026-11-27
+
+| Arquivo | Estimado | Real |
+| --- | ---: | ---: |
+| `ScanRepository.kt` | 15 | 11 |
+| `ScanRunDao.kt` | 10 | 8 |
+| `RoomScanRepository.kt` | 75 | 68 |
+| `RepositoryModule.kt` | 20 | 16 |
+| `core-data/build.gradle.kts` | 1 | 1 |
+| `RoomScanRepositoryTest.kt` | 210 | 236 |
+| `ScanRunDaoTest.kt` | 70 | 65 |
+| `DataModuleTest.kt` | 6 | 11 |
+| **Total** | **407** | **416** |
+
+Diff de código e testes desde o commit dos artefatos: 416 linhas adicionadas, 0 removidas. Os nomes, os arquivos e a transação seguiram o contrato sem emenda.

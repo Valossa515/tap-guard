@@ -53,3 +53,23 @@ Depois da suíte verde, uma alteração por vez na produção; cada uma deve der
 5. `RED` e `YELLOW` trocados nas contagens.
 
 Restaurar os bytes originais e rodar a suíte de novo.
+
+### Resultados do BATCH-01 — 2026-11-27
+
+- **Testes novos:** 12, todos passaram: 4 no `ScanRunDaoTest` (agora 7), 7 no `RoomScanRepositoryTest` e 1 no `DataModuleTest` (agora 3). Nenhum ignorado.
+- **Build completo:** `./gradlew build` passou em 1min35s (535 tarefas, 93 executadas): ktlint, detekt, Android lint, testes e Kover. Relatórios: core-domain 75, core-detection 406, core-data 29 (2 ignorados no Windows), core-nfc 1, app 32, decoy-app 1. São 544 casos, 542 aprovados, 2 ignorados e 0 falhas.
+- **Ignorados no Windows (rodam no CI):** os dois já existentes do `SettingsDataSourceTest`, `written values are read back` e `writing null removes last default payment component`. Nenhum teste novo é ignorado.
+- **Schema:** `core-data/schemas` sem diferença depois do build.
+- Não executado em aparelho nem no CI remoto (sem push).
+
+### Conferência local do BATCH-01 (todas desfeitas sem commit)
+
+Cada mutação foi aplicada sozinha na produção; a suíte do repositório, do DAO e do grafo rodou, e os bytes originais foram restaurados (`git diff` vazio no fim).
+
+| Mutação | Testes que falharam |
+| --- | --- |
+| Retenção por `startedAt` no lugar de `id` | `delete older than latest keeps the newest run even with the oldest start time`; `eleventh save keeps the ten most recent scans` |
+| Escritas fora do `withTransaction` | `failed save rolls back the scan and does not apply retention` |
+| `RETAINED_SCANS = 11` | `eleventh save keeps the ten most recent scans` |
+| Retenção antes dos inserts | `eleventh save keeps the ten most recent scans` |
+| `RED` e `YELLOW` trocados nas contagens | `counts follow the final level and a trusted app counts as green` |
