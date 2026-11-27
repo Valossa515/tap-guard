@@ -80,3 +80,78 @@ Cada mutação foi aplicada sozinha na produção; a suíte do repositório, do 
 - `ScanRunDao.deleteOlderThanLatest` recusa `keep` menor que 1 (`require`, mensagem fixa). Teste novo no `ScanRunDaoTest` (agora 8): `keep` 0 e -1 lançam `IllegalArgumentException` com a mensagem escrita no teste, e as três varreduras continuam.
 - Conferência: tirar o `require` derruba o teste novo (com `LIMIT 0`, as três varreduras seriam apagadas). Desfeita sem commit.
 - Testes novos do BATCH-01: 13.
+
+## BATCH-02 — Apps confiáveis e preferências
+
+### Escopo
+
+`UserDecisionDao.getTrustedPackageNames` e `RoomTrustedAppRepository` (leitura dos apps confiáveis), a ligação `TrustedAppRepository` no grafo do `core-data` e o tratamento de `IOException` nas quatro leituras do `SettingsDataSource`. A porta `TrustedAppRepository` é interface e fica fora (contrato, `excluded`). Segue o contrato 1.2.
+
+### Infraestrutura
+
+- **Confiáveis:** Robolectric `@Config(sdk = [36])`, Room em memória e `runTest`, como no BATCH-01. As linhas entram pelo `UserDecisionDao.insert` que já existe. A decisão é escrita como literal (`"TRUSTED"`, `"trusted"`).
+- **Preferências:** JUnit 4 puro com DataStore real (`PreferenceDataStoreFactory.create(scope = backgroundScope)`), como o `SettingsDataSourceTest` existente. Sem fingir o store. Cada cenário só lê, sem gravar: roda também no Windows.
+  - **Corrompido:** bytes que não são protobuf gravados no arquivo antes de criar o store.
+  - **Pasta:** um diretório criado no caminho do arquivo.
+  - **Outra exceção:** o produtor do arquivo lança `IllegalStateException("sem arquivo")`.
+- Padrões escritos à mão: `false`, `true`, `6`, `null`.
+
+### Integração — `RoomTrustedAppRepositoryTest`
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | `user_decision` com dois pacotes `TRUSTED` e um com `trusted` em minúsculas | `trustedPackages()` devolve só os dois `TRUSTED` | AC-009 |
+| 2 | Tabela vazia | Conjunto vazio | AC-009 |
+
+### Integração — `SettingsDataSourceTest` (cenários novos)
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | Arquivo com bytes inválidos (`CorruptionException`) | As quatro leituras devolvem os padrões, sem exceção | AC-019 |
+| 2 | Diretório no lugar do arquivo (`IOException`) | As quatro leituras devolvem os padrões, sem exceção | AC-019 |
+| 3 | Produtor do arquivo lança `IllegalStateException` | As quatro leituras propagam a `IllegalStateException` | AC-019 |
+
+### Grafo — `DataModuleTest`
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | Injetar `TrustedAppRepository` | Instância de `RoomTrustedAppRepository` | AC-020 |
+
+### Conferência local (desfeita sem commit)
+
+Uma alteração por vez na produção. O script apaga os resultados XML antes de cada rodada, roda o Gradle de verdade (`./gradlew` no Git Bash) e só lê os XML gerados naquela rodada. Há também uma rodada de controle, sem mutação, que tem de passar com resultados novos. Cada mutação deve derrubar pelo menos um teste:
+
+1. sem o `catch` da `IOException` (leituras direto do `dataStore.data`);
+2. `catch` de qualquer exceção (emite vazio para tudo);
+3. consulta dos confiáveis sem `WHERE decision = 'TRUSTED'`;
+4. consulta com comparação sem distinguir maiúsculas (`decision = 'TRUSTED' COLLATE NOCASE`);
+5. `RoomTrustedAppRepository.trustedPackages()` devolvendo sempre um conjunto vazio.
+
+### Resultados do BATCH-02 — 2026-11-27
+
+- **Testes novos:** 6, todos passaram, nenhum ignorado: 2 no `RoomTrustedAppRepositoryTest`, 3 no `SettingsDataSourceTest` (agora 6) e 1 no `DataModuleTest` (agora 4). Os três de preferências só leem e rodam no Windows.
+- **Build completo:** `./gradlew build` passou em 1min38s (535 tarefas, 83 executadas): ktlint, detekt, Android lint, testes e Kover. Relatórios: core-domain 75, core-detection 406, core-data 36 (2 ignorados no Windows), core-nfc 1, app 32, decoy-app 1. São 551 casos, 549 aprovados, 2 ignorados e 0 falhas.
+- **Ignorados no Windows (rodam no CI):** os dois que já existiam no `SettingsDataSourceTest`, `written values are read back` e `writing null removes last default payment component`.
+- **Schema:** `core-data/schemas` sem diferença.
+- Não executado em aparelho nem no CI remoto (sem push).
+
+### Conferência local do BATCH-02 (todas desfeitas sem commit)
+
+**O Gradle rodou de verdade a cada alteração.** O script (Git Bash) fazia, a cada rodada:
+1. aplicar a mutação e mostrar o diff dela (`+1/-1` no arquivo esperado);
+2. apagar `core-data/build/test-results/testDebugUnitTest/*.xml`;
+3. criar um marcador de tempo e rodar `./gradlew :core-data:testDebugUnitTest` com os três testes do batch;
+4. conferir no log que a tarefa `:core-data:testDebugUnitTest` executou e que os 3 XML existiam e eram mais novos que o marcador.
+
+A rodada de controle, sem mutação, passou (exit 0, tarefa executada, 3 XML novos). No fim, `git status` limpo e `git diff` vazio.
+
+| Mutação | Exit | Testes que falharam |
+| --- | --- | --- |
+| Controle (sem mutação) | 0 | nenhum |
+| Sem o `catch` da `IOException` | 1 | `corrupted file reads the four defaults`; `directory in place of the file reads the four defaults` |
+| `catch` de qualquer exceção | 1 | `exceptions other than IOException are rethrown by the four reads` |
+| Consulta sem `WHERE decision = 'TRUSTED'` | 1 | `returns only packages whose decision is exactly TRUSTED` |
+| Decisão com `COLLATE NOCASE` | 1 | `returns only packages whose decision is exactly TRUSTED` |
+| Repositório devolve sempre vazio | 1 | `returns only packages whose decision is exactly TRUSTED` |
+
+Cada rodada com mutação teve 12 testes (2 ignorados) e só as falhas acima.

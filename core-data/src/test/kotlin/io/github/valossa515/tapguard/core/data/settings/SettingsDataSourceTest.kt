@@ -60,11 +60,57 @@ class SettingsDataSourceTest {
         }
     }
 
+    @Test
+    fun `corrupted file reads the four defaults`() =
+        runTest {
+            preferencesFile().writeBytes(byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9))
+
+            assertDefaults(settingsIn(this))
+        }
+
+    @Test
+    fun `directory in place of the file reads the four defaults`() =
+        runTest {
+            preferencesFile().mkdirs()
+
+            assertDefaults(settingsIn(this))
+        }
+
+    @Test
+    fun `exceptions other than IOException are rethrown by the four reads`() =
+        runTest {
+            val settings =
+                SettingsDataSource(
+                    PreferenceDataStoreFactory.create(scope = backgroundScope) {
+                        throw IllegalStateException("sem arquivo")
+                    },
+                )
+
+            listOf(
+                settings.onboardingDone,
+                settings.monitoringEnabled,
+                settings.scanIntervalHours,
+                settings.lastDefaultPaymentComponent,
+            ).forEach { read ->
+                val error = runCatching { read.first() }.exceptionOrNull()
+
+                assertTrue("esperava IllegalStateException: $error", error is IllegalStateException)
+                assertEquals("sem arquivo", error?.message)
+            }
+        }
+
+    private suspend fun assertDefaults(settings: SettingsDataSource) {
+        assertFalse(settings.onboardingDone.first())
+        assertTrue(settings.monitoringEnabled.first())
+        assertEquals(6, settings.scanIntervalHours.first())
+        assertNull(settings.lastDefaultPaymentComponent.first())
+    }
+
+    private fun preferencesFile(): File = File(folder.root, "settings.preferences_pb")
+
     private fun settingsIn(test: TestScope): SettingsDataSource =
         SettingsDataSource(
-            PreferenceDataStoreFactory.create(scope = test.backgroundScope) {
-                File(folder.root, "settings.preferences_pb")
-            },
+            PreferenceDataStoreFactory.create(scope = test.backgroundScope) { preferencesFile() },
         )
 
     private companion object {

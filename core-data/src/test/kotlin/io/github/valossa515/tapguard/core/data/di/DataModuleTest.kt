@@ -11,7 +11,9 @@ import io.github.valossa515.tapguard.core.data.database.dao.AppSnapshotDao
 import io.github.valossa515.tapguard.core.data.database.dao.ScanRunDao
 import io.github.valossa515.tapguard.core.data.database.dao.UserDecisionDao
 import io.github.valossa515.tapguard.core.data.repository.RoomScanRepository
+import io.github.valossa515.tapguard.core.data.repository.RoomTrustedAppRepository
 import io.github.valossa515.tapguard.core.data.settings.SettingsDataSource
+import io.github.valossa515.tapguard.core.domain.risk.TrustedAppRepository
 import io.github.valossa515.tapguard.core.domain.scan.ScanRepository
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
@@ -56,6 +58,9 @@ class DataModuleTest {
     @Inject
     lateinit var scanRepository: ScanRepository
 
+    @Inject
+    lateinit var trustedAppRepository: TrustedAppRepository
+
     @Before
     fun setUp() = hilt.inject()
 
@@ -73,6 +78,11 @@ class DataModuleTest {
     @Test
     fun `scan repository is bound to the room implementation`() {
         assertTrue(scanRepository is RoomScanRepository)
+    }
+
+    @Test
+    fun `trusted app repository is bound to the room implementation`() {
+        assertTrue(trustedAppRepository is RoomTrustedAppRepository)
     }
 
     @Test
