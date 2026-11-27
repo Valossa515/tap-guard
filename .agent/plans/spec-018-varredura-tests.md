@@ -155,3 +155,47 @@ A rodada de controle, sem mutação, passou (exit 0, tarefa executada, 3 XML nov
 | Repositório devolve sempre vazio | 1 | `returns only packages whose decision is exactly TRUSTED` |
 
 Cada rodada com mutação teve 12 testes (2 ignorados) e só as falhas acima.
+
+## BATCH-03 — DefaultScanDevice
+
+### Escopo
+
+`DefaultScanDevice` (`core-detection`, `scan`): ordem das etapas, coletores em sequência, dispatcher injetado, cancelamento, erros, relógio que volta, apps confiáveis e o relatório. Segue o contrato 1.2 (`DefaultScanDeviceTest`, 10 cenários).
+
+### Infraestrutura
+
+- JUnit 4 na JVM, sem Robolectric (o `DefaultScanDevice` não usa API do Android), `runTest` e `anInstalledApp` do `testFixtures`. Motor real (`WeightedRiskScorer`, criado dentro do `DefaultScanDevice`).
+- **Falsos escritos no teste, sem MockK** (o módulo não tem MockK), todos gravando numa lista de eventos em ordem:
+  - inventário com lista fixa, ou que lança;
+  - repositório de confiáveis com conjunto fixo, ou que lança;
+  - repositório de varreduras que guarda os relatórios, ou que lança;
+  - coletor que devolve sinais por pacote e pode lançar, cancelar ou suspender (`yield()`) num pacote.
+- **Relógio:** um `Clock` que devolve instantes de uma lista, em ordem, para o relógio que avança e para o que volta.
+- **Dispatcher:** `StandardTestDispatcher(testScheduler)`. No cenário do dispatcher, embrulhado num `CountingDispatcher` (padrão do `PackageManagerAppInventoryTest`).
+- **Cancelamento como o de quem chama:** a varredura roda num `launch`, e o coletor, ao ver o segundo app, chama `cancel()` nesse job e **volta normalmente**, sem lançar. Assim só o `ensureActive()` do laço impede o terceiro app. Um coletor que lançasse `CancellationException` faria a exceção sair mesmo sem o `ensureActive`, e o teste não pegaria a falta dele.
+- **Exceção de teste própria** (`ScanTestException`), conferida por identidade.
+
+### Unitários — `DefaultScanDeviceTest`
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | Dois apps e dois coletores, o primeiro suspendendo (`yield()`) | Eventos: inventário, confiáveis, coletor 1 (início e fim) e coletor 2 do primeiro app, os mesmos do segundo, gravação. Um coletor só começa depois que o anterior termina, e a gravação vem uma vez, no fim | AC-001 |
+| 2 | O relatório gravado e o devolvido | O mesmo objeto, gravado uma vez | AC-001 |
+| 3 | Coletores com sinais distintos e repetidos | `signals` é a união (S1 S2 S3), score 65, vermelho | AC-002 |
+| 4 | `CountingDispatcher` | Contagem maior que zero | AC-003 |
+| 5 | Cancelamento no segundo de três apps | Job cancelado; nenhum coletor no terceiro app; gravação não chamada | AC-004 |
+| 6 | Inventário, coletor (no segundo app), confiáveis ou gravação lançam | A mesma exceção chega a quem chama; nos três primeiros casos a gravação não é chamada | AC-005 |
+| 7 | Relógio que avança e relógio que volta | Início e fim vêm do relógio; com o relógio que volta, o fim é igual ao início, sem exceção | AC-006 |
+| 8 | Inventário vazio | Relatório vazio, gravado uma vez | AC-007 |
+| 9 | Dois apps com S1 S2 S3 e um deles confiável | Confiável verde com score 65; o outro vermelho com 65 | AC-008 |
+| 10 | App com `defaultPaymentServices` | O relatório traz o mesmo `InstalledApp`, com o campo preservado | AC-018 |
+
+### Conferência local (desfeita sem commit)
+
+Mesmo cuidado do BATCH-02: a cada rodada, aplicar a mutação e mostrar o diff, apagar os XML de resultado, criar um marcador de tempo, rodar `./gradlew :core-detection:testDebugUnitTest` com o `DefaultScanDeviceTest` e conferir que a tarefa executou e que o XML é mais novo que o marcador. Uma rodada de controle, sem mutação, tem de passar. Cada mutação deve derrubar pelo menos um teste:
+
+1. gravar antes de terminar todos os apps (um relatório parcial gravado depois de cada app);
+2. ignorar os confiáveis (`ScoringContext(emptySet())`);
+3. tirar o `ensureActive()`;
+4. fim sem a correção do relógio (`finishedAt = clock.instant()`);
+5. coletores em paralelo (`async` por coletor, com `awaitAll`).
