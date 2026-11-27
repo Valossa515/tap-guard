@@ -126,3 +126,32 @@ Uma alteração por vez na produção. O script apaga os resultados XML antes de
 3. consulta dos confiáveis sem `WHERE decision = 'TRUSTED'`;
 4. consulta com comparação sem distinguir maiúsculas (`decision = 'TRUSTED' COLLATE NOCASE`);
 5. `RoomTrustedAppRepository.trustedPackages()` devolvendo sempre um conjunto vazio.
+
+### Resultados do BATCH-02 — 2026-11-27
+
+- **Testes novos:** 6, todos passaram, nenhum ignorado: 2 no `RoomTrustedAppRepositoryTest`, 3 no `SettingsDataSourceTest` (agora 6) e 1 no `DataModuleTest` (agora 4). Os três de preferências só leem e rodam no Windows.
+- **Build completo:** `./gradlew build` passou em 1min38s (535 tarefas, 83 executadas): ktlint, detekt, Android lint, testes e Kover. Relatórios: core-domain 75, core-detection 406, core-data 36 (2 ignorados no Windows), core-nfc 1, app 32, decoy-app 1. São 551 casos, 549 aprovados, 2 ignorados e 0 falhas.
+- **Ignorados no Windows (rodam no CI):** os dois que já existiam no `SettingsDataSourceTest`, `written values are read back` e `writing null removes last default payment component`.
+- **Schema:** `core-data/schemas` sem diferença.
+- Não executado em aparelho nem no CI remoto (sem push).
+
+### Conferência local do BATCH-02 (todas desfeitas sem commit)
+
+**O Gradle rodou de verdade a cada alteração.** O script (Git Bash) fazia, a cada rodada:
+1. aplicar a mutação e mostrar o diff dela (`+1/-1` no arquivo esperado);
+2. apagar `core-data/build/test-results/testDebugUnitTest/*.xml`;
+3. criar um marcador de tempo e rodar `./gradlew :core-data:testDebugUnitTest` com os três testes do batch;
+4. conferir no log que a tarefa `:core-data:testDebugUnitTest` executou e que os 3 XML existiam e eram mais novos que o marcador.
+
+A rodada de controle, sem mutação, passou (exit 0, tarefa executada, 3 XML novos). No fim, `git status` limpo e `git diff` vazio.
+
+| Mutação | Exit | Testes que falharam |
+| --- | --- | --- |
+| Controle (sem mutação) | 0 | nenhum |
+| Sem o `catch` da `IOException` | 1 | `corrupted file reads the four defaults`; `directory in place of the file reads the four defaults` |
+| `catch` de qualquer exceção | 1 | `exceptions other than IOException are rethrown by the four reads` |
+| Consulta sem `WHERE decision = 'TRUSTED'` | 1 | `returns only packages whose decision is exactly TRUSTED` |
+| Decisão com `COLLATE NOCASE` | 1 | `returns only packages whose decision is exactly TRUSTED` |
+| Repositório devolve sempre vazio | 1 | `returns only packages whose decision is exactly TRUSTED` |
+
+Cada rodada com mutação teve 12 testes (2 ignorados) e só as falhas acima.

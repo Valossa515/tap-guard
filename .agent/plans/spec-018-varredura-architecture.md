@@ -160,3 +160,16 @@ O usuário pediu `require(keep > 0)` na retenção. Um `@Query` de interface nã
 2. `fix`: `IOException` nas quatro leituras do `SettingsDataSource` (comentário da #14).
 3. `test`: `RoomTrustedAppRepositoryTest`, `SettingsDataSourceTest` (corrompido, pasta, exceção relançada), `DataModuleTest`; plano de testes.
 4. `docs`: documentação do BATCH-02 e status do ADR-023.
+
+### Conferência do BATCH-02 — 2026-11-27
+
+| Arquivo | Estimado | Real |
+| --- | ---: | ---: |
+| `TrustedAppRepository.kt`, `UserDecisionDao.kt`, `RoomTrustedAppRepository.kt`, `RepositoryModule.kt` | 50 | 38 |
+| `SettingsDataSource.kt` | 12 | 24 (+18 −6) |
+| `RoomTrustedAppRepositoryTest.kt` | 80 (com `UserDecisionDaoTest`) | 58 |
+| `SettingsDataSourceTest.kt` | 55 | 52 (+49 −3) |
+| `DataModuleTest.kt` | 5 | 10 |
+| **Total** | **202** | **182** (173 adicionadas, 9 removidas) |
+
+A consulta nova do `UserDecisionDao` é coberta pelo `RoomTrustedAppRepositoryTest`, como o contrato pede. O `UserDecisionDaoTest` não mudou. Nomes, arquivos e ligações seguiram o contrato 1.2.

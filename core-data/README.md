@@ -2,7 +2,7 @@
 
 Biblioteca Android com o banco local (Room), as preferências (DataStore), os repositórios e o histórico de varreduras, decisões e alertas.
 
-> **Estado (SPEC-018 BATCH-01):** banco Room versão 1 com as quatro tabelas da seção 9, preferências com os padrões, o módulo do Hilt (SPEC-004) e o repositório de varreduras com a retenção (`RoomScanRepository`). Apps confiáveis e o tratamento de `IOException` nas preferências entram no BATCH-02.
+> **Estado (SPEC-018 BATCH-02):** banco Room versão 1 com as quatro tabelas da seção 9, preferências com os padrões, o módulo do Hilt (SPEC-004), o repositório de varreduras com a retenção (`RoomScanRepository`, BATCH-01), a leitura dos apps confiáveis (`RoomTrustedAppRepository`) e as preferências que voltam aos padrões com o arquivo ilegível (BATCH-02).
 
 ## Dependências
 
@@ -19,9 +19,9 @@ Biblioteca Android com o banco local (Room), as preferências (DataStore), os re
 | `database` | `TapGuardDatabase` (versão 1, arquivo `tapguard.db`) |
 | `database.entity` | `ScanRunEntity`, `AppSnapshotEntity`, `UserDecisionEntity`, `AlertEventEntity` |
 | `database.dao` | `ScanRunDao`, `AppSnapshotDao`, `UserDecisionDao`, `AlertEventDao` (inserir e ler; o `ScanRunDao` também aplica a retenção) |
-| `repository` | `RoomScanRepository` (porta `ScanRepository` do `core-domain`) |
+| `repository` | `RoomScanRepository` (porta `ScanRepository`) e `RoomTrustedAppRepository` (porta `TrustedAppRepository`), do `core-domain` |
 | `settings` | `SettingsDataSource` (DataStore `settings`) |
-| `di` | `DataModule` (Hilt, `SingletonComponent`): banco e DataStore únicos, e cada DAO; `RepositoryModule` (`@Binds`): `ScanRepository` → `RoomScanRepository` |
+| `di` | `DataModule` (Hilt, `SingletonComponent`): banco e DataStore únicos, e cada DAO; `RepositoryModule` (`@Binds`): `ScanRepository` → `RoomScanRepository` e `TrustedAppRepository` → `RoomTrustedAppRepository` |
 
 ## Banco (especificação, seção 9)
 
@@ -51,14 +51,20 @@ Colunas com os nomes da especificação (camelCase). Datas em milissegundos; enu
 
 Uma falha em qualquer passo desfaz os três e propaga a exceção. Permissões, serviços e o pagamento padrão não são gravados (`lastDefaultPaymentComponent` é da SPEC-052). Sem índice novo: a subconsulta usa a chave primária, e a cascata usa o índice da chave composta. Alertas por 90 dias: SPEC-053.
 
+## Apps confiáveis (SPEC-018, ADR-023)
+
+`RoomTrustedAppRepository.trustedPackages()` devolve, num conjunto que não pode ser alterado, os pacotes de `user_decision` com `decision = 'TRUSTED'` (`UserDecisionDao.getTrustedPackageNames()`). A comparação é exata: `trusted` em minúsculas não conta. Só leitura; marcar e desfazer entram na SPEC-033.
+
 ## Preferências (DataStore `settings`)
 
 | Chave | Tipo | Padrão |
 |-------|------|--------|
 | `onboardingDone` | booleano | falso |
 | `monitoringEnabled` | booleano | verdadeiro |
-| `scanIntervalHours` | inteiro | 6 (a validação de 1, 6, 12 ou 24 fica para a SPEC-018) |
+| `scanIntervalHours` | inteiro | 6 (a validação de 1, 6, 12 ou 24 fica para a primeira spec que usar preferências, SPEC-051 ou SPEC-054) |
 | `lastDefaultPaymentComponent` | texto | nulo quando nunca registrado; gravar nulo apaga |
+
+Arquivo ilegível ou corrompido (`IOException`, inclusive a `CorruptionException` do DataStore): as quatro leituras devolvem os padrões, como pede o comentário da #14. Outra exceção é propagada. As gravações não mudam; com o arquivo corrompido, elas ainda falham.
 
 ## Regras
 
@@ -71,8 +77,9 @@ Uma falha em qualquer passo desfaz os três e propaga a exceção. Permissões, 
 - DAOs em banco em memória (Robolectric), com chave duplicada e snapshot órfão recusados e a cascata; retenção do `ScanRunDao` por `id` (12 → 10, relógio atrasado, menos de 10, cascata, `keep` 0 e -1 recusados).
 - `RoomScanRepositoryTest` (Room em memória): colunas de `scan_run` e `app_snapshot` com máscaras escritas à mão, contagens com app confiável, relatório vazio, retenção pelo `save` e rollback com pacote repetido (as 10 antigas continuam).
 - Migração inicial: `MigrationTestHelper` com arquivo e driver (`AndroidSQLiteDriver`) cria e valida a versão 1.
-- `SettingsDataSourceTest` em JUnit 4 puro com DataStore real. **No Windows**, os dois testes que gravam mais de uma vez são ignorados (`Assume`), porque a JVM do Windows não consegue renomear o arquivo temporário do DataStore por cima do existente. Eles rodam no CI (Linux).
-- Grafo do Hilt (`DataModuleTest`, `HiltTestApplication`): banco, DAOs, DataStore e `ScanRepository`, com singletons.
+- `SettingsDataSourceTest` em JUnit 4 puro com DataStore real. **No Windows**, os dois testes que gravam mais de uma vez são ignorados (`Assume`), porque a JVM do Windows não consegue renomear o arquivo temporário do DataStore por cima do existente. Eles rodam no CI (Linux). Os três testes de leitura do BATCH-02 (arquivo corrompido, pasta no lugar do arquivo, outra exceção relançada) só leem e rodam também no Windows.
+- `RoomTrustedAppRepositoryTest` (Room em memória): só os pacotes `TRUSTED`, com `trusted` em minúsculas ignorado; tabela vazia.
+- Grafo do Hilt (`DataModuleTest`, `HiltTestApplication`): banco, DAOs, DataStore, `ScanRepository` e `TrustedAppRepository`, com singletons.
 
 ## Comandos
 
