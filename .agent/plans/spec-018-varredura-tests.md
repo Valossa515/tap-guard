@@ -80,3 +80,49 @@ Cada mutação foi aplicada sozinha na produção; a suíte do repositório, do 
 - `ScanRunDao.deleteOlderThanLatest` recusa `keep` menor que 1 (`require`, mensagem fixa). Teste novo no `ScanRunDaoTest` (agora 8): `keep` 0 e -1 lançam `IllegalArgumentException` com a mensagem escrita no teste, e as três varreduras continuam.
 - Conferência: tirar o `require` derruba o teste novo (com `LIMIT 0`, as três varreduras seriam apagadas). Desfeita sem commit.
 - Testes novos do BATCH-01: 13.
+
+## BATCH-02 — Apps confiáveis e preferências
+
+### Escopo
+
+`UserDecisionDao.getTrustedPackageNames` e `RoomTrustedAppRepository` (leitura dos apps confiáveis), a ligação `TrustedAppRepository` no grafo do `core-data` e o tratamento de `IOException` nas quatro leituras do `SettingsDataSource`. A porta `TrustedAppRepository` é interface e fica fora (contrato, `excluded`). Segue o contrato 1.2.
+
+### Infraestrutura
+
+- **Confiáveis:** Robolectric `@Config(sdk = [36])`, Room em memória e `runTest`, como no BATCH-01. As linhas entram pelo `UserDecisionDao.insert` que já existe. A decisão é escrita como literal (`"TRUSTED"`, `"trusted"`).
+- **Preferências:** JUnit 4 puro com DataStore real (`PreferenceDataStoreFactory.create(scope = backgroundScope)`), como o `SettingsDataSourceTest` existente. Sem fingir o store. Cada cenário só lê, sem gravar: roda também no Windows.
+  - **Corrompido:** bytes que não são protobuf gravados no arquivo antes de criar o store.
+  - **Pasta:** um diretório criado no caminho do arquivo.
+  - **Outra exceção:** o produtor do arquivo lança `IllegalStateException("sem arquivo")`.
+- Padrões escritos à mão: `false`, `true`, `6`, `null`.
+
+### Integração — `RoomTrustedAppRepositoryTest`
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | `user_decision` com dois pacotes `TRUSTED` e um com `trusted` em minúsculas | `trustedPackages()` devolve só os dois `TRUSTED` | AC-009 |
+| 2 | Tabela vazia | Conjunto vazio | AC-009 |
+
+### Integração — `SettingsDataSourceTest` (cenários novos)
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | Arquivo com bytes inválidos (`CorruptionException`) | As quatro leituras devolvem os padrões, sem exceção | AC-019 |
+| 2 | Diretório no lugar do arquivo (`IOException`) | As quatro leituras devolvem os padrões, sem exceção | AC-019 |
+| 3 | Produtor do arquivo lança `IllegalStateException` | As quatro leituras propagam a `IllegalStateException` | AC-019 |
+
+### Grafo — `DataModuleTest`
+
+| # | Cenário | Esperado | Aceite |
+| --- | --- | --- | --- |
+| 1 | Injetar `TrustedAppRepository` | Instância de `RoomTrustedAppRepository` | AC-020 |
+
+### Conferência local (desfeita sem commit)
+
+Uma alteração por vez na produção. O script apaga os resultados XML antes de cada rodada, roda o Gradle de verdade (`./gradlew` no Git Bash) e só lê os XML gerados naquela rodada. Há também uma rodada de controle, sem mutação, que tem de passar com resultados novos. Cada mutação deve derrubar pelo menos um teste:
+
+1. sem o `catch` da `IOException` (leituras direto do `dataStore.data`);
+2. `catch` de qualquer exceção (emite vazio para tudo);
+3. consulta dos confiáveis sem `WHERE decision = 'TRUSTED'`;
+4. consulta com comparação sem distinguir maiúsculas (`decision = 'TRUSTED' COLLATE NOCASE`);
+5. `RoomTrustedAppRepository.trustedPackages()` devolvendo sempre um conjunto vazio.
