@@ -138,3 +138,13 @@ Soma de cerca de 1.470 linhas; o `estimate-lines: 1500` fica. **Nenhum batch pas
 | **Total** | **407** | **416** |
 
 Diff de código e testes desde o commit dos artefatos: 416 linhas adicionadas, 0 removidas. Os nomes, os arquivos e a transação seguiram o contrato sem emenda.
+
+### Emenda da correção do review — 2026-11-27
+
+O usuário pediu `require(keep > 0)` na retenção. Um `@Query` de interface não tem corpo, então o `ScanRunDao` passou a `abstract class`: `deleteOlderThanLatest(keep)` é público, valida e chama `deleteOutsideLatest(keep)`, `protected abstract` com o `@Query`. Assim não existe caminho público sem a validação. O Room 2.8.5 aceita essa forma por KSP (conferido no build). Sem mudança de comportamento para `keep` maior que 0.
+
+| | Linhas |
+| --- | ---: |
+| `ScanRunDao.kt` (forma e `require`) | +21 −6 |
+| `ScanRunDaoTest.kt` (teste novo) | +14 |
+| **BATCH-01 com a correção** | **449 adicionadas, 4 removidas = 453** (estimativa 407) |

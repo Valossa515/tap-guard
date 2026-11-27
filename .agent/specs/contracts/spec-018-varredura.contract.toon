@@ -5,11 +5,12 @@
 # Publicos novos: ScanRepository e TrustedAppRepository (core-domain); DefaultScanDevice (core-detection; API publica 16 classes); RoomScanRepository e RoomTrustedAppRepository e RepositoryModule (core-data); modulos e qualificadores do app
 # Sem @Suppress novo; sem mudanca de schema (1.json igual); sem permissao nova; sem dependencia nova de producao
 # Estimativa pelos arquivos: cerca de 1470 linhas de codigo e testes (407 no BATCH-01 e 202 no BATCH-02 e 405 no BATCH-03 e 458 no BATCH-04; tabela no documento de arquitetura)
+# Emenda 1.1 (2026-11-27 pedida pelo usuario depois do review do BATCH-01): ScanRunDao vira abstract class; deleteOlderThanLatest publico faz require(keep > 0) com mensagem fixa e chama o @Query protected deleteOutsideLatest; cenario keep-below-one-rejected-AC-013 no ScanRunDaoTest
 # Cada linha diz o batch: BATCH-01 (gravacao e retencao) ou BATCH-02 (confiaveis e preferencias) ou BATCH-03 (ScanDevice) ou BATCH-04 (Hilt e ponta a ponta)
 
 contract:
   feature-ref: FT-018
-  version: 1.0
+  version: 1.1
 
 layers:
   core-domain-ports:
@@ -21,7 +22,7 @@ layers:
       core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/scan/DefaultScanDevice.kt,create,BATCH-03: class DefaultScanDevice(inventory: AppInventory; collectors: List<SignalCollector>; trustedApps: TrustedAppRepository; scans: ScanRepository; clock: Clock; dispatcher: CoroutineDispatcher) : ScanDevice; copia a lista com Collections.unmodifiableList(ArrayList(...)); private val scorer: RiskScorer = WeightedRiskScorer(); invoke segue BR-001 a BR-005 (startedAt; inventario; confiaveis uma vez; withContext(dispatcher) com ensureActive antes de cada app e coletores em sequencia e score; finishedAt = maxOf(startedAt; clock.instant()); ScanReport; scans.save; devolve); sem try; sem android.*; sem anotacoes; KDoc com ordem e cancelamento e erros e o que o SDK fornece
   core-data-persistence:
     files[7]{path,action,description}:
-      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDao.kt,modify,BATCH-01: @Query("DELETE FROM scan_run WHERE id NOT IN (SELECT id FROM scan_run ORDER BY id DESC LIMIT :keep)") suspend fun deleteOlderThanLatest(keep: Int); KDoc: mantem as keep de maior id (ordem de gravacao; nao depende do relogio); os app_snapshot das apagadas caem pela cascata
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDao.kt,modify,BATCH-01: vira abstract class (emenda 1.1); suspend fun deleteOlderThanLatest(keep: Int) publico com require(keep > 0) e mensagem fixa e depois @Query("DELETE FROM scan_run WHERE id NOT IN (SELECT id FROM scan_run ORDER BY id DESC LIMIT :keep)") protected abstract suspend fun deleteOutsideLatest(keep: Int); KDoc: mantem as keep de maior id (ordem de gravacao; nao depende do relogio); os app_snapshot das apagadas caem pela cascata; keep menor que 1 nao apaga nada
       core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/repository/RoomScanRepository.kt,create,BATCH-01: class RoomScanRepository @Inject constructor(database: TapGuardDatabase; scanRunDao: ScanRunDao; appSnapshotDao: AppSnapshotDao) : ScanRepository; save = database.withTransaction { insert do ScanRunEntity; insertAll dos AppSnapshotEntity com o id; deleteOlderThanLatest(RETAINED_SCANS) }; private const val RETAINED_SCANS = 10; mapeamento private (toEpochMilli; trigger.name; level.name; signals.toBitMask(); installer = installerPackageName; redCount e yellowCount pelo nivel final); KDoc com a transacao e a retencao
       core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/di/RepositoryModule.kt,create,BATCH-01: @Module @InstallIn(SingletonComponent::class) abstract class RepositoryModule com @Binds abstract fun bindScanRepository(impl: RoomScanRepository): ScanRepository; BATCH-02 acrescenta bindTrustedAppRepository
       core-data/build.gradle.kts,modify,BATCH-01: testImplementation(testFixtures(project(":core-domain"))) para anInstalledApp e aRiskResult nos testes do repositorio
@@ -94,7 +95,8 @@ test-strategy:
       file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDaoTest.kt
       type: room-in-memory
       batch: BATCH-01
-      scenarios[4]:
+      scenarios[5]:
+        keep-below-one-rejected-and-nothing-deleted-AC-013
         twelve-runs-keep-ten-highest-ids-AC-013
         newest-run-with-oldest-startedAt-is-kept-AC-014
         fewer-than-keep-deletes-nothing-AC-015

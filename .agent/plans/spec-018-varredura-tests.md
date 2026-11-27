@@ -23,6 +23,7 @@ Segue o contrato FT-018 v1.0 (`test-strategy`). Uma seção por batch, registrad
 | 2 | 10 varreduras e uma 11ª com `startedAt` menor que todas; `deleteOlderThanLatest(10)` | A 11ª fica; sai a de menor id | AC-014 |
 | 3 | 3 varreduras; `deleteOlderThanLatest(10)` | Nenhuma apagada | AC-015 |
 | 4 | Varredura com snapshots apagada pela retenção | Os snapshots dela somem; os das que ficam continuam | AC-013 |
+| 5 | `keep` 0 e -1 (correção do review) | `IllegalArgumentException` com a mensagem fixa; nenhuma varredura apagada | AC-013 |
 
 ### Integração — `RoomScanRepositoryTest`
 
@@ -73,3 +74,9 @@ Cada mutação foi aplicada sozinha na produção; a suíte do repositório, do 
 | `RETAINED_SCANS = 11` | `eleventh save keeps the ten most recent scans` |
 | Retenção antes dos inserts | `eleventh save keeps the ten most recent scans` |
 | `RED` e `YELLOW` trocados nas contagens | `counts follow the final level and a trusted app counts as green` |
+
+### Correção do review — 2026-11-27
+
+- `ScanRunDao.deleteOlderThanLatest` recusa `keep` menor que 1 (`require`, mensagem fixa). Teste novo no `ScanRunDaoTest` (agora 8): `keep` 0 e -1 lançam `IllegalArgumentException` com a mensagem escrita no teste, e as três varreduras continuam.
+- Conferência: tirar o `require` derruba o teste novo (com `LIMIT 0`, as três varreduras seriam apagadas). Desfeita sem commit.
+- Testes novos do BATCH-01: 13.

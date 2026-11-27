@@ -98,6 +98,20 @@ class ScanRunDaoTest {
         }
 
     @Test
+    fun `delete older than latest rejects keeping fewer than one run and deletes nothing`() =
+        runTest {
+            val ids = (1..3).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }
+
+            listOf(0, -1).forEach { keep ->
+                val error = runCatching { database.scanRunDao().deleteOlderThanLatest(keep) }.exceptionOrNull()
+
+                assertTrue("keep = $keep: $error", error is IllegalArgumentException)
+                assertEquals("A retenção precisa manter pelo menos uma varredura", error?.message)
+            }
+            assertEquals(ids, remainingIds())
+        }
+
+    @Test
     fun `runs removed by retention take their snapshots with them`() =
         runTest {
             val ids = (1..11).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }

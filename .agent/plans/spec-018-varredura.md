@@ -197,6 +197,6 @@ Nenhuma mudança de schema: sem coluna, sem índice, `1.json` igual. Duas consul
 ## Conferência do BATCH-01 — 2026-11-27
 
 - Tarefas em commits próprios: porta e consulta de retenção (tarefa 1), `RoomScanRepository` e `RepositoryModule` (tarefa 2), testes e plano de testes (tarefa 3), documentação e ADR-023 (tarefa 4).
-- Tamanho real: 416 linhas de código e testes (estimativa 407), abaixo de 500.
+- Tamanho real: 416 linhas de código e testes antes da correção do review; 453 com ela (449 adicionadas, 4 removidas; estimativa 407), abaixo de 500.
 - `./gradlew build` verde; schema igual; conferência local com cinco mutações, todas derrubando testes e desfeitas sem commit. Detalhes em `spec-018-varredura-tests.md`.
 - Nenhuma decisão de comportamento mudou.

@@ -47,7 +47,7 @@ Colunas com os nomes da especificação (camelCase). Datas em milissegundos; enu
 
 1. insere a linha de `scan_run`: datas em milissegundos (`finishedAt` sempre preenchido), `trigger` pelo nome, `totalApps`, e `redCount` e `yellowCount` pelo nível final (um app confiável conta como verde);
 2. insere um `app_snapshot` por app: campos do `InstalledApp`, `signals` pela máscara (`toBitMask()`), `score` e `level` pelo nome;
-3. aplica a retenção: `ScanRunDao.deleteOlderThanLatest(10)` mantém as 10 varreduras de **maior `id`** (ordem de gravação). Não ordena por `startedAt`, porque com o relógio do aparelho atrasado a varredura recém-gravada seria apagada. Os snapshots das apagadas caem pela cascata.
+3. aplica a retenção: `ScanRunDao.deleteOlderThanLatest(10)` mantém as 10 varreduras de **maior `id`** (ordem de gravação). Não ordena por `startedAt`, porque com o relógio do aparelho atrasado a varredura recém-gravada seria apagada. Os snapshots das apagadas caem pela cascata. `keep` menor que 1 lança `IllegalArgumentException` (mensagem fixa) sem apagar nada; por isso o `ScanRunDao` é `abstract class`, com a consulta `protected` atrás do `require`.
 
 Uma falha em qualquer passo desfaz os três e propaga a exceção. Permissões, serviços e o pagamento padrão não são gravados (`lastDefaultPaymentComponent` é da SPEC-052). Sem índice novo: a subconsulta usa a chave primária, e a cascata usa o índice da chave composta. Alertas por 90 dias: SPEC-053.
 
@@ -68,7 +68,7 @@ Uma falha em qualquer passo desfaz os três e propaga a exceção. Permissões, 
 
 ## Testes
 
-- DAOs em banco em memória (Robolectric), com chave duplicada e snapshot órfão recusados e a cascata; retenção do `ScanRunDao` por `id` (12 → 10, relógio atrasado, menos de 10, cascata).
+- DAOs em banco em memória (Robolectric), com chave duplicada e snapshot órfão recusados e a cascata; retenção do `ScanRunDao` por `id` (12 → 10, relógio atrasado, menos de 10, cascata, `keep` 0 e -1 recusados).
 - `RoomScanRepositoryTest` (Room em memória): colunas de `scan_run` e `app_snapshot` com máscaras escritas à mão, contagens com app confiável, relatório vazio, retenção pelo `save` e rollback com pacote repetido (as 10 antigas continuam).
 - Migração inicial: `MigrationTestHelper` com arquivo e driver (`AndroidSQLiteDriver`) cria e valida a versão 1.
 - `SettingsDataSourceTest` em JUnit 4 puro com DataStore real. **No Windows**, os dois testes que gravam mais de uma vez são ignorados (`Assume`), porque a JVM do Windows não consegue renomear o arquivo temporário do DataStore por cima do existente. Eles rodam no CI (Linux).
