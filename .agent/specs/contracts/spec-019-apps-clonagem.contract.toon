@@ -54,7 +54,7 @@ test-strategy:
         mutacao-por-cast-lanca-UnsupportedOperationException-e-preserva-conteudo
     - target: InstallSourceCollector
       scenarios[8]:
-        sete-clonadores-com-banco-vazio-e-com-app-comum-S1
+        sete-clonadores-com-banco-sem-S1-e-com-app-comum-S1
         banco-manual-nulo-desconhecido-shell-e-instaladores-do-sistema-S1
         ShareMe-SHAREit-Lite-e-MIUI-Backup-com-banco-S1
         variacao-de-caixa-isolada-do-banco-e-do-clonador-e-rotulo-sem-pacote-S1

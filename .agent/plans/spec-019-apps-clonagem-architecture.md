@@ -52,3 +52,7 @@ JUnit 4, runTest e anInstalledApp; sem mocks/Robolectric. O construtor e coment�
 4. Documentação e resultados da conferência/revisão.
 
 A ordem segue as tarefas do plano; os papéis são executados sequencialmente na mesma sessão. Checks por tarefa, build final, mutações locais revertidas em finally sem commit, validação SDD e revisão. Sem push ou PR remoto nesta sessão.
+
+## Conferência final — 2026-11-27
+
+Diff de código e testes: 333 linhas adicionadas e 15 removidas, total conservador de 348. A estimativa 450 inclui margem e foi respeitada; sem batches. A implementação manteve todos os nomes e decisões de comportamento. Não há mudança fora dos arquivos do contrato e dos artefatos SDD próprios.

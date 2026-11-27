@@ -34,7 +34,7 @@
 ## Signals
 | ID | Significado | Peso | `Signal` (bit) |
 |----|-------------|------|----------------|
-| S1 | Instalado fora de uma loja confiável | 30 | `UNTRUSTED_INSTALL_SOURCE` (0) |
+| S1 | Instalado fora de loja confiável, salvo banco conhecido copiado por clonador conhecido | 30 | `UNTRUSTED_INSTALL_SOURCE` (0) |
 | S2 | Declara a permissão de NFC | 15 | `NFC_PERMISSION` (1) |
 | S3 | Declara serviço de emulação de cartão (HCE) | 20 | `CARD_EMULATION_SERVICE` (2) |
 | S4 | Tem serviço de acessibilidade ativo | 25 | `ACCESSIBILITY_SERVICE_ENABLED` (3) |
@@ -58,9 +58,10 @@ Os pesos não ficam no enum: ficam no arquivo de configuração do motor de scor
 - **EMV:** padrão dos cartões de pagamento lidos no F2.
 - **PPSE:** ambiente de pagamento por aproximação selecionado no início da leitura EMV.
 - **TLV:** formato dos dados devolvidos pelo cartão; o parser TLV extrai nome da aplicação, número e validade.
-- **Loja confiável:** instalador cujo pacote está na lista `TrustedStores` (SPEC-012): Google Play, Galaxy Store, Xiaomi GetApps (dois pacotes), OPPO App Market (dois pacotes), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Instalador nulo ou fora da lista gera S1. Pacotes e motivos no ADR-017.
+- **Loja confiável:** instalador cujo pacote está na lista `TrustedStores` (SPEC-012): Google Play, Galaxy Store, Xiaomi GetApps (dois pacotes), OPPO App Market (dois pacotes), vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore. Instalador nulo gera S1; fora das lojas, só banco conhecido com clonador conhecido recebe a exceção da SPEC-019. Pacotes e motivos no ADR-017.
 - **Carteira conhecida:** app cujo pacote está em `KnownWallets` (SPEC-015): Carteira do Google, Samsung Wallet e os apps de banco que fazem Pix por aproximação no próprio app (Nubank, Itaú, Banco do Brasil e Inter). Pode ser o app de pagamento padrão sem gerar S7. Pacotes e critério no ADR-020.
-- **Banco conhecido (S9):** entrada `KnownBankApp` de `KnownBanks` (SPEC-015): nome de exibição e pacote oficial de um app, ou de um apelido de app, das 14 instituições com mais clientes no ranking do Banco Central. Um pacote pode ter mais de um nome, e uma instituição, mais de um app. Lista e critério no ADR-020.
+- **Clonador conhecido (S1):** instalador em `KnownCloneApps.packageNames`; só dispensa S1 junto com pacote em bancos. ShareMe (`com.xiaomi.midrop`), SHAREit (`com.lenovo.anyshare.gps`), SHAREit Lite (`shareit.lite`) e MIUI Backup (`com.miui.backup`) ficam fora. Fonte e limitações no ADR-017.
+- **Banco conhecido (S9 e exceção de S1):** entrada `KnownBankApp` de `KnownBanks` (SPEC-015): nome de exibição e pacote oficial de um app, ou de um apelido de app, das 14 instituições com mais clientes no ranking do Banco Central. Um pacote pode ter mais de um nome, e uma instituição, mais de um app. Lista e critério no ADR-020.
 - **Esqueleto do nome (S9):** forma do nome que o S9 compara (`bankNameSkeleton`, SPEC-015): cortado no primeiro separador, sem acentos, em minúsculas, com letras parecidas trocadas por uma só (`0→o`, `l→i`, cirílico e grego) e só com `a-z` e `0-9`. "Itáú | Token" e "1taú" dão `itau`. Rótulo e nomes da lista passam pelo mesmo esqueleto, e também os prefixos e sufixos que a comparação tira. Detalhes no ADR-020.
 - **App de pagamento padrão:** app que o sistema usa para pagamento por aproximação (categoria de pagamento; no Android 15+, papel de carteira). O Tap Guard o descobre perguntando `CardEmulation.isDefaultServiceForCategory(componente, CATEGORY_PAYMENT)` para cada serviço de HCE ligado e exportado dos apps de usuário; os que respondem `true` ficam em `InstalledApp.defaultPaymentServices` (ADR-021).
 - **Papel de carteira:** `RoleManager.ROLE_WALLET` (API 35). Com ele ligado, o sistema NFC trata como padrão de pagamento todo serviço registrado do app dono do papel, sem olhar a categoria (ADR-021).

@@ -161,21 +161,21 @@ Branch proposta para a implementação: `spec-019-apps-clonagem`; PR com SPEC-01
 1. [x] Architect revisar os artefatos, fixar nomes e organização dos testes e produzir o contrato; não reabrir a decisão (B).
 2. [x] Entregar lista pública com fontes e seus testes de conteúdo e imutabilidade.
 3. [x] Alterar o coletor, adaptar as seis chamadas e entregar os testes da exceção, negativos, vazios e cópias no mesmo passo, mantendo a suíte compilável.
-4. [ ] Atualizar ADR-017, remissão do ADR-020, §5, KDocs, README e documentos de contexto; registrar o contrato de integração para a SPEC-018.
-5. [ ] Executar a validação SDD e os checks de implementação; revisar o diff e o orçamento antes do PR.
+4. [x] Atualizar ADR-017, remissão do ADR-020, §5, KDocs, README e documentos de contexto; registrar o contrato de integração para a SPEC-018.
+5. [x] Executar a validação SDD e os checks de implementação; revisar o diff e o orçamento antes do PR.
 
 ## Aceite e validação
 
 Critérios completos em `.agent/specs/acceptance/spec-019-apps-clonagem.acceptance.toon`; feature em `.agent/specs/features/spec-019-apps-clonagem.spec.toon`.
 
-- [ ] Sete pacotes exatos em lista pública não modificável, com fonte por entrada e teste independente.
-- [ ] Três conjuntos obrigatórios, sem padrão, copiados individualmente; consumidor controla a configuração.
-- [ ] Loja dispensa S1; exceção de clonagem exige simultaneamente banco e clonador.
-- [ ] Banco copiado não recebe S1; app qualquer copiado e banco instalado à mão recebem S1.
-- [ ] ShareMe e SHAREit geram S1 inclusive para banco; SHAREit Lite e MIUI Backup permanecem excluídos.
-- [ ] Casos de nulo, caixa, conjuntos vazios, cópias e regressões cobertos sem mudar o motor.
-- [ ] ADR-017, ADR-020 e §5 coerentes com a regra; Hilt explicitamente destinado à SPEC-018.
-- [ ] ktlint, detekt e testes passam; nenhuma dependência ou permissão nova.
+- [x] Sete pacotes exatos em lista pública não modificável, com fonte por entrada e teste independente.
+- [x] Três conjuntos obrigatórios, sem padrão, copiados individualmente; consumidor controla a configuração.
+- [x] Loja dispensa S1; exceção de clonagem exige simultaneamente banco e clonador.
+- [x] Banco copiado não recebe S1; app qualquer copiado e banco instalado à mão recebem S1.
+- [x] ShareMe e SHAREit geram S1 inclusive para banco; SHAREit Lite e MIUI Backup permanecem excluídos.
+- [x] Casos de nulo, caixa, conjuntos vazios, cópias e regressões cobertos sem mudar o motor.
+- [x] ADR-017, ADR-020 e §5 coerentes com a regra; Hilt explicitamente destinado à SPEC-018.
+- [x] ktlint, detekt e testes passam; nenhuma dependência ou permissão nova.
 
 Na implementação: `./gradlew :core-detection:build` como verificação do módulo e `./gradlew build` como gate do PR (no Windows, equivalente `./gradlew.bat`). Registrar os testes que só rodarem no CI, conforme a convenção do projeto. A mudança não cria meta Kover em `core-detection`; o gate existente do domínio continua no build completo. Conferência manual em aparelho fica na SPEC-022.
 
@@ -187,3 +187,13 @@ Neste planejamento, validar os dois TOON com `.agent/scripts/validate-spec.sh`, 
 - Conferência adicional: colunas das tabelas TOON consistentes; **12 regras cobertas por 18 critérios**; `feature-ref: FT-019` e estimativa 450 coerentes entre os artefatos.
 - Confirmadas as seis chamadas atuais do construtor nas três classes de testes; dependências #8 e #11 fechadas; #73 em “Em andamento” no Project 2.
 - Nenhum código de produção ou teste alterado. Build e testes do aplicativo não executados nesta etapa de planejamento. Alterações de ADRs e da especificação do produto permanecem tarefas da implementação.
+
+## Execução após aprovação — concluída em 2026-11-27
+
+- Arquitetura aprovada sem mudar o comportamento; nomes e organização em `spec-019-apps-clonagem-architecture.md` e contrato FT-019 v1.0. As observações anteriores descrevem o estado na etapa de planejamento.
+- Implementação e testes concluídos na branch `spec-019-apps-clonagem`, sem push. Main e origin/main permanecem em `fc74fb6252e151288efcfa1b14788494a275a249`.
+- Diff de código e testes: 333 adições + 15 remoções = 348 linhas; estimativa 450 mantida. Sem batches e sem single-pr-reason.
+- 71 testes focados passam, incluindo 44 novos. Build do módulo e build completo passam; core-detection com 406 testes e domínio com 97,5% de cobertura.
+- Sete mutações locais detectadas por asserções, restauradas sem commit; resultados e testes ignorados no Windows detalhados no test-plan.
+- Emenda SPEC-019 no ADR-017, remissão e limitação no ADR-020, §5 e §8, README e documentos de contexto atualizados.
+- Validação final: feature, aceite e contrato válidos no validate-spec.sh; colunas e rastreabilidade conferidas (12 regras e 18 critérios).

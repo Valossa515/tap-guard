@@ -2,9 +2,9 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-016):** inventário de apps com os serviços de HCE, os de acessibilidade ligados e o serviço de pagamento padrão (`PackageManagerAppInventory`, SPEC-011, SPEC-013, SPEC-014 e SPEC-016), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03) e o coletor do sinal S7 (`DefaultPaymentAppCollector`, SPEC-016). O `ScanDevice` e a ligação no Hilt entram na SPEC-018.
+> **Estado (SPEC-019):** inventário de apps com os serviços de HCE, os de acessibilidade ligados e o serviço de pagamento padrão (`PackageManagerAppInventory`, SPEC-011, SPEC-013, SPEC-014 e SPEC-016), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03) e o coletor do sinal S7 (`DefaultPaymentAppCollector`, SPEC-016). O `ScanDevice` e a ligação no Hilt entram na SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector` e `DefaultPaymentAppCollector` (catorze classes). O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector`, `DefaultPaymentAppCollector` e `KnownCloneApps` (quinze classes). O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
@@ -67,11 +67,12 @@ No Tap Guard, as duas ficam no manifesto do `app` (ADR-016), e o `LibraryManifes
 
 ## Coletor do sinal S1 (origem da instalação)
 
-`InstallSourceCollector(trustedInstallers)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementa `SignalCollector`. Ele não usa API do Android: compara o `installerPackageName` que o inventário já leu com o conjunto recebido na construção.
+`InstallSourceCollector(trustedInstallers, knownBankPackages, knownCloneApps)`, no pacote `io.github.valossa515.tapguard.core.detection.signal`, implementa `SignalCollector`. Lê somente os campos do `InstalledApp` recebidos do inventário, sem chamada ao Android.
 
-- **Gera S1** (`UNTRUSTED_INSTALL_SOURCE`) quando o instalador é nulo (instalação por `adb`, ou instalador já desinstalado) ou está fora do conjunto. Fora isso, devolve um conjunto vazio. Nunca devolve outro sinal.
-- **Comparação exata**, com maiúsculas e minúsculas. O conjunto é copiado na construção; um conjunto vazio faz todo app receber S1.
-- **O parâmetro é obrigatório.** A lista padrão é `TrustedStores.packageNames`:
+- **Regra (SPEC-019):** Sem S1 quando o instalador está nas lojas OU (pacote está nos bancos E instalador está nos clonadores). Instalador nulo e todos os demais casos geram S1. Retorna somente vazio ou `UNTRUSTED_INSTALL_SOURCE`.
+- **Comparação exata**, com maiúsculas e minúsculas. Três conjuntos obrigatórios, sem padrão ou overload antigo, copiados separadamente. Bancos vazios ou clonadores vazios desligam só a exceção; lojas vazias ainda permitem banco com clonador; todos vazios geram S1 para qualquer app.
+- A SPEC-018 monta no Hilt do `app`: `TrustedStores.packageNames`, `KnownBanks.apps.map { it.packageName }.toSet()` e `KnownCloneApps.packageNames`. O mapeamento deduplica as 29 entradas em 26 pacotes; o construtor faz a cópia defensiva.
+- A lista de lojas é `TrustedStores.packageNames`:
 
 | Loja | Pacote |
 |------|--------|
@@ -89,13 +90,21 @@ No Tap Guard, as duas ficam no manifesto do `app` (ADR-016), e o `LibraryManifes
 - **Para o SDK:** `TrustedStores.packageNames` não pode ser alterado. Quem usa o SDK monta o próprio conjunto a partir dele:
 
 ```kotlin
-InstallSourceCollector(TrustedStores.packageNames + "com.banco.loja")   // amplia
-InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia") // reduz
+val bankPackages = KnownBanks.apps.map { it.packageName }.toSet()
+InstallSourceCollector(
+    trustedInstallers = TrustedStores.packageNames + "com.banco.loja",
+    knownBankPackages = bankPackages,
+    knownCloneApps = KnownCloneApps.packageNames,
+) // amplia lojas; os três conjuntos podem ser personalizados
+InstallSourceCollector(TrustedStores.packageNames - "com.amazon.venezia", bankPackages, KnownCloneApps.packageNames)
 ```
 
 - **Limitações** (ADR-017):
   - com shell ou root (adb, Shizuku), um app pode ser registrado como instalado por uma loja da lista;
   - num aparelho sem uma das lojas, outro app pode usar o nome de pacote dela. Nesse caso, o app que instalou o golpe recebe S1, e, se ele se desinstalar, o instalador do golpe vira nulo e também gera S1. A defesa (confiar só em instalador que seja app do sistema) está na issue #57.
+
+- **Clonadores conhecidos (SPEC-019):** Samsung Smart Switch (`com.sec.android.easyMover`), Xiaomi Mi Mover (`com.miui.huanji`), OPPO Clone Phone (`com.coloros.backuprestore`), OnePlus Clone Phone (`com.oneplus.backuprestore`), Huawei Phone Clone (`com.hicloud.android.clone`), HONOR Device Clone (`com.hihonor.android.clone`) e vivo EasyShare (`com.vivo.easyshare`). `KnownCloneApps.packageNames` é público, não modificável nem por cast, com nome e fonte por entrada. ShareMe (`com.xiaomi.midrop`), SHAREit (`com.lenovo.anyshare.gps`), SHAREit Lite (`shareit.lite`) e MIUI Backup (`com.miui.backup`) ficam fora. Fontes no ADR-017 e nos comentários da lista.
+- **Limitação da exceção:** pacote de banco emprestado já no aparelho antigo e pacote de clonador emprestado continuam possíveis. Defesas nas #57/#65; atribuição real no aparelho fica para a SPEC-022. Sem S1, o teto é 29 salvo S7/S9; com esses sinais, o teto é 59. Não há verde incondicional.
 
 ## Coletores dos sinais S2 e S3 (NFC)
 
@@ -153,7 +162,7 @@ Duas listas no pacote `io.github.valossa515.tapguard.core.detection.signal`, no 
 | Inter | `br.com.intermedium` |
 
 - **Ficam fora de `KnownWallets`:** entram só apps com fonte de que fazem o pagamento por aproximação, as duas carteiras e os bancos com Pix por aproximação no próprio app. Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6 fazem o Pix por aproximação pela Carteira do Google e ficam fora.
-- **`KnownBanks.apps`** (29 entradas, 26 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem a usa é o coletor de S9 (abaixo).
+- **`KnownBanks.apps`** (29 entradas, 26 pacotes): nome de exibição e pacote oficial dos apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca. Quem a usa é o coletor de S9 (abaixo); seus pacotes distintos também configuram a exceção do S1 via Hilt na SPEC-018.
   - Cada entrada é um `KnownBankApp(displayName, packageName)`: um app ou um apelido de app. Um pacote pode ter mais de um nome ("BB" e "Banco do Brasil"; "Santander Brasil" e "Santander"; "BTG Pactual Banking" e "BTG Pactual"), e uma instituição, mais de um app (Itaú, Itaú Empresas e Personnalité).
   - `displayName` é o nome da marca, tirado do título da Play ou do desenvolvedor, não o rótulo do aparelho, que é conferido no teste ponta a ponta (SPEC-022). Nome ou pacote em branco lança `IllegalArgumentException`.
   - Ficaram para depois, com o pacote já conferido: Banco Pan, Sicoob, Sicredi, Banrisul, Safra e BV.
@@ -238,6 +247,11 @@ BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")) 
   - `InstallSourceCollectorTrustedStoreTest`: um caso por loja, parametrizado sobre uma lista escrita à mão no teste (`ExpectedTrustedStores.kt`), não sobre a lista de produção;
   - `InstallSourceCollectorUntrustedInstallerTest`: lojas recusadas, app de clonagem e instaladores do sistema;
   - `InstallSourceCollectorTest`: instalador nulo, maiúsculas, só S1, lista maior e menor, cópia do conjunto, lista padrão igual à esperada e imutável.
+  - `InstallSourceCollectorCloneAppTest`: sete clonadores com banco e com app comum (14 casos).
+  - `InstallSourceCollectorRejectedCloneTest`: banco com nulo, instaladores manuais e quatro apps excluídos (10 casos).
+  - `InstallSourceCollectorConfigurationTest`: caixa, rótulo, vazios e conjuntos próprios (15 casos).
+  - `InstallSourceCollectorCopiedSetsTest`: remoção e adição posteriores nos três conjuntos (3 casos).
+  - `KnownCloneAppsTest` e `ExpectedKnownCloneApps`: sete pacotes escritos à mão e imutabilidade (2 casos).
 - Coletores de S2 e S3, também em JUnit 4 sem Robolectric:
   - `NfcPermissionCollectorTest`: permissão de NFC, sem permissões, permissão sem relação, maiúsculas e minúsculas, só S2;
   - `NfcPermissionCollectorRelatedPermissionTest`: as três permissões relacionadas, parametrizado sobre uma lista escrita à mão;
