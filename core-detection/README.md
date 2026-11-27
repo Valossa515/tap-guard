@@ -2,9 +2,9 @@
 
 Biblioteca Android com os coletores de sinais sobre as APIs do Android (`PackageManager`, `Settings.Secure`, `CardEmulation`) e o caso de uso de varredura `ScanDevice`. Implementa `AppInventory` e `SignalCollector` do `core-domain`.
 
-> **Estado (SPEC-019):** inventário de apps com os serviços de HCE, os de acessibilidade ligados e o serviço de pagamento padrão (`PackageManagerAppInventory`, SPEC-011, SPEC-013, SPEC-014 e SPEC-016), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03) e o coletor do sinal S7 (`DefaultPaymentAppCollector`, SPEC-016). O `ScanDevice` e a ligação no Hilt entram na SPEC-018.
+> **Estado (SPEC-019):** inventário de apps com os serviços de HCE, os de acessibilidade ligados e o serviço de pagamento padrão (`PackageManagerAppInventory`, SPEC-011, SPEC-013, SPEC-014 e SPEC-016), coletor do sinal S1 com a lista de lojas confiáveis (`InstallSourceCollector` e `TrustedStores`, SPEC-012), coletores dos sinais S2 e S3 (`NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013) coletores dos sinais S4, S5, S6 e S8 (`EnabledAccessibilityServiceCollector`, `OverlayPermissionCollector`, `RecentInstallOrUpdateCollector` e `SmsPermissionCollector`, SPEC-014) , listas de carteiras e de bancos conhecidos (`KnownWallets`, `KnownBankApp` e `KnownBanks`, SPEC-015 BATCH-01), a comparação de nomes do S9 (`BankNameMatcher`, `internal`, SPEC-015 BATCH-02) o coletor do sinal S9 (`BankLookalikeCollector`, SPEC-015 BATCH-03) o coletor do sinal S7 (`DefaultPaymentAppCollector`, SPEC-016) e o caso de uso de varredura (`DefaultScanDevice`, SPEC-018 BATCH-03). A ligação no Hilt do `app` entra no BATCH-04 da SPEC-018.
 
-**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector`, `DefaultPaymentAppCollector` e `KnownCloneApps` (quinze classes). O resto é `internal` ou `private`.
+**API pública:** `PackageManagerAppInventory`, `InstallSourceCollector`, `TrustedStores`, `NfcPermissionCollector`, `CardEmulationServiceCollector`, `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector`, `EnabledAccessibilityServiceCollector`, `KnownWallets`, `KnownBankApp`, `KnownBanks`, `BankLookalikeCollector`, `DefaultPaymentAppCollector`, `KnownCloneApps` e `DefaultScanDevice` (dezesseis classes). O resto é `internal` ou `private`.
 
 ## Inventário de apps
 
@@ -220,6 +220,22 @@ BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")) 
 - O banco fictício da variante `lookalike` do app isca entra do mesmo jeito; como o teste ponta a ponta o injeta fica para a SPEC-021 ou a SPEC-022.
 - **Limitação do pacote emprestado** (ADR-017 e ADR-020): num aparelho sem o app do banco, um app com o pacote oficial e o nome do banco não recebe S9. Instalado à mão, ele recebe S1, e com NFC e HCE fica vermelho mesmo sem o S9. A defesa pelo certificado de assinatura está na issue #65.
 
+## Caso de uso de varredura (SPEC-018, ADR-023)
+
+`DefaultScanDevice(inventory, collectors, trustedApps, scans, clock, dispatcher)`, no pacote `scan`, implementa o `ScanDevice` do `core-domain`. Em cada varredura, nesta ordem:
+
+1. o início vem do `clock`;
+2. o `inventory` devolve os apps de usuário;
+3. os apps confiáveis são lidos uma vez de `trustedApps` e viram o `ScoringContext` (regra 2);
+4. no `dispatcher`, para cada app na ordem do inventário, confere o cancelamento (`ensureActive()`), roda os coletores um depois do outro e passa a união dos sinais ao `WeightedRiskScorer`, que ele mesmo cria (ADR-022);
+5. o fim é o maior entre o início e o agora, porque o relógio do aparelho pode voltar no meio;
+6. o `ScanReport` é gravado uma vez em `scans` e devolvido.
+
+- **Cancelamento:** antes da gravação, nada é gravado.
+- **Erros:** sem `try`. Erro do inventário, de um coletor, da leitura dos confiáveis ou da gravação chega a quem chama, sem nada gravado pela metade.
+- **Lista de coletores:** é copiada.
+- **Uso pelo SDK:** quem usa o SDK passa as próprias implementações das portas `TrustedAppRepository` e `ScanRepository` (uma em memória basta), além do `Clock` (`Clock.systemUTC()`) e de um dispatcher para o laço (por exemplo, `Dispatchers.Default`). No Tap Guard, a ligação é feita no Hilt do `app` (SPEC-018 BATCH-04).
+
 ## Dependências
 
 - **Módulos:** `core-domain` como `api`, porque `AppInventory` e `InstalledApp` aparecem na API pública.
@@ -274,6 +290,17 @@ BankLookalikeCollector(KnownBanks.apps + KnownBankApp("Banco X", "com.bancox")) 
   - `BankLookalikeCollectorTest`: pacote oficial; pacote de outro app do mesmo banco; nome de banco com outro pacote; pacote com sufixo ou maiúsculas; pacote emprestado (documenta a limitação); nome sem relação; lista ampliada com um banco fictício; lista vazia; conjunto alterado depois; só S9.
 - Coletor de S7, também em JUnit 4 sem Robolectric, com uma lista pequena escrita à mão (`com.wallet.one`, `com.wallet.two`):
   - `DefaultPaymentAppCollectorTest`: padrão fora da lista; padrão na lista; app que não é o padrão; pacote com maiúsculas; conjunto alterado depois; lista vazia; só S7.
+- `DefaultScanDeviceTest` (JUnit 4, sem Robolectric, falsos escritos no teste) cobre:
+  - a ordem das etapas, com coletores em sequência (um coletor que suspende não deixa o próximo começar) e uma gravação no fim;
+  - o relatório devolvido igual ao gravado;
+  - a união dos sinais;
+  - o dispatcher injetado (`CountingDispatcher`);
+  - o cancelamento no segundo de três apps: o coletor cancela o job de quem chama e volta normalmente, e o terceiro app não é coletado nem nada é gravado;
+  - erros do inventário, de um coletor, dos confiáveis e da gravação;
+  - o relógio que avança e o que volta;
+  - o inventário vazio;
+  - o app confiável verde com score 65;
+  - o `defaultPaymentServices` preservado.
 - As fixtures do domínio (`anInstalledApp`) vêm do `testFixtures` do `core-domain`.
 
 ## Regras

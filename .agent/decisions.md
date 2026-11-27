@@ -441,7 +441,7 @@
 
 ## ADR-023 — Caso de uso de varredura: `ScanDevice` no `core-detection`, gravação com retenção numa transação e Hilt da detecção
 - **Date:** 2026-11-27
-- **Status:** Aceita (SPEC-018, quatro batches: gravação e retenção implementadas no BATCH-01; apps confiáveis e preferências implementados no BATCH-02; `DefaultScanDevice` no BATCH-03; Hilt no BATCH-04)
+- **Status:** Aceita (SPEC-018, quatro batches: gravação e retenção implementadas no BATCH-01; apps confiáveis e preferências implementados no BATCH-02; `DefaultScanDevice` implementado no BATCH-03; Hilt no BATCH-04)
 - **Context:**
   - A SPEC-018 (#14) fecha a Etapa 1: o `ScanDevice` da §7 orquestra inventário, coletores e motor, grava a varredura e aplica a retenção das 10 varreduras mais recentes (§9).
   - A interface `ScanDevice` e o `ScanReport` existem desde a SPEC-010; o `core-detection` vai virar SDK (ADR-016) e não depende do `core-data`.
@@ -479,6 +479,8 @@
   - A SPEC-033 amplia o `TrustedAppRepository` com marcar e desfazer.
   - Com as preferências corrompidas, a leitura volta aos padrões, mas uma gravação ainda falha (o `edit` lê o arquivo antes); um `ReplaceFileCorruptionHandler` seria decisão da SPEC-054.
   - **Conferência local do BATCH-01** (desfeita sem commit): retenção por `startedAt`, escritas fora do `withTransaction`, `RETAINED_SCANS = 11`, retenção antes dos inserts e `RED`/`YELLOW` trocados nas contagens derrubaram, cada uma, pelo menos um teste.
+  - **`DefaultScanDevice` (BATCH-03):** os coletores de um app rodam um depois do outro (`forEach` com `suspend`), e a união dos sinais vai para o motor. O laço inteiro fica num `withContext(dispatcher)` com `ensureActive()` antes de cada app, e a gravação vem depois do `withContext`, uma vez só. Testes JUnit 4 na JVM com falsos escritos à mão (sem MockK). O cancelamento é testado como o de quem chama: o coletor cancela o job da varredura e volta normalmente, sem lançar, para que só o `ensureActive()` impeça o app seguinte.
+  - **Conferência local do BATCH-03** (desfeita sem commit, com rodada de controle e resultados novos a cada rodada): gravar antes de terminar todos os apps, ignorar os confiáveis, tirar o `ensureActive()`, fim sem a correção do relógio e coletores em paralelo derrubaram, cada uma, pelo menos um teste.
   - **Conferência local do BATCH-02** (desfeita sem commit, com rodada de controle e prova de que o Gradle rodou em cada alteração): sem o `catch`, `catch` de qualquer exceção, consulta sem filtro da decisão, decisão sem distinguir maiúsculas e repositório devolvendo vazio derrubaram, cada uma, pelo menos um teste.
 
 ## Pending decisions (especificação, seção 13)
