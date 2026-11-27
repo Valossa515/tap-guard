@@ -128,7 +128,7 @@ O score de um app é a soma dos pesos dos sinais presentes, limitada a 100, e de
 
 | Sinal | Descrição | Peso |
 | --- | --- | --- |
-| S1 | Instalado fora de uma loja confiável | 30 |
+| S1 | Instalado fora de loja confiável, salvo quando o pacote está na lista de bancos conhecidos e o instalador está na lista de apps de clonagem conhecidos; instalador nulo gera S1 | 30 |
 | S2 | Declara a permissão de NFC | 15 |
 | S3 | Declara serviço de emulação de cartão (HCE) | 20 |
 | S4 | Tem serviço de acessibilidade ativo | 25 |
@@ -154,15 +154,17 @@ O score de um app é a soma dos pesos dos sinais presentes, limitada a 100, e de
 Como as regras se combinam (ADR-022, SPEC-017):
 
 - As regras 3 e 4 são tetos. Quando as duas valem, fica o de 29, e a ordem entre elas não muda o resultado.
+- A regra 3 é aplicada pelo motor pela ausência de S1: inclui banco conhecido copiado por clonador conhecido (SPEC-019). As exceções S7/S9 continuam valendo.
 - Sem S1 a regra 4 sempre vale: um app sem S1 nunca fica vermelho, nem com S7 ou S9.
 - A regra 2 só decide o nível. O score de um app confiável continua passando pelas regras 3 e 4, e desfazer "confiável" não muda o número.
 - Os pesos, os tetos e as faixas ficam em `RiskScoreConfig`, no `core-domain`; o motor é o `WeightedRiskScorer`.
 
 **Listas de apoio, embutidas no app**
 
-- Lojas confiáveis (pacote do instalador): Google Play (`com.android.vending`), Galaxy Store (`com.sec.android.app.samsungapps`), Xiaomi GetApps (`com.xiaomi.mipicks` e `com.xiaomi.market`), OPPO App Market (`com.heytap.market` e `com.oppo.market`), vivo V-Appstore (`com.vivo.appstore`), HONOR App Market (`com.hihonor.appmarket`), Palm Store (`com.transsnet.store`), Huawei AppGallery (`com.huawei.appmarket`) e Amazon Appstore (`com.amazon.venezia`). Não são lojas: os instaladores de pacote do sistema e o shell (o que aparece num APK instalado à mão ou por adb), F-Droid, Aurora Store e apps de clonagem. Instalador desconhecido conta como fora da loja. Motivos e fontes no ADR-017 (SPEC-012).
+- Lojas confiáveis (pacote do instalador): Google Play (`com.android.vending`), Galaxy Store (`com.sec.android.app.samsungapps`), Xiaomi GetApps (`com.xiaomi.mipicks` e `com.xiaomi.market`), OPPO App Market (`com.heytap.market` e `com.oppo.market`), vivo V-Appstore (`com.vivo.appstore`), HONOR App Market (`com.hihonor.appmarket`), Palm Store (`com.transsnet.store`), Huawei AppGallery (`com.huawei.appmarket`) e Amazon Appstore (`com.amazon.venezia`). Não são lojas: os instaladores de pacote do sistema e o shell (o que aparece num APK instalado à mão ou por adb), F-Droid, Aurora Store e apps de clonagem. Instalador desconhecido conta como fora da loja e só é dispensado se cumprir a exceção estreita de clonagem descrita abaixo. Motivos e fontes no ADR-017 (SPEC-012 e SPEC-019).
+- Apps de clonagem conhecidos (`KnownCloneApps.packageNames`, SPEC-019): Samsung Smart Switch (`com.sec.android.easyMover`), Xiaomi Mi Mover (`com.miui.huanji`), OPPO Clone Phone (`com.coloros.backuprestore`), OnePlus Clone Phone (`com.oneplus.backuprestore`), Huawei Phone Clone (`com.hicloud.android.clone`), HONOR Device Clone (`com.hihonor.android.clone`) e vivo EasyShare (`com.vivo.easyshare`). Só dispensam S1 em conjunto com pacote de banco conhecido; não entram em lojas confiáveis. ShareMe (`com.xiaomi.midrop`), SHAREit (`com.lenovo.anyshare.gps`), SHAREit Lite (`shareit.lite`) e MIUI Backup (`com.miui.backup`) ficam fora. Fontes e limitações no ADR-017.
 - Carteiras conhecidas (pacote que pode ser o app de pagamento padrão sem gerar S7): Carteira do Google (`com.google.android.apps.walletnfcrel`), Samsung Wallet (`com.samsung.android.spay`) e os apps de banco que fazem Pix por aproximação no próprio app: Nubank (`com.nu.production`), Itaú (`com.itau`), Banco do Brasil (`br.com.bb.android`) e Inter (`br.com.intermedium`). Os bancos que fazem o Pix por aproximação pela Carteira do Google (Mercado Pago, PicPay, Bradesco, Caixa, Santander e C6) não entram. Motivos e fontes no ADR-020 (SPEC-015).
-- Bancos conhecidos para S9: nome de exibição e pacote oficial de 29 apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca (Empresas, Cartões, Personnalité, CAIXA Tem, next, BTG Pactual Investimentos). Um pacote pode ter mais de um nome (por exemplo, "BB" e "Banco do Brasil"). Lista completa, pacotes e fontes no ADR-020 (SPEC-015).
+- Bancos conhecidos para S9 e para os pacotes da exceção de S1: nome de exibição e pacote oficial de 29 apps das 14 instituições com mais clientes no ranking do Banco Central (dez/2025): Caixa, Nubank, Bradesco, Itaú, Banco do Brasil, Santander, Mercado Pago, PicPay, Inter, PagBank, C6 Bank, BTG Pactual, 99Pay e Neon, com os apps oficiais delas que levam o nome da marca (Empresas, Cartões, Personnalité, CAIXA Tem, next, BTG Pactual Investimentos). Um pacote pode ter mais de um nome (por exemplo, "BB" e "Banco do Brasil"). Lista completa, pacotes e fontes no ADR-020 (SPEC-015).
 
 **Exemplos para os testes**
 
@@ -241,7 +243,7 @@ interface CardReader { suspend fun read(tag: NfcTagHandle): CardReadResult }
 | Sinal | API do Android |
 | --- | --- |
 | Inventário | Cinco etapas: `PackageManager.getInstalledPackages` sem flags, filtrando apps com `FLAG_SYSTEM` ou `FLAG_UPDATED_SYSTEM_APP` e o pacote do próprio app; uma consulta dos serviços de HCE de todos os pacotes (linha S3); uma leitura dos serviços de acessibilidade ligados (linha S4); a consulta do pagamento padrão (linha S7); depois `getPackageInfo` de cada app de usuário com permissões e serviços (inclusive desligados) e o instalador |
-| S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
+| S1 origem | O inventário lê `getInstallSourceInfo().installingPackageName` (API 30+) ou `getInstallerPackageName` (abaixo). `InstallSourceCollector(trustedInstallers, knownBankPackages, knownCloneApps)` compara exatamente os campos já lidos: loja OU (banco E clonador) dispensa S1; nulo gera S1. Três conjuntos obrigatórios e copiados; montagem no Hilt pela SPEC-018 (ADR-017, SPEC-019) |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | Uma consulta `queryIntentServices` por varredura com a ação `android.nfc.cardemulation.action.HOST_APDU_SERVICE` e `MATCH_DISABLED_COMPONENTS`, ficando com os serviços que exigem `android.permission.BIND_NFC_SERVICE` (inclusive desligados). Off-host e NFC-F não contam; não exige serviço exportado, meta-data nem a permissão `NFC` no pacote (ADR-018) |
 | S4 acessibilidade | Uma leitura de `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` por varredura: o que o usuário ligou, inclusive um serviço que caiu. Cada entrada passa por `ComponentName.unflattenFromString` (formatos completo e curto); vazias e inválidas são ignoradas; agrupado por pacote e cruzado com os apps de usuário, sem exigir a classe entre os serviços declarados. Chave nula = nenhum serviço ligado. Legível sem permissão da API 26 à 36. Substitui o `AccessibilityManager.getEnabledAccessibilityServiceList`, que só lista os conectados (ADR-019) |

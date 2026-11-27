@@ -44,6 +44,7 @@
   2. App marcado como confiável pelo usuário fica sempre verde.
   3. App instalado por loja confiável tem score limitado a 29, a não ser que tenha S7 ou S9.
   4. Vermelho exige S1 junto com pelo menos um sinal de NFC (S2, S3 ou S7). Sem isso, o teto é amarelo (59).
+- S1 (SPEC-019): Sem S1 quando o instalador está nas lojas OU (pacote está nos bancos E instalador está nos clonadores). Instalador nulo e todos os demais casos geram S1. Comparação exata; três conjuntos obrigatórios e copiados. A SPEC-018 monta os três conjuntos no Hilt do `app`: `TrustedStores.packageNames`, `KnownBanks.apps.map { it.packageName }.toSet()` e `KnownCloneApps.packageNames`. O mapeamento deduplica as 29 entradas em 26 pacotes; a cópia defensiva continua sendo feita pelo coletor. Bancos vazios ou clonadores vazios desligam somente a exceção; lojas vazias ainda permitem banco com clonador; todos vazios geram S1 para qualquer app.
 - Combinação (ADR-022): as regras 3 e 4 são tetos e comutam (vence 29); app sem S1 nunca fica vermelho; a regra 2 só troca o nível, e o score do app confiável passa pelas regras 3 e 4.
 - Arquivo de configuração: `RiskScoreConfig` (`core-domain`, `internal`), com pesos, tetos e faixas; motor: `WeightedRiskScorer`. A tabela de combinações dos testes (`WeightedRiskScorerTableTest`) também muda quando um peso muda.
 - Exemplos obrigatórios como testes unitários:
@@ -53,6 +54,8 @@
   - Jogo instalado por APK sem NFC: 30, amarelo.
   - App de fora da loja com acessibilidade e SMS, sem NFC: 65, limitado a 59, amarelo.
 - Listas embutidas: lojas confiáveis (Google Play, Galaxy Store, Xiaomi GetApps, OPPO App Market, vivo V-Appstore, HONOR App Market, Palm Store, Huawei AppGallery, Amazon Appstore — `TrustedStores`, SPEC-012, ADR-017); carteiras conhecidas (Carteira do Google, Samsung Wallet, Nubank, Itaú, Banco do Brasil e Inter — `KnownWallets`, 6 pacotes, SPEC-015, ADR-020); bancos conhecidos para S9 (nome de exibição + pacote oficial de 29 apps das 14 instituições com mais clientes no ranking do Banco Central — `KnownBanks`, SPEC-015, ADR-020).
+
+- Clonadores conhecidos: Samsung Smart Switch (`com.sec.android.easyMover`), Xiaomi Mi Mover (`com.miui.huanji`), OPPO Clone Phone (`com.coloros.backuprestore`), OnePlus Clone Phone (`com.oneplus.backuprestore`), Huawei Phone Clone (`com.hicloud.android.clone`), HONOR Device Clone (`com.hihonor.android.clone`) e vivo EasyShare (`com.vivo.easyshare`). Lista pública imutável `KnownCloneApps.packageNames`; separada de `TrustedStores`. ShareMe (`com.xiaomi.midrop`), SHAREit (`com.lenovo.anyshare.gps`), SHAREit Lite (`shareit.lite`) e MIUI Backup (`com.miui.backup`) ficam fora. Fontes no ADR-017.
 
 ### Varredura (F1)
 - Lista apps que não são do sistema; roda ao abrir o app e por "Verificar agora".

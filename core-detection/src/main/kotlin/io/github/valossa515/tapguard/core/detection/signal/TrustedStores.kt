@@ -12,6 +12,7 @@ import java.util.Collections
  * - F-Droid, porque o cliente aceita repositórios de terceiros;
  * - Aurora Store, cliente não oficial da Play que aparece como instaladora de tudo o que baixa;
  * - apps de clonagem (Smart Switch, Mi Mover, Clone Phone), que copiam também um APK de golpe.
+ *   [KnownCloneApps] permite uma exceção separada no S1 somente para pacotes de banco conhecidos.
  *
  * [packageNames] não pode ser alterado, nem por cast para [MutableSet]. Quem usa o SDK monta o
  * próprio conjunto a partir dele e o passa ao [InstallSourceCollector]: por exemplo,

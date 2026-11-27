@@ -1,0 +1,51 @@
+# TOON v3.0 – Feature Specification
+# SPEC-019 (#73): forma B aprovada na SPEC-017; planejamento sem implementacao
+
+feature:
+  id: FT-019
+  name: SPEC-019 Apps de clonagem no coletor de S1
+  version: 1.0
+  status: draft
+  interface: library
+  estimate-lines: 450
+
+requirement:
+  summary: Evitar S1 para banco conhecido copiado por clonador conhecido. Preservar dispensa por loja confiavel e S1 para banco instalado a mao ou app fora dos bancos copiado. Entregar lista publica dos sete clonadores aprovados e atualizar a definicao de S1 e seu construtor sem mudar o score.
+  actor: ScanDevice pela composicao Hilt da SPEC-018 e consumidor do SDK
+  trigger: Construcao de InstallSourceCollector e collect(app)
+
+inputs[4]{name,type,required,constraints}:
+  trustedInstallers,Set<String>,true,conjunto de lojas obrigatorio sem padrao e copiado; vazio permitido
+  knownBankPackages,Set<String>,true,conjunto de pacotes de banco obrigatorio sem padrao e copiado; vazio permitido; SPEC-018 deriva de KnownBanks.apps por packageName
+  knownCloneApps,Set<String>,true,conjunto de pacotes de clonadores obrigatorio sem padrao e copiado; vazio permitido
+  app,InstalledApp,true,collect le packageName e installerPackageName; instalador pode ser nulo; comparacao exata com distincao de caixa
+
+outputs:
+  success:
+    description: Conjunto vazio ou somente UNTRUSTED_INSTALL_SOURCE
+    status: Set
+    body[1]{name,type,value}:
+      signals,Set<Signal>,vazio se instalador pertence a lojas OU se pacote pertence a bancos E instalador pertence a clonadores; somente S1 nos demais casos
+  errors[1]{code,status,when}:
+    PUBLIC_LIST_MUTATION,UnsupportedOperationException,tentativa de alterar a lista publica por cast para MutableSet; nao e erro de collect
+
+business-rules[12]{id,rule}:
+  BR-001,Lista publica em object proprio no core.detection.signal com Set<String> nao modificavel nem por cast e comentario de nome e fonte por entrada; extensao ou reducao pelo SDK sem mudar o original
+  BR-002,Lista inicial contem exatamente com.sec.android.easyMover; com.miui.huanji; com.coloros.backuprestore; com.oneplus.backuprestore; com.hicloud.android.clone; com.hihonor.android.clone; com.vivo.easyshare
+  BR-003,Tres conjuntos obrigatorios sem valor padrao nem overload antigo; cada conjunto copiado na construcao; mudancas posteriores nas entradas nao mudam a coleta
+  BR-004,Instalador presente no conjunto de lojas nao gera S1 independentemente de banco ou clonador
+  BR-005,Fora das lojas so ha dispensa quando packageName pertence a bancos E installerPackageName pertence a clonadores ao mesmo tempo
+  BR-006,Instalador nulo gera S1; banco instalado a mao ou por instalador fora das duas listas gera S1; app fora dos bancos copiado por clonador gera S1; comparacoes exatas e sensiveis a caixa sem uso do rotulo
+  BR-007,ShareMe com.xiaomi.midrop e SHAREit com.lenovo.anyshare.gps e SHAREit Lite shareit.lite e MIUI Backup com.miui.backup ficam fora das listas padrao de lojas e clonadores; geram S1 inclusive em banco
+  BR-008,Bancos vazios ou clonadores vazios desligam so a excecao; lojas vazias ainda permitem banco com clonador; os tres vazios geram S1 para todos; conjuntos vazios nao sao erro
+  BR-009,Pacotes de banco vem de todas as entradas de KnownBanks.apps mapeadas para packageName e deduplicadas; SPEC-018 monta os tres conjuntos no Hilt do app; coletor nao consulta listas globais implicitamente
+  BR-010,Coletor continua no core-detection sem android.* e sem PackageManager; retorna so S1 ou vazio; score e ScoringContext e inventario e persistencia nao mudam; clonadores nao entram em TrustedStores
+  BR-011,Atualizar ADR-017 por emenda SPEC-019 sem novo ADR e corrigir remissao de clonagem do ADR-020; atualizar secao 5 e README e documentacao de S1 com nova regra e tres parametros e conjuntos vazios e integracao SPEC-018
+  BR-012,Preservar testes atuais com as seis chamadas adaptadas e acrescentar casos da lista e do coletor em JUnit 4 JVM; sem Robolectric ou dependencias novas; ktlint e detekt e testes devem passar
+
+assumptions[5]:
+  KnownCloneApps.packageNames e nomes dos novos parametros sao propostas seguindo o padrao existente; architect fixa os nomes no contrato sem mudar o comportamento aprovado
+  Comparacao exata e copia por Collections.unmodifiableSet sobre LinkedHashSet seguem o coletor atual e ADR-017 e ADR-020; toSet no mapeamento dos bancos apenas deduplica
+  Fontes dos sete pacotes herdadas do levantamento aprovado da SPEC-017 em 2026-11-25; atribuicao real do instalador fica para SPEC-022; sem nova verificacao em aparelho nesta tarefa
+  Estimativa 450 = 82 de producao mais 298 de testes e adaptacoes mais 70 de margem para testes; exclui documentacao externa ao codigo e artefatos SDD; um PR
+  Dependencias SPEC-012 e SPEC-015 fechadas; SPEC-019 fecha antes da SPEC-018; defesas de pacote emprestado das issues 57 e 65 continuam fora do escopo

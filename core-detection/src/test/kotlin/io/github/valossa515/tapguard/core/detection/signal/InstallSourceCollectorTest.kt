@@ -8,7 +8,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class InstallSourceCollectorTest {
-    private val defaultCollector = InstallSourceCollector(TrustedStores.packageNames)
+    private val defaultCollector = InstallSourceCollector(TrustedStores.packageNames, emptySet(), emptySet())
 
     @Test
     fun `null installer yields s1`() =
@@ -42,7 +42,7 @@ class InstallSourceCollectorTest {
     @Test
     fun `extended list trusts extra store and keeps default`() =
         runTest {
-            val collector = InstallSourceCollector(TrustedStores.packageNames + BANK_STORE)
+            val collector = InstallSourceCollector(TrustedStores.packageNames + BANK_STORE, emptySet(), emptySet())
 
             assertEquals(emptySet<Signal>(), collector.collect(anInstalledApp(installerPackageName = BANK_STORE)))
             assertEquals(emptySet<Signal>(), collector.collect(anInstalledApp(installerPackageName = PLAY_STORE)))
@@ -51,7 +51,7 @@ class InstallSourceCollectorTest {
     @Test
     fun `smaller list flags removed store`() =
         runTest {
-            val collector = InstallSourceCollector(TrustedStores.packageNames - AMAZON_APPSTORE)
+            val collector = InstallSourceCollector(TrustedStores.packageNames - AMAZON_APPSTORE, emptySet(), emptySet())
 
             assertEquals(S1, collector.collect(anInstalledApp(installerPackageName = AMAZON_APPSTORE)))
         }
@@ -60,7 +60,7 @@ class InstallSourceCollectorTest {
     fun `later change to given set does not affect collector`() =
         runTest {
             val given = mutableSetOf(BANK_STORE)
-            val collector = InstallSourceCollector(given)
+            val collector = InstallSourceCollector(given, emptySet(), emptySet())
 
             given.remove(BANK_STORE)
 

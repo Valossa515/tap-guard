@@ -59,7 +59,7 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 | Sinal | API do Android |
 | --- | --- |
 | Inventário | `PackageManager.getInstalledPackages` com permissões e serviços; filtrar `FLAG_SYSTEM` |
-| S1 origem | `getInstallSourceInfo` (API 30+) ou `getInstallerPackageName` (abaixo); comparar com a lista de lojas |
+| S1 origem | O inventário lê `getInstallSourceInfo().installingPackageName` (API 30+) ou `getInstallerPackageName` (abaixo). `InstallSourceCollector(trustedInstallers, knownBankPackages, knownCloneApps)` compara exatamente os campos já lidos: loja OU (banco E clonador) dispensa S1; nulo gera S1. Três conjuntos obrigatórios e copiados; montagem no Hilt pela SPEC-018 (ADR-017, SPEC-019) |
 | S2 NFC | `android.permission.NFC` em `requestedPermissions` |
 | S3 HCE | `queryIntentServices` com `android.nfc.cardemulation.action.HOST_APDU_SERVICE` |
 | S4 acessibilidade | `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES`, lida pelo inventário uma vez por varredura (ADR-019) |
@@ -68,6 +68,8 @@ ViewModels, repositórios, DAOs, entidades Room, workers, receptores e módulos 
 | S7 pagamento padrão | No inventário: uma segunda consulta de HCE sem `MATCH_DISABLED_COMPONENTS` dá os serviços ligados; para os exportados de apps de usuário, `CardEmulation.isDefaultServiceForCategory` com `CATEGORY_PAYMENT` (até a API 34, o componente das configurações de NFC; da 35 em diante, o papel de carteira) → `InstalledApp.defaultPaymentServices`. `DefaultPaymentAppCollector(knownWallets)` só lê o campo. Sem NFC, sem HCE ou com o serviço NFC morto, degrada sem erro; sem a permissão `NFC`, a `SecurityException` propaga (ADR-021) |
 | S8 SMS | `READ_SMS` ou `RECEIVE_SMS` em `requestedPermissions` |
 | S9 imitação | `BankLookalikeCollector(knownBankApps)`: esqueleto do rótulo e variantes sem prefixos e sufixos contra os nomes de `KnownBanks.apps` (distância OSA até 0, 1 ou 2 pelo tamanho do nome); o pacote de qualquer entrada da lista tira o S9 (ADR-020) |
+
+A SPEC-018 monta os três conjuntos no Hilt do `app`: `TrustedStores.packageNames`, `KnownBanks.apps.map { it.packageName }.toSet()` e `KnownCloneApps.packageNames`. O mapeamento deduplica as 29 entradas em 26 pacotes; a cópia defensiva continua sendo feita pelo coletor.
 
 ## Card Reading (planned, F2)
 

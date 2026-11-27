@@ -15,7 +15,7 @@ class InstallSourceCollectorUntrustedInstallerTest(
     @Test
     fun `untrusted installer yields s1`() =
         runTest {
-            val collector = InstallSourceCollector(TrustedStores.packageNames)
+            val collector = InstallSourceCollector(TrustedStores.packageNames, emptySet(), emptySet())
 
             val signals = collector.collect(anInstalledApp(installerPackageName = installer))
 
