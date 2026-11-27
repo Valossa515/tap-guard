@@ -12,4 +12,8 @@ interface UserDecisionDao {
 
     @Query("SELECT * FROM user_decision WHERE packageName = :packageName")
     suspend fun getByPackageName(packageName: String): UserDecisionEntity?
+
+    /** Pacotes marcados como confiáveis: `decision` igual a `TRUSTED`, com comparação exata. */
+    @Query("SELECT packageName FROM user_decision WHERE decision = 'TRUSTED'")
+    suspend fun getTrustedPackageNames(): List<String>
 }
