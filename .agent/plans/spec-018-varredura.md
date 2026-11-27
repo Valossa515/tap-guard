@@ -160,9 +160,9 @@ Total ~1.480; declarado 1.500. **Por que quatro e não três:** a divisão suger
 3. [ ] BATCH-03 — `DefaultScanDevice` e `DefaultScanDeviceTest` (ordem, união, confiável verde com score 65, campos e relógio, zero apps, dispatcher, cancelamento sem gravação, quatro erros propagados sem gravação).
 4. [ ] BATCH-04 — módulos do Hilt do app, `app/detekt.yml`, dependências de teste, `DetectionModuleTest`, `ScanDeviceEndToEndTest`; documentação abaixo; `./gradlew build` e validação do SDD.
 
-## Documentação (BATCH-04, salvo o que cada batch já toca)
+## Documentação (cada batch documenta o que entrega; o contrato diz o batch de cada arquivo)
 
-- **ADR-023** em `decisions.md`: `ScanDevice` no `core-detection` com duas portas; ordem; sequencial; cancelamento e erros; `finishedAt` limitado; motor criado dentro (ADR-022); retenção por `id` na mesma transação, sem índice; `lastDefaultPaymentComponent` na SPEC-052; Hilt (módulos, qualificadores, `Clock`, coletores montados, `@JvmSuppressWildcards`, isenção dos `@Provides`); desempenho e o que fica para a SPEC-022; alternativas recusadas.
+- **ADR-023** em `decisions.md`, escrito no BATCH-01 com as decisões da spec inteira e o status atualizado a cada batch: `ScanDevice` no `core-detection` com duas portas; ordem; sequencial; cancelamento e erros; `finishedAt` limitado; motor criado dentro (ADR-022); retenção por `id` na mesma transação, sem índice; `lastDefaultPaymentComponent` na SPEC-052; Hilt (módulos, qualificadores, `Clock`, coletores montados, `@JvmSuppressWildcards`, isenção dos `@Provides`); desempenho e o que fica para a SPEC-022; alternativas recusadas.
 - `SKILLS.md`: Persistence (repositórios, retenção por `id`, divergência do DataStore), Detection (API pública com 16 classes, Hilt feito), Build (isenção do `LongParameterList` para `@Provides`), Clock.
 - `project-reference.md` (retenção de alertas → SPEC-053; portas; `ScanDevice`), `context.md`, `architecture.md`, `glossary.md`, `conventions.md`, `backlog_rules.md`.
 - `core-data/README.md`, `core-detection/README.md`.
