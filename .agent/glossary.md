@@ -21,6 +21,7 @@
 | **app_snapshot** | Estado de um app em uma varredura (chave `scanId` + `packageName`) | §9 (planned) |
 | **user_decision** | Decisão do usuário sobre um app (hoje só "confiável") | §9 (planned) |
 | **alert_event** | Alerta emitido; também controla duplicidade | §9 (planned) |
+| **Retenção** | Limpeza do histórico: ficam as 10 varreduras mais recentes pela ordem de gravação (`id`), na mesma transação que grava a nova; alertas por 90 dias (SPEC-053) | §9, SPEC-018, ADR-023 |
 
 ## Enum Values / Status Codes
 | Enum | Values | Used in |

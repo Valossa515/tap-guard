@@ -2,11 +2,11 @@
 
 Biblioteca Android com o banco local (Room), as preferências (DataStore), os repositórios e o histórico de varreduras, decisões e alertas.
 
-> **Estado (SPEC-004):** infraestrutura pronta, sem regra de negócio: banco Room versão 1 com as quatro tabelas da seção 9, DAOs só com inserir e ler, preferências com os padrões e o módulo do Hilt. Repositórios, retenção e consultas com regra entram na SPEC-018.
+> **Estado (SPEC-018 BATCH-01):** banco Room versão 1 com as quatro tabelas da seção 9, preferências com os padrões, o módulo do Hilt (SPEC-004) e o repositório de varreduras com a retenção (`RoomScanRepository`). Apps confiáveis e o tratamento de `IOException` nas preferências entram no BATCH-02.
 
 ## Dependências
 
-- **Módulos:** `core-domain`.
+- **Módulos:** `core-domain` (e o `testFixtures` dele nos testes).
 - **Plugins:** `com.android.library` (Kotlin embutido do AGP 9), `com.google.devtools.ksp`, `com.google.dagger.hilt.android`, `androidx.room`, ktlint e detekt.
 - **Bibliotecas:** Room 2.8.5 (`room-runtime`, `room-compiler` por KSP), DataStore Preferences 1.3.0, Hilt 2.60.1 (`hilt-android`, `hilt-compiler` por KSP). Sem kapt.
 - **Testes:** JUnit 4, Robolectric 4.18, `androidx.test:core`, `room-testing` 2.8.5, `kotlinx-coroutines-test` 1.11.0, `hilt-android-testing` 2.60.1.
@@ -18,9 +18,10 @@ Biblioteca Android com o banco local (Room), as preferências (DataStore), os re
 |--------|----------|
 | `database` | `TapGuardDatabase` (versão 1, arquivo `tapguard.db`) |
 | `database.entity` | `ScanRunEntity`, `AppSnapshotEntity`, `UserDecisionEntity`, `AlertEventEntity` |
-| `database.dao` | `ScanRunDao`, `AppSnapshotDao`, `UserDecisionDao`, `AlertEventDao` (só inserir e ler) |
+| `database.dao` | `ScanRunDao`, `AppSnapshotDao`, `UserDecisionDao`, `AlertEventDao` (inserir e ler; o `ScanRunDao` também aplica a retenção) |
+| `repository` | `RoomScanRepository` (porta `ScanRepository` do `core-domain`) |
 | `settings` | `SettingsDataSource` (DataStore `settings`) |
-| `di` | `DataModule` (Hilt, `SingletonComponent`): banco e DataStore únicos, e cada DAO |
+| `di` | `DataModule` (Hilt, `SingletonComponent`): banco e DataStore únicos, e cada DAO; `RepositoryModule` (`@Binds`): `ScanRepository` → `RoomScanRepository` |
 
 ## Banco (especificação, seção 9)
 
@@ -40,6 +41,16 @@ Colunas com os nomes da especificação (camelCase). Datas em milissegundos; enu
 - Até a primeira versão pública, a versão 1 pode mudar assim, sem `Migration`. Depois dela, o schema publicado fica congelado: mudança exige subir a versão, uma `Migration` e um teste de migração (ADR-014).
 - Os schemas também entram nos assets do teste local (`sourceSets.test.assets.directories`), para o `MigrationTestHelper` sob Robolectric.
 
+## Gravação e retenção (SPEC-018, ADR-023)
+
+`RoomScanRepository.save(report)` faz tudo num `database.withTransaction`, nesta ordem:
+
+1. insere a linha de `scan_run`: datas em milissegundos (`finishedAt` sempre preenchido), `trigger` pelo nome, `totalApps`, e `redCount` e `yellowCount` pelo nível final (um app confiável conta como verde);
+2. insere um `app_snapshot` por app: campos do `InstalledApp`, `signals` pela máscara (`toBitMask()`), `score` e `level` pelo nome;
+3. aplica a retenção: `ScanRunDao.deleteOlderThanLatest(10)` mantém as 10 varreduras de **maior `id`** (ordem de gravação). Não ordena por `startedAt`, porque com o relógio do aparelho atrasado a varredura recém-gravada seria apagada. Os snapshots das apagadas caem pela cascata. `keep` menor que 1 lança `IllegalArgumentException` (mensagem fixa) sem apagar nada; por isso o `ScanRunDao` é `abstract class`, com a consulta `protected` atrás do `require`.
+
+Uma falha em qualquer passo desfaz os três e propaga a exceção. Permissões, serviços e o pagamento padrão não são gravados (`lastDefaultPaymentComponent` é da SPEC-052). Sem índice novo: a subconsulta usa a chave primária, e a cascata usa o índice da chave composta. Alertas por 90 dias: SPEC-053.
+
 ## Preferências (DataStore `settings`)
 
 | Chave | Tipo | Padrão |
@@ -57,14 +68,15 @@ Colunas com os nomes da especificação (camelCase). Datas em milissegundos; enu
 
 ## Testes
 
-- DAOs em banco em memória (Robolectric), com chave duplicada e snapshot órfão recusados e a cascata.
+- DAOs em banco em memória (Robolectric), com chave duplicada e snapshot órfão recusados e a cascata; retenção do `ScanRunDao` por `id` (12 → 10, relógio atrasado, menos de 10, cascata, `keep` 0 e -1 recusados).
+- `RoomScanRepositoryTest` (Room em memória): colunas de `scan_run` e `app_snapshot` com máscaras escritas à mão, contagens com app confiável, relatório vazio, retenção pelo `save` e rollback com pacote repetido (as 10 antigas continuam).
 - Migração inicial: `MigrationTestHelper` com arquivo e driver (`AndroidSQLiteDriver`) cria e valida a versão 1.
 - `SettingsDataSourceTest` em JUnit 4 puro com DataStore real. **No Windows**, os dois testes que gravam mais de uma vez são ignorados (`Assume`), porque a JVM do Windows não consegue renomear o arquivo temporário do DataStore por cima do existente. Eles rodam no CI (Linux).
-- Grafo do Hilt (`DataModuleTest`, `HiltTestApplication`): banco, DAOs e DataStore, com singletons.
+- Grafo do Hilt (`DataModuleTest`, `HiltTestApplication`): banco, DAOs, DataStore e `ScanRepository`, com singletons.
 
 ## Comandos
 
 ```bash
 ./gradlew :core-data:build
-./gradlew :core-data:testDebugUnitTest   # DAOs, migração, preferências e Hilt (Robolectric)
+./gradlew :core-data:testDebugUnitTest   # DAOs, repositório, migração, preferências e Hilt (Robolectric)
 ```

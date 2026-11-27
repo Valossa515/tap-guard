@@ -294,8 +294,8 @@ O banco Room guarda quatro tabelas e o DataStore guarda as preferências. Nenhum
 
 **Retenção**
 
-- Manter as 10 varreduras mais recentes e apagar as anteriores.
-- Manter alertas por 90 dias.
+- Manter as 10 varreduras mais recentes, pela ordem de gravação, e apagar as anteriores na mesma transação que grava a nova (SPEC-018, ADR-023).
+- Manter alertas por 90 dias (SPEC-053).
 
 ## 10. Telas e fluxos
 

@@ -3,6 +3,7 @@ package io.github.valossa515.tapguard.core.data.database.dao
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.github.valossa515.tapguard.core.data.database.TapGuardDatabase
+import io.github.valossa515.tapguard.core.data.database.entity.AppSnapshotEntity
 import io.github.valossa515.tapguard.core.data.database.entity.ScanRunEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -62,6 +63,84 @@ class ScanRunDaoTest {
 
             assertNull(database.scanRunDao().getById(id)?.finishedAt)
         }
+
+    @Test
+    fun `delete older than latest keeps the ten highest ids`() =
+        runTest {
+            val ids = (1..12).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }
+
+            database.scanRunDao().deleteOlderThanLatest(10)
+
+            assertEquals(ids.drop(2), remainingIds())
+        }
+
+    @Test
+    fun `delete older than latest keeps the newest run even with the oldest start time`() =
+        runTest {
+            val older =
+                (1..10).map { database.scanRunDao().insert(scanRun(startedAt = 5_000L + it, finishedAt = null)) }
+            // Relógio do aparelho atrasado: a varredura gravada por último começou "antes" de todas.
+            val newest = database.scanRunDao().insert(scanRun(startedAt = 1L, finishedAt = 2L))
+
+            database.scanRunDao().deleteOlderThanLatest(10)
+
+            assertEquals(older.drop(1) + newest, remainingIds())
+        }
+
+    @Test
+    fun `delete older than latest with fewer runs than kept deletes nothing`() =
+        runTest {
+            val ids = (1..3).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }
+
+            database.scanRunDao().deleteOlderThanLatest(10)
+
+            assertEquals(ids, remainingIds())
+        }
+
+    @Test
+    fun `delete older than latest rejects keeping fewer than one run and deletes nothing`() =
+        runTest {
+            val ids = (1..3).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }
+
+            listOf(0, -1).forEach { keep ->
+                val error = runCatching { database.scanRunDao().deleteOlderThanLatest(keep) }.exceptionOrNull()
+
+                assertTrue("keep = $keep: $error", error is IllegalArgumentException)
+                assertEquals("A retenção precisa manter pelo menos uma varredura", error?.message)
+            }
+            assertEquals(ids, remainingIds())
+        }
+
+    @Test
+    fun `runs removed by retention take their snapshots with them`() =
+        runTest {
+            val ids = (1..11).map { database.scanRunDao().insert(scanRun(startedAt = it * 1_000L, finishedAt = null)) }
+            ids.forEach { database.appSnapshotDao().insertAll(listOf(snapshot(it))) }
+
+            database.scanRunDao().deleteOlderThanLatest(10)
+
+            assertTrue(database.appSnapshotDao().getByScanId(ids.first()).isEmpty())
+            ids.drop(1).forEach { assertEquals(1, database.appSnapshotDao().getByScanId(it).size) }
+        }
+
+    private fun remainingIds(): List<Long> {
+        val cursor = database.openHelper.writableDatabase.query("SELECT id FROM scan_run ORDER BY id")
+        return cursor.use { generateSequence { if (it.moveToNext()) it.getLong(0) else null }.toList() }
+    }
+
+    private fun snapshot(scanId: Long) =
+        AppSnapshotEntity(
+            scanId = scanId,
+            packageName = "com.example.app",
+            label = "App",
+            versionCode = 1,
+            installer = null,
+            firstInstallTime = 100,
+            lastUpdateTime = 200,
+            signals = 0,
+            score = 0,
+            level = "GREEN",
+        )
 
     private fun scanRun(
         startedAt: Long,

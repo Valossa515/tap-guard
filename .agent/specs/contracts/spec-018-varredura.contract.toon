@@ -1,0 +1,164 @@
+# TOON v3.0 – Architecture Contract
+# .agent/specs/contracts/spec-018-varredura.contract.toon
+# SPEC-018 (issue #14) – camadas = portas do core-domain e caso de uso do core-detection e persistencia do core-data e Hilt do app e docs
+# Revisao do architect em 2026-11-27: sem mudanca de comportamento; TrustedAppsRepository vira TrustedAppRepository; AC-029 no BATCH-04
+# Publicos novos: ScanRepository e TrustedAppRepository (core-domain); DefaultScanDevice (core-detection; API publica 16 classes); RoomScanRepository e RoomTrustedAppRepository e RepositoryModule (core-data); modulos e qualificadores do app
+# Sem @Suppress novo; sem mudanca de schema (1.json igual); sem permissao nova; sem dependencia nova de producao
+# Estimativa pelos arquivos: cerca de 1470 linhas de codigo e testes (407 no BATCH-01 e 202 no BATCH-02 e 405 no BATCH-03 e 458 no BATCH-04; tabela no documento de arquitetura)
+# Emenda 1.1 (2026-11-27 pedida pelo usuario depois do review do BATCH-01): ScanRunDao vira abstract class; deleteOlderThanLatest publico faz require(keep > 0) com mensagem fixa e chama o @Query protected deleteOutsideLatest; cenario keep-below-one-rejected-AC-013 no ScanRunDaoTest
+# Cada linha diz o batch: BATCH-01 (gravacao e retencao) ou BATCH-02 (confiaveis e preferencias) ou BATCH-03 (ScanDevice) ou BATCH-04 (Hilt e ponta a ponta)
+
+contract:
+  feature-ref: FT-018
+  version: 1.1
+
+layers:
+  core-domain-ports:
+    files[2]{path,action,description}:
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/scan/ScanRepository.kt,create,BATCH-01: interface ScanRepository com suspend fun save(report: ScanReport); KDoc: grava a varredura inteira numa operacao atomica; a implementacao pode aplicar uma politica de retencao na mesma operacao (a do app mantem as 10 mais recentes pela ordem de gravacao); falha propaga e nada fica gravado pela metade
+      core-domain/src/main/kotlin/io/github/valossa515/tapguard/core/domain/risk/TrustedAppRepository.kt,create,BATCH-02: interface TrustedAppRepository com suspend fun trustedPackages(): Set<String>; KDoc: pacotes marcados como confiaveis pelo usuario (regra 2); comparacao exata; marcar e desfazer na SPEC-033
+  core-detection-scan:
+    files[1]{path,action,description}:
+      core-detection/src/main/kotlin/io/github/valossa515/tapguard/core/detection/scan/DefaultScanDevice.kt,create,BATCH-03: class DefaultScanDevice(inventory: AppInventory; collectors: List<SignalCollector>; trustedApps: TrustedAppRepository; scans: ScanRepository; clock: Clock; dispatcher: CoroutineDispatcher) : ScanDevice; copia a lista com Collections.unmodifiableList(ArrayList(...)); private val scorer: RiskScorer = WeightedRiskScorer(); invoke segue BR-001 a BR-005 (startedAt; inventario; confiaveis uma vez; withContext(dispatcher) com ensureActive antes de cada app e coletores em sequencia e score; finishedAt = maxOf(startedAt; clock.instant()); ScanReport; scans.save; devolve); sem try; sem android.*; sem anotacoes; KDoc com ordem e cancelamento e erros e o que o SDK fornece
+  core-data-persistence:
+    files[7]{path,action,description}:
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDao.kt,modify,BATCH-01: vira abstract class (emenda 1.1); suspend fun deleteOlderThanLatest(keep: Int) publico com require(keep > 0) e mensagem fixa e depois @Query("DELETE FROM scan_run WHERE id NOT IN (SELECT id FROM scan_run ORDER BY id DESC LIMIT :keep)") protected abstract suspend fun deleteOutsideLatest(keep: Int); KDoc: mantem as keep de maior id (ordem de gravacao; nao depende do relogio); os app_snapshot das apagadas caem pela cascata; keep menor que 1 nao apaga nada
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/repository/RoomScanRepository.kt,create,BATCH-01: class RoomScanRepository @Inject constructor(database: TapGuardDatabase; scanRunDao: ScanRunDao; appSnapshotDao: AppSnapshotDao) : ScanRepository; save = database.withTransaction { insert do ScanRunEntity; insertAll dos AppSnapshotEntity com o id; deleteOlderThanLatest(RETAINED_SCANS) }; private const val RETAINED_SCANS = 10; mapeamento private (toEpochMilli; trigger.name; level.name; signals.toBitMask(); installer = installerPackageName; redCount e yellowCount pelo nivel final); KDoc com a transacao e a retencao
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/di/RepositoryModule.kt,create,BATCH-01: @Module @InstallIn(SingletonComponent::class) abstract class RepositoryModule com @Binds abstract fun bindScanRepository(impl: RoomScanRepository): ScanRepository; BATCH-02 acrescenta bindTrustedAppRepository
+      core-data/build.gradle.kts,modify,BATCH-01: testImplementation(testFixtures(project(":core-domain"))) para anInstalledApp e aRiskResult nos testes do repositorio
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/database/dao/UserDecisionDao.kt,modify,BATCH-02: @Query("SELECT packageName FROM user_decision WHERE decision = 'TRUSTED'") suspend fun getTrustedPackageNames(): List<String>
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/repository/RoomTrustedAppRepository.kt,create,BATCH-02: class RoomTrustedAppRepository @Inject constructor(userDecisionDao: UserDecisionDao) : TrustedAppRepository; trustedPackages devolve o conjunto nao modificavel dos pacotes
+      core-data/src/main/kotlin/io/github/valossa515/tapguard/core/data/settings/SettingsDataSource.kt,modify,BATCH-02: um fluxo privado dataStore.data.catch { if (it is IOException) emit(emptyPreferences()) else throw it } usado pelas quatro leituras; gravacoes sem mudanca; KDoc: arquivo ilegivel ou corrompido vale os padroes (comentario da #14); a validacao do intervalo e o SettingsRepository ficam para a primeira spec que usar preferencias
+  app-di:
+    files[7]{path,action,description}:
+      app/src/main/kotlin/io/github/valossa515/tapguard/di/DispatcherQualifiers.kt,create,BATCH-04: @Qualifier @Retention(AnnotationRetention.BINARY) annotation class IoDispatcher e DefaultDispatcher
+      app/src/main/kotlin/io/github/valossa515/tapguard/di/DispatchersModule.kt,create,BATCH-04: object DispatchersModule; @IoDispatcher = Dispatchers.IO; @DefaultDispatcher = Dispatchers.Default
+      app/src/main/kotlin/io/github/valossa515/tapguard/di/ClockModule.kt,create,BATCH-04: object ClockModule; Clock = Clock.systemUTC()
+      app/src/main/kotlin/io/github/valossa515/tapguard/di/InventoryModule.kt,create,BATCH-04: object InventoryModule; AppInventory = PackageManagerAppInventory(@ApplicationContext; @IoDispatcher); separado para @UninstallModules no teste ponta a ponta
+      app/src/main/kotlin/io/github/valossa515/tapguard/di/DetectionModule.kt,create,BATCH-04: object DetectionModule; @Provides List<SignalCollector> com os nove coletores (InstallSourceCollector com argumentos nomeados e os tres conjuntos montados ali; DefaultPaymentAppCollector(KnownWallets.packageNames); BankLookalikeCollector(KnownBanks.apps); RecentInstallOrUpdateCollector(clock); os cinco sem parametro); @Provides ScanDevice = DefaultScanDevice(...) com collectors: @JvmSuppressWildcards List<SignalCollector> e @DefaultDispatcher
+      app/detekt.yml,modify,BATCH-04: complexity > LongParameterList > ignoreAnnotated: ['Provides'] (decisao 10)
+      app/build.gradle.kts,modify,BATCH-04: testImplementation(libs.hilt.android.testing) e kspTest(libs.hilt.compiler) e testImplementation(libs.kotlinx.coroutines.test) e testImplementation(testFixtures(project(":core-domain")))
+  docs:
+    files[14]{path,action,description}:
+      .agent/decisions.md,modify,BATCH-01: ADR-023 com as decisoes da spec inteira (status implementada por batch); BATCH-02 a BATCH-04: status
+      core-data/README.md,modify,BATCH-01: estado; repositorio de varreduras; retencao por id na transacao; estrutura com repository e RepositoryModule; testes; BATCH-02: confiaveis e IOException
+      .agent/SKILLS.md,modify,BATCH-01: Persistence (RoomScanRepository e retencao por id); BATCH-02: divergencia do DataStore; BATCH-03: Detection API publica 16 classes; BATCH-04: Hilt e Clock e isencao do LongParameterList
+      .agent/project-reference.md,modify,BATCH-01: ScanRepository e retencao por id; retencao de alertas pela SPEC-053; BATCH-02 a BATCH-04: portas e ScanDevice e Hilt
+      .agent/context.md,modify,BATCH-01: gravacao e retencao; BATCH-04: varredura completa
+      .agent/glossary.md,modify,BATCH-01: Retencao (10 varreduras pela ordem de gravacao); BATCH-02: TrustedAppRepository
+      .agent/backlog_rules.md,modify,BATCH-01: retencao pela ordem de gravacao; alertas na SPEC-053
+      .agent/conventions.md,modify,BATCH-01: retencao por limpeza pela ordem de gravacao
+      .agent/architecture.md,modify,BATCH-03: fluxo da varredura com as portas; BATCH-04: Hilt
+      core-detection/README.md,modify,BATCH-03: DefaultScanDevice e o que o SDK fornece
+      docs/especificacao.md,modify,BATCH-01: secao 9 retencao pela ordem de gravacao; BATCH-04: secao 7 passo 5 pela SPEC-050
+      .agent/plans/spec-018-varredura.md,modify,cada batch: marcar tarefas e registrar a conferencia
+      .agent/plans/spec-018-varredura-architecture.md,modify,cada batch: conferencia do tamanho real
+      .agent/plans/spec-018-varredura-tests.md,create,BATCH-01: plano de testes (papel tester) e resultados; secoes dos batches seguintes
+
+migrations[0]:
+
+dependencies:
+  uses[12]:
+    ScanDevice e ScanReport e ScanTrigger e ScannedApp (core-domain; SPEC-010)
+    InstalledApp e AppInventory e SignalCollector e Signal e toBitMask (core-domain; SPEC-010)
+    RiskScorer e WeightedRiskScorer e ScoringContext e RiskLevel e RiskResult (core-domain; SPEC-017)
+    TapGuardDatabase e ScanRunDao e AppSnapshotDao e UserDecisionDao e entidades (core-data; SPEC-004)
+    DataModule e SettingsDataSource (core-data; SPEC-004)
+    androidx.room.withTransaction (room-runtime 2.8.5; conferido no clone)
+    PackageManagerAppInventory e os nove coletores e TrustedStores e KnownBanks e KnownCloneApps e KnownWallets (core-detection; SPEC-011 a SPEC-019)
+    anInstalledApp e aRiskResult (core-domain testFixtures)
+    CountingDispatcher como modelo (PackageManagerAppInventoryTest)
+    junit4 e robolectric e androidx.test.core e kotlinx.coroutines.test e hilt.android.testing (catalogo)
+    java.time.Clock e Instant (JDK)
+    Hilt 2.60.1 e KSP (plugins ja aplicados no core-data e no app)
+  introduces[0]:
+
+test-strategy:
+  unit-tests:
+    - target: DefaultScanDevice
+      file: core-detection/src/test/kotlin/io/github/valossa515/tapguard/core/detection/scan/DefaultScanDeviceTest.kt
+      type: junit4
+      batch: BATCH-03
+      scenarios[10]:
+        order-inventory-trusted-collectors-score-save-once-AC-001
+        signals-are-union-and-scored-by-weighted-scorer-AC-002
+        loop-runs-on-injected-dispatcher-AC-003
+        cancel-on-second-app-skips-third-and-does-not-save-AC-004
+        inventory-collector-trusted-and-save-errors-propagate-AC-005
+        clock-forward-and-clock-backwards-clamped-AC-006
+        empty-inventory-saves-empty-report-AC-007
+        trusted-app-green-with-score-65-other-red-AC-008
+        default-payment-services-preserved-in-report-AC-018
+        report-equals-saved-report-AC-001
+  integration-tests:
+    - target: ScanRunDao.deleteOlderThanLatest
+      file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/database/dao/ScanRunDaoTest.kt
+      type: room-in-memory
+      batch: BATCH-01
+      scenarios[5]:
+        keep-below-one-rejected-and-nothing-deleted-AC-013
+        twelve-runs-keep-ten-highest-ids-AC-013
+        newest-run-with-oldest-startedAt-is-kept-AC-014
+        fewer-than-keep-deletes-nothing-AC-015
+        deleted-runs-cascade-to-snapshots-AC-013
+    - target: RoomScanRepository
+      file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/repository/RoomScanRepositoryTest.kt
+      type: room-in-memory
+      batch: BATCH-01
+      scenarios[7]:
+        scan-run-columns-mapped-AC-010
+        snapshot-columns-and-hand-written-masks-AC-011
+        counts-by-final-level-with-trusted-green-AC-012
+        empty-report-saved-with-zero-counts-AC-007
+        eleventh-save-applies-retention-AC-013
+        duplicate-package-rolls-back-and-keeps-old-ten-AC-016
+        trusted-app-score-kept-with-green-level-AC-012
+    - target: DataModule e RepositoryModule
+      file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/di/DataModuleTest.kt
+      type: hilt-robolectric
+      batch: BATCH-01 e BATCH-02
+      scenarios[2]:
+        injects-scan-repository-AC-020
+        injects-trusted-app-repository-AC-020
+    - target: RoomTrustedAppRepository e UserDecisionDao
+      file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/repository/RoomTrustedAppRepositoryTest.kt
+      type: room-in-memory
+      batch: BATCH-02
+      scenarios[2]:
+        trusted-decisions-returned-AC-009
+        empty-table-returns-empty-AC-009
+    - target: SettingsDataSource
+      file: core-data/src/test/kotlin/io/github/valossa515/tapguard/core/data/settings/SettingsDataSourceTest.kt
+      type: datastore-real-file
+      batch: BATCH-02
+      scenarios[2]:
+        corrupted-file-reads-four-defaults-AC-019
+        directory-in-place-of-file-reads-four-defaults-AC-019
+    - target: DetectionModule e InventoryModule e DispatchersModule e ClockModule
+      file: app/src/test/kotlin/io/github/valossa515/tapguard/di/DetectionModuleTest.kt
+      type: hilt-robolectric
+      batch: BATCH-04
+      scenarios[4]:
+        graph-injects-scan-device-inventory-list-clock-dispatchers-AC-021
+        one-collector-of-each-of-nine-classes-AC-022
+        s1-sets-not-swapped-banks-cloners-play-shell-AC-023
+        s7-wallets-and-s9-banks-default-lists-AC-024
+    - target: ScanDevice pelo grafo real
+      file: app/src/test/kotlin/io/github/valossa515/tapguard/scan/ScanDeviceEndToEndTest.kt
+      type: hilt-robolectric-uninstall-inventory
+      batch: BATCH-04
+      scenarios[2]:
+        three-hundred-synthetic-apps-first-call-under-five-seconds-AC-025
+        app-with-nine-signals-gets-nine-in-report-AC-029
+  verification[6]{criterion,how}:
+    AC-017,Build completo e passo Schema do Room commitado sem diferenca em core-data/schemas
+    AC-026,Revisar diff: DefaultScanDevice sem android.* e sem anotacoes; core-detection sem Hilt; LibraryManifestTest e MergedManifestTest passam
+    AC-027,Revisar documentacao por batch
+    AC-028,./gradlew build e validate-spec.sh; sem @Suppress novo
+    BATCH-01,Conferencia local desfeita sem commit: retencao por startedAt; escritas fora do withTransaction; RETAINED_SCANS 11; retencao antes dos inserts; RED e YELLOW trocados nas contagens; cada uma derruba teste
+    BATCH-03 e BATCH-04,Conferencias locais definidas no inicio de cada batch (por exemplo sem ensureActive; finishedAt sem limite; coletor faltando na lista; conjuntos do S1 trocados)
+  excluded[4]{target,reason}:
+    ScanRepository e TrustedAppRepository,Interfaces sem logica (Kover nao conta)
+    RepositoryModule e modulos do app,So ligacoes; cobertos pelos testes do grafo
+    Custo do PackageManager em aparelho,SPEC-022 (ADR-016)
+    Comparacao e worker e pagamento padrao e alertas,SPEC-050 a SPEC-053

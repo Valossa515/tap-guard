@@ -16,7 +16,7 @@
 | **Build tool** | Gradle 9.7.0 (wrapper) com Kotlin DSL e catálogo de versões (`gradle/libs.versions.toml`), monorepo de seis módulos. Sem `build-logic` nem plugins de convenção: cada módulo declara a própria configuração |
 | **Runtime version** | `minSdk` 26 (Android 8.0), `targetSdk` 36, `compileSdk` 37 (ADR-013). Kotlin 2.4.21, AGP 9.3.3 (Kotlin embutido nos módulos Android), JDK 21 (toolchain de todos os módulos, daemon do Gradle e CI) |
 | **Source root** | `<módulo>/src/main/kotlin`. Com código: `app` (pacote `io.github.valossa515.tapguard`), `core-data` (pacote `io.github.valossa515.tapguard.core.data`), `core-domain` (pacote `io.github.valossa515.tapguard.core.domain`) e `core-detection` (pacote `io.github.valossa515.tapguard.core.detection`, desde a SPEC-011). Ainda vazios: `core-nfc`, `decoy-app` |
-| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências e Hilt; no `core-domain`, modelos e máscara de sinais (JUnit 5, sem teste de fumaça); no `core-detection`, inventário de apps nas APIs 26, 28, 30, 33 e 36 e manifesto da biblioteca (Robolectric, sem teste de fumaça) |
+| **Test root** | `<módulo>/src/test/kotlin`: teste de fumaça por módulo; no `app`, testes Robolectric de navegação, níveis, tema, cores e manifesto; no `core-data`, DAOs, migração, preferências, repositório de varreduras e Hilt; no `core-domain`, modelos e máscara de sinais (JUnit 5, sem teste de fumaça); no `core-detection`, inventário de apps nas APIs 26, 28, 30, 33 e 36 e manifesto da biblioteca (Robolectric, sem teste de fumaça) |
 
 ### Problem & Purpose
 - Golpistas convencem a vítima a instalar um APK fora da loja, encostar o cartão no celular e digitar a senha. O app retransmite o cartão para um comparsa, que paga ou saca.
@@ -35,7 +35,7 @@
 ## 2. Architecture (planned)
 
 - **Style:** monorepo Gradle multimódulo; lógica de detecção isolada em módulos sem interface gráfica (para virar SDK depois sem reescrita). Dentro do `app`: camadas Interface → Domínio (casos de uso dos `core-*`) → Dados (repositórios do `core-data`).
-- **Packaging:** por módulo de capacidade (`core-domain`, `core-detection`, `core-nfc`, `core-data`). Pacotes por assunto dentro de cada módulo: `core-domain` em `inventory`, `signal`, `risk`, `scan` e `card` (SPEC-010); `core-data` em `database`, `database.entity`, `database.dao`, `settings` e `di` (SPEC-004); `app` em `navigation`, `ui.components`, `ui.theme` e uma pasta por tela.
+- **Packaging:** por módulo de capacidade (`core-domain`, `core-detection`, `core-nfc`, `core-data`). Pacotes por assunto dentro de cada módulo: `core-domain` em `inventory`, `signal`, `risk`, `scan` e `card` (SPEC-010); `core-data` em `database`, `database.entity`, `database.dao`, `settings`, `di` (SPEC-004) e `repository` (SPEC-018); `app` em `navigation`, `ui.components`, `ui.theme` e uma pasta por tela.
 - **Base package / application id:** `io.github.valossa515.tapguard` (decidido na SPEC-001, ADR-011). Namespaces: `…tapguard.core.domain`, `.core.detection`, `.core.nfc`, `.core.data`; `app` = `io.github.valossa515.tapguard`; `decoy-app` = `io.github.valossa515.tapguard.decoy`.
 
 ### Layer Map
@@ -76,6 +76,7 @@ Interfaces no `core-domain` desde a SPEC-010; as implementações são das specs
 | `SignalCollector` | `core-domain` (`signal`) / `core-detection` (`InstallSourceCollector`, SPEC-012; `NfcPermissionCollector` e `CardEmulationServiceCollector`, SPEC-013; `OverlayPermissionCollector`, `SmsPermissionCollector`, `RecentInstallOrUpdateCollector` e `EnabledAccessibilityServiceCollector`, SPEC-014; `BankLookalikeCollector`, SPEC-015; `DefaultPaymentAppCollector`, SPEC-016) | `suspend fun collect(app: InstalledApp): Set<Signal>` — sinais de um app |
 | `RiskScorer` | `core-domain` (`risk`) / `WeightedRiskScorer` (impl., SPEC-017) | `fun score(app: InstalledApp, signals: Set<Signal>, ctx: ScoringContext): RiskResult` — score e nível, domínio puro. Pesos, tetos e faixas em `RiskScoreConfig` (`internal`); regras 2 a 4 na ordem da §5, com a regra 2 só no nível (ADR-022) |
 | `ScanDevice` | `core-domain` (`scan`) / `core-detection` (impl., SPEC-018) | `suspend operator fun invoke(trigger: ScanTrigger): ScanReport` — orquestra a varredura |
+| `ScanRepository` | `core-domain` (`scan`) / `core-data` (`RoomScanRepository`, SPEC-018 BATCH-01) | `suspend fun save(report: ScanReport)` — grava `scan_run` e os `app_snapshot` e aplica a retenção numa transação (ADR-023) |
 | `CardReader` | `core-domain` (`card`) / `core-nfc` (impl., SPEC-041) | `suspend fun read(tag: NfcTagHandle): CardReadResult` — leitura do cartão |
 
 ### Modelos do domínio (SPEC-010)
@@ -181,10 +182,10 @@ Colunas com os nomes da especificação (camelCase); datas em milissegundos (`Lo
 
 | Table | Key Columns | Notes |
 |-------|-------------|-------|
-| `scan_run` | `id` (`Long`, autoincremento); `startedAt`, `finishedAt?`, `trigger`, `totalApps`, `redCount`, `yellowCount` | Uma linha por varredura. Retenção: 10 varreduras mais recentes (SPEC-018) |
+| `scan_run` | `id` (`Long`, autoincremento); `startedAt`, `finishedAt?`, `trigger`, `totalApps`, `redCount`, `yellowCount` | Uma linha por varredura. Retenção: 10 varreduras mais recentes pela ordem de gravação (`id`), na transação da gravação (SPEC-018, ADR-023) |
 | `app_snapshot` | chave `scanId` + `packageName`; FK `scanId` → `scan_run.id` ON DELETE CASCADE; `label`, `versionCode` (`Long`), `installer?`, `firstInstallTime`, `lastUpdateTime`, `signals` (`Int`, máscara de bits), `score` (`Int`), `level` | Estado de cada app em cada varredura |
 | `user_decision` | chave `packageName`; `decision`, `decidedAt` | Apps marcados como confiáveis |
-| `alert_event` | `id` (`Long`, autoincremento); `type`, `packageName?`, `versionCode?`, `level?`, `createdAt`, `readAt?` | Histórico de alertas e controle de duplicidade. Retenção: 90 dias (SPEC-018) |
+| `alert_event` | `id` (`Long`, autoincremento); `type`, `packageName?`, `versionCode?`, `level?`, `createdAt`, `readAt?` | Histórico de alertas e controle de duplicidade. Retenção: 90 dias (SPEC-053) |
 
 Nenhum dado de cartão entra no banco nem nas preferências.
 

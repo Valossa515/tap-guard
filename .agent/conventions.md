@@ -49,7 +49,7 @@ Não se aplica: sem backend e sem API HTTP. Os skills `api-design` e `error-hand
 - **Colunas:** nomes exatos da especificação (seção 9), em camelCase (`startedAt`), e não em `snake_case` como na skill de banco. Datas em milissegundos (`Long`); enums como texto.
 - **Testes de banco:** DAOs em banco em memória (Robolectric); migração com o `MigrationTestHelper` no construtor com arquivo e driver (`AndroidSQLiteDriver`), lendo os schemas dos assets do teste local (`sourceSets.test.assets.directories`). O construtor clássico falha sob Robolectric.
 - **Backup:** desligado (`allowBackup="false"`), com `dataExtractionRules` e `fullBackupContent` excluindo todos os domínios.
-- **Soft delete:** não previsto; retenção por limpeza (10 varreduras, 90 dias de alertas).
+- **Soft delete:** não previsto; retenção por limpeza (10 varreduras pela ordem de gravação, na transação da gravação; 90 dias de alertas).
 - **Audit fields:** timestamps específicos por tabela (`startedAt`, `finishedAt`, `decidedAt`, `createdAt`, `readAt`); sem padrão genérico.
 - **Sinais persistidos** como máscara de bits em `app_snapshot.signals`. S1 no bit 0 até S9 no bit 8. A ordem não muda depois de publicada. O bit é a propriedade `Signal.bit` (não o `ordinal`), e a conversão fica no `core-domain` (`toBitMask()` e `signalsFromBitMask()`, SPEC-010); o `core-data` só as chama.
 

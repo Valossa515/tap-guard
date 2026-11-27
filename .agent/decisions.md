@@ -439,6 +439,46 @@
   - Cobertura de linhas do `core-domain`: 97,5%.
   - Banco: sem mudança. Score e nível vão para `app_snapshot` pela SPEC-018.
 
+## ADR-023 — Caso de uso de varredura: `ScanDevice` no `core-detection`, gravação com retenção numa transação e Hilt da detecção
+- **Date:** 2026-11-27
+- **Status:** Aceita (SPEC-018, quatro batches: gravação e retenção implementadas no BATCH-01; apps confiáveis e preferências no BATCH-02; `DefaultScanDevice` no BATCH-03; Hilt no BATCH-04)
+- **Context:**
+  - A SPEC-018 (#14) fecha a Etapa 1: o `ScanDevice` da §7 orquestra inventário, coletores e motor, grava a varredura e aplica a retenção das 10 varreduras mais recentes (§9).
+  - A interface `ScanDevice` e o `ScanReport` existem desde a SPEC-010; o `core-detection` vai virar SDK (ADR-016) e não depende do `core-data`.
+  - A SPEC-019 pediu os coletores já montados no Hilt do `app`, sem três `Set<String>` soltos no grafo; o ADR-014 permite mudar a versão 1 do schema até a primeira versão pública; o comentário da #14 pede tratar `IOException` nas preferências.
+- **Decision:**
+  - **`DefaultScanDevice` no `core-detection`** (público, sem `android.*`, sem Hilt nem `javax.inject`), construtor com 6 dependências: `AppInventory`, `List<SignalCollector>` (copiada), `TrustedAppRepository`, `ScanRepository`, `Clock` e `CoroutineDispatcher`. Grava por duas **portas novas do `core-domain`**: `ScanRepository.save(report)` (`scan`) e `TrustedAppRepository.trustedPackages()` (`risk`), implementadas com Room no `core-data` (`RoomScanRepository`, `RoomTrustedAppRepository`, ligadas por `@Binds` no `RepositoryModule`). Quem usar o SDK fornece as duas portas.
+  - **Motor criado dentro** (decisão do usuário): `WeightedRiskScorer()`, como o ADR-022 já previa ("o `ScanDevice` e o SDK o constroem"). Com o motor injetado, o construtor teria 7 parâmetros, e o detekt (`LongParameterList`, `constructorThreshold` 7) o recusa; `@Suppress` é proibido.
+  - **Ordem:** `startedAt`; inventário; apps confiáveis lidos uma vez (`ScoringContext`); para cada app, na ordem do inventário, os coletores em sequência (união dos sinais) e o score; `finishedAt`; `ScanReport`; `ScanRepository.save`; devolve o relatório. **Sequencial:** os coletores só leem o `InstalledApp` em memória (300 apps × 9 coletores + motor: 41 a 93 ms na JVM). O laço roda no dispatcher injetado (`Dispatchers.Default` no app); o inventário troca sozinho para o de I/O.
+  - **Cancelamento e erros:** `ensureActive()` antes de cada app; cancelado antes da gravação, nada é gravado; cancelado durante, a transação é desfeita. Sem `try`: erro do inventário, de coletor, da leitura dos confiáveis ou da gravação propaga, sem nada gravado pela metade.
+  - **Relógio que volta** (decisão do usuário): `finishedAt = maxOf(startedAt, clock.instant())`. O `ScanReport` recusa fim antes do início (ADR-015).
+  - **Gravação:** `RoomScanRepository.save` faz, num `database.withTransaction` (`room-runtime` 2.8.5), o insert de `scan_run`, o `insertAll` dos `app_snapshot` e a retenção, nessa ordem. `scan_run`: datas em ms (`finishedAt` sempre preenchido), `trigger.name`, `totalApps`, `redCount` e `yellowCount` pelo nível final (um app confiável conta como verde). `app_snapshot`: campos do `InstalledApp`, `signals` por `toBitMask()`, `score`, `level.name`. Permissões, serviços e o pagamento padrão não são gravados.
+  - **Retenção pela ordem de gravação** (decisão do usuário): `ScanRunDao.deleteOlderThanLatest(keep)` mantém as `keep` varreduras de maior `id` (`ORDER BY id DESC`), não por `startedAt`: com o relógio do aparelho atrasado, ordenar por data apagaria na mesma transação a varredura recém-gravada. `RETAINED_SCANS = 10` fica no `RoomScanRepository`. `keep` menor que 1 lança `IllegalArgumentException` com mensagem fixa, sem apagar nada (no SQLite, `LIMIT 0` apagaria todas e um `LIMIT` negativo, nenhuma). Para validar antes da consulta sem expor a consulta crua, o `ScanRunDao` é `abstract class` (único DAO que não é interface): `deleteOlderThanLatest` faz o `require` e chama o `@Query` `protected`. Os `app_snapshot` caem pela cascata da FK. **Sem índice novo e sem mudança no `1.json`:** o `EXPLAIN QUERY PLAN` mostra a chave primária na subconsulta e o índice da chave composta (`scanId` à esquerda) na cascata.
+  - **`lastDefaultPaymentComponent` não é gravado aqui:** a SPEC-052 o calcula a partir do `ScanReport` devolvido (ADR-021). Retenção de alertas por 90 dias: SPEC-053. Comparação entre varreduras: SPEC-050.
+  - **Preferências** (decisão do usuário): as quatro leituras do `SettingsDataSource` emitem `emptyPreferences()` em `IOException` (inclusive `CorruptionException`) e relançam o resto. O `SettingsRepository` no `core-domain` fica para a primeira spec que usar preferências.
+  - **Hilt:** no `app`, `DispatchersModule` (`@IoDispatcher` = `Dispatchers.IO`, `@DefaultDispatcher` = `Dispatchers.Default`, qualificadores no `app`), `ClockModule` (`Clock.systemUTC()`), `InventoryModule` (separado para o teste trocá-lo) e `DetectionModule` (a `List<SignalCollector>` com os nove coletores montados e o `ScanDevice`). Os três conjuntos do S1 são montados dentro do provider, com argumentos nomeados, e nunca entram no grafo como `Set<String>`. A lista é recebida com `@JvmSuppressWildcards` (sem ele, o Dagger vê `List<? extends SignalCollector>` e falha). No `core-data`, o `DataModule` e o `RepositoryModule`; o `core-detection` não tem módulo.
+  - **Isenção do detekt para providers** (decisão do usuário): `LongParameterList` com `ignoreAnnotated: ['Provides']` em `app/detekt.yml`, na forma da isenção do `@Composable`; uma função comum continua checada (conferido). O `@Provides` do `ScanDevice` tem 6 parâmetros.
+  - **Desempenho:** 300 apps simulados em até 5 s, medidos só na primeira chamada do `ScanDevice` pelo grafo real com o inventário trocado por um falso e o Room do Robolectric (no clone: cerca de 0,2 s). O custo do `PackageManager` em aparelho fica para a SPEC-022.
+- **Alternatives:**
+  - retenção por `startedAt` (recusada pelo usuário: o relógio atrasado apaga a varredura nova);
+  - deixar o `ScanReport` falhar quando o relógio volta (recusada pelo usuário);
+  - motor injetado sem dispatcher, com o laço no contexto de quem chama (recusada pelo usuário: ViewModel e worker teriam de sair da thread principal);
+  - montar os coletores dentro do provider do `ScanDevice` sem isentar o detekt (recusada pelo usuário: a lista sairia do grafo);
+  - `SettingsRepository` já nesta spec (recusada pelo usuário: sem consumidor);
+  - implementação do `ScanDevice` no `app` (recusada: a §7 e o project-reference a põem no `core-detection`, junto dos coletores);
+  - retenção numa porta separada (recusada: a atomicidade dependeria de quem chama);
+  - repositórios `internal` (recusada: o `@Binds` exporia um tipo `internal`, e o padrão do módulo é público);
+  - `@Transaction` num método de DAO (recusada: a skill põe a escrita em várias tabelas no repositório com `withTransaction`);
+  - validar `keep` no `RoomScanRepository` (recusada: a constante é fixa e a validação não teria teste) ou num método padrão de interface ao lado da consulta pública (recusada: a consulta sem validação ficaria exposta);
+  - coletores em paralelo (recusada: sem ganho medido e com ordem não determinística).
+- **Consequences:**
+  - A API pública do `core-detection` passa a 16 classes (BATCH-03). O `core-data` ganha o pacote `repository`; o `app` ganha o pacote `di` (BATCH-04).
+  - A SPEC-030 deve ler a última varredura pelo `id`, coerente com a retenção (o `observeAll` ordena por `startedAt`).
+  - `scan_run.finishedAt` continua anulável no schema, mas o `RoomScanRepository` sempre o preenche.
+  - A SPEC-033 amplia o `TrustedAppRepository` com marcar e desfazer.
+  - Com as preferências corrompidas, a leitura volta aos padrões, mas uma gravação ainda falha (o `edit` lê o arquivo antes); um `ReplaceFileCorruptionHandler` seria decisão da SPEC-054.
+  - **Conferência local do BATCH-01** (desfeita sem commit): retenção por `startedAt`, escritas fora do `withTransaction`, `RETAINED_SCANS = 11`, retenção antes dos inserts e `RED`/`YELLOW` trocados nas contagens derrubaram, cada uma, pelo menos um teste.
+
 ## Pending decisions (especificação, seção 13)
 - Nome de exibição em português. (Identificador do pacote: decidido no ADR-011.)
 - Licença do código.
